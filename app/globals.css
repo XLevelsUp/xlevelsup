@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
+/* Custom CSS Variables for colors */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0A0A0F;
+  --foreground: #FFFFFF;
+  --dark-900: #0A0A0F;
+  --dark-800: #141420;
+  --dark-700: #1E1E2E;
+  --cyan: #00F0FF;
+  --purple: #B026FF;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Keyframe animations */
+@keyframes glow {
+  from {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
   }
+
+  to {
+    box-shadow: 0 0 40px rgba(176, 38, 255, 0.6);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dark-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--cyan), var(--purple));
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--purple), var(--cyan));
+}
+
+/* Custom utility classes */
+.gradient-text {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass {
+  background: rgba(30, 30, 46, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Tailwind color utilities using our custom colors */
+.bg-dark-900 {
+  background-color: var(--dark-900);
+}
+
+.bg-dark-800 {
+  background-color: var(--dark-800);
+}
+
+.bg-dark-700 {
+  background-color: var(--dark-700);
+}
+
+.text-cyan {
+  color: var(--cyan);
+}
+
+.text-purple {
+  color: var(--purple);
+}
+
+.from-cyan {
+  --tw-gradient-from: var(--cyan);
+  --tw-gradient-to: rgb(0 240 255 / 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.to-purple {
+  --tw-gradient-to: var(--purple);
+}
+
+.border-cyan {
+  border-color: var(--cyan);
+}
+
+.shadow-purple\/50 {
+  --tw-shadow-color: rgb(176 38 255 / 0.5);
+  --tw-shadow: var(--tw-shadow-colored);
 }
