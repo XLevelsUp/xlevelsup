@@ -131,7 +131,7 @@ export default function Footer() {
                         {/* Local SEO Address */}
                         <div className="text-gray-400 text-sm">
                             <p className="font-semibold text-white mb-1">Location</p>
-                            <p>Chennai, Tamil Nadu</p>
+                            <p>Coimbatore, Tamil Nadu</p>
                             <p>India</p>
                         </div>
                     </div>

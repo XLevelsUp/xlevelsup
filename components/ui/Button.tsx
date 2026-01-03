@@ -11,11 +11,11 @@ export default function Button({
     className = '',
     disabled = false,
 }: ButtonProps) {
-    const baseStyles = 'px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles = 'px-8 py-4 cursor-pointer rounded-lg font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variantStyles = {
         primary: 'bg-gradient-to-r from-cyan to-purple text-white hover:shadow-lg hover:shadow-purple/50',
-        secondary: 'glass text-white hover:border-cyan',
+        secondary: 'glass text-white hover:border-cyan outline outline-[#00f0ff] shadow-sm shadow-[#b026ff] hover:shadow-[#00f0ff] hover:outline-[#b026ff]',
     };
 
     return (

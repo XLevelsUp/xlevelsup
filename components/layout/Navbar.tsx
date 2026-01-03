@@ -29,6 +29,8 @@ export default function Navbar() {
         const contactSection = document.getElementById('contact');
         if (contactSection) {
             contactSection.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            window.location.href = '/#contact';
         }
         setIsMobileMenuOpen(false);
     };
@@ -42,8 +44,11 @@ export default function Navbar() {
                 <div className="flex items-center justify-between h-20">
                     {/* Logo */}
                     <Link href="/" className="flex items-center">
-                        <span className="text-2xl font-bold tracking-wider gradient-text">
+                        <span className="hidden sm:block text-2xl font-bold tracking-wider gradient-text">
                             XLEVELSUP
+                        </span>
+                        <span className="block sm:hidden text-2xl font-bold tracking-wider gradient-text">
+                            XLU
                         </span>
                     </Link>
 
