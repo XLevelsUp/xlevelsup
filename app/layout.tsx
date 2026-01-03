@@ -10,10 +10,30 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "XLEVELSUP | Engineering X Times More Growth",
-  description: "Tech-driven marketing company engineering measurable business growth. We build high-performance websites, scalable eCommerce apps, and execute data-driven ad campaigns designed for speed, scalability, and revenue generation.",
-  keywords: ["growth engineering", "high-performance websites", "eCommerce engineering", "data-driven marketing", "performance optimization", "scalable web applications", "marketing automation"],
+  metadataBase: 'https://xlevelsup.com',
+  title: {
+    default: "XLEVELSUP | Engineering Business Growth",
+    template: "%s | XLEVELSUP - Marketing Engineering",
+  },
+  description: "Tech-driven marketing agency. We build high-performance Next.js websites, scalable eCommerce apps, and algorithmic ad campaigns. Engineering X times more growth.",
+  keywords: [
+    "Marketing Engineering",
+    "Next.js Agency",
+    "Programmatic SEO",
+    "Growth Hacking India",
+    "High-Performance Websites",
+    "eCommerce Engineering",
+    "Data-Driven Marketing",
+    "Performance Optimization",
+    "Scalable Web Applications",
+    "Marketing Automation",
+    "Coimbatore Marketing Agency",
+    "Tamil Nadu Web Development",
+    "XLU",
+  ],
   authors: [{ name: "XLEVELSUP" }],
+  creator: "XLEVELSUP",
+  publisher: "XLEVELSUP",
   icons: {
     icon: [
       {
@@ -28,10 +48,37 @@ export const metadata: Metadata = {
     apple: '/xlu_fav_icon.png',
   },
   openGraph: {
-    title: "XLEVELSUP | Engineering X Times More Growth",
-    description: "We engineer growth systems. High-performance websites, scalable eCommerce platforms, and data-driven campaigns designed for measurable results.",
     type: "website",
     locale: "en_US",
+    url: "/",
+    siteName: "XLEVELSUP",
+    title: "XLEVELSUP | Engineering Business Growth",
+    description: "Tech-driven marketing agency. We build high-performance Next.js websites, scalable eCommerce apps, and algorithmic ad campaigns.",
+    images: [
+      {
+        url: "/xlu_fav_icon.png",
+        width: 1200,
+        height: 630,
+        alt: "XLEVELSUP - Marketing Engineering",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "XLEVELSUP | Engineering Business Growth",
+    description: "Tech-driven marketing agency. We build high-performance Next.js websites, scalable eCommerce apps, and algorithmic ad campaigns.",
+    images: ["/xlu_fav_icon.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
   viewport: {
     width: "device-width",
