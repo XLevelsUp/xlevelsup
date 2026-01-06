@@ -31,7 +31,7 @@ export default function WorkPage() {
         },
         {
             id: 4,
-            name: 'Alusee',
+            name: 'Alusea',
             tag: 'Digital Presence',
             description: 'Built a modern digital presence from the ground up with focus on performance and user engagement.',
             metrics: ['Modern Architecture', 'High Performance', 'Enhanced Engagement'],

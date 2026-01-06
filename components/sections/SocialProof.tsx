@@ -7,7 +7,7 @@ export default function SocialProof() {
         'Pratyagara Silks',
         'Wanderingkite Studio',
         'Sakthi Chains',
-        'Alusee',
+        'Alusea',
     ];
 
     // Duplicate for seamless loop

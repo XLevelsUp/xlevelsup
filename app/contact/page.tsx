@@ -91,7 +91,7 @@ export default function ContactPage() {
                                         href="tel:+1234567890"
                                         className="text-gray-400 hover:text-cyan transition-colors duration-200"
                                     >
-                                        +91 (XXX) XXX-XXXX
+                                        +91 73588 66646
                                     </a>
                                 </div>
                             </div>
