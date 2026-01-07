@@ -51,6 +51,14 @@ export default function Footer() {
                                     Search Engineering
                                 </Link>
                             </li>
+                            <li>
+                                <Link
+                                    href="/solutions/ai-automation"
+                                    className="text-gray-400 hover:text-cyan transition-colors duration-200"
+                                >
+                                    AI & Automation
+                                </Link>
+                            </li>
                         </ul>
                     </div>
 
@@ -72,6 +80,14 @@ export default function Footer() {
                                     className="text-gray-400 hover:text-cyan transition-colors duration-200"
                                 >
                                     Work
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/careers"
+                                    className="text-gray-400 hover:text-cyan transition-colors duration-200"
+                                >
+                                    Careers
                                 </Link>
                             </li>
                             <li>

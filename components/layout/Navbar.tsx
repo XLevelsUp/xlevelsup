@@ -23,6 +23,7 @@ export default function Navbar() {
         { name: 'Marketing Architecture', href: '/solutions/marketing-architecture' },
         { name: 'Growth Systems', href: '/solutions/growth-systems' },
         { name: 'Search Engineering', href: '/solutions/search-engineering' },
+        { name: 'AI & Automation', href: '/solutions/ai-automation' },
     ];
 
     const scrollToContact = () => {

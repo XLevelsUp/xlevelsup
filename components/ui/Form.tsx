@@ -25,6 +25,7 @@ export default function Form({ onSubmit }: FormProps) {
         'Scalable eCommerce Apps',
         'Data-Driven Ad Campaigns',
         'Growth Engineering',
+        'AI & Automation',
     ];
 
     const validateEmail = (email: string) => {

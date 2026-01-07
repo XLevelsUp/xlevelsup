@@ -10,24 +10,35 @@ export default function Services() {
             title: 'High-Performance Websites',
             description: 'Lightning-fast marketing websites engineered for conversion. Built with modern frameworks, optimized for speed, and designed to turn visitors into customers.',
             icon: '🎨',
+            className: '',
         },
         {
             id: 2,
             title: 'Scalable eCommerce Apps',
             description: 'Custom-built eCommerce platforms and Shopify solutions engineered for growth. Every line of code optimized for performance and revenue generation.',
             icon: '🛒',
+            className: '',
         },
         {
             id: 3,
             title: 'Data-Driven Ad Campaigns',
             description: 'SEO strategies and paid advertising campaigns backed by analytics. We engineer visibility, optimize for conversions, and maximize customer acquisition ROI.',
             icon: '📈',
+            className: '',
         },
         {
             id: 4,
             title: 'Growth Engineering',
             description: 'We analyze your workflows, digital presence, and metrics, then apply technology and automation to engineer measurable efficiency improvements.',
             icon: '📊',
+            className: '',
+        },
+        {
+            id: 5,
+            title: 'AI & Automation',
+            description: 'We engineer custom AI agents and intelligent workflows that handle lead qualification, CRM management, and 24/7 customer support, allowing you to scale your business without increasing headcount.',
+            icon: '🤖',
+            className: 'md:col-span-2',
         },
     ];
     const containerVariants = {
@@ -71,6 +82,7 @@ export default function Services() {
                             title={service.title}
                             description={service.description}
                             icon={service.icon}
+                            className={service.className}
                         />
                     ))}
                 </motion.div>
