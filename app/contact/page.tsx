@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import Form from '@/components/ui/Form';
+import ContactForm from '@/components/ContactForm';
 
 export default function ContactPage() {
     return (
@@ -31,7 +31,7 @@ export default function ContactPage() {
                         transition={{ duration: 0.8 }}
                     >
                         <h2 className="text-2xl font-bold mb-6">Get Your Growth Audit</h2>
-                        <Form />
+                        <ContactForm />
                     </motion.div>
 
                     {/* Contact Information */}

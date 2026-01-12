@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import Form from '../ui/Form';
+import ContactForm from '../ContactForm';
 
 export default function Contact() {
     return (
@@ -29,7 +29,7 @@ export default function Contact() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.8 }}
                 >
-                    <Form />
+                    <ContactForm />
                 </motion.div>
 
                 <motion.div

@@ -24,6 +24,7 @@ export interface ModalProps {
 export interface FormData {
   name: string;
   email: string;
+  phone: string;
   businessUrl: string;
   service: string;
 }
