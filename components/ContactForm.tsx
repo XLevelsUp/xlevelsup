@@ -4,7 +4,7 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import Button from './ui/Button';
 import { captureLead, type CaptureLeadResult } from '@/actions/capture-lead';
 
@@ -119,115 +119,112 @@ export default function ContactForm() {
     }, [state.error, state.success]);
 
     return (
-        <>
-            <Toaster />
-            <AnimatePresence mode="wait">
-                {!isSuccess ? (
-                    <motion.form
-                        key="form"
-                        action={formAction}
-                        className="space-y-6"
-                        initial={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                    >
-                        <div>
-                            <label htmlFor="name" className="block text-sm font-medium mb-2">
-                                Name *
-                            </label>
-                            <input
-                                type="text"
-                                id="name"
-                                name="name"
-                                value={formData.name}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
-                                placeholder="Your full name"
-                                required
-                            />
-                        </div>
+        <AnimatePresence mode="wait">
+            {!isSuccess ? (
+                <motion.form
+                    key="form"
+                    action={formAction}
+                    className="space-y-6"
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium mb-2">
+                            Name *
+                        </label>
+                        <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
+                            placeholder="Your full name"
+                            required
+                        />
+                    </div>
 
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium mb-2">
-                                Email *
-                            </label>
-                            <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
-                                placeholder="your@email.com"
-                                required
-                            />
-                        </div>
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium mb-2">
+                            Email *
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
+                            placeholder="your@email.com"
+                            required
+                        />
+                    </div>
 
-                        <div>
-                            <label htmlFor="phone" className="block text-sm font-medium mb-2">
-                                Phone *
-                            </label>
-                            <input
-                                type="tel"
-                                id="phone"
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
-                                placeholder="+91 98765 43210"
-                                required
-                            />
-                        </div>
+                    <div>
+                        <label htmlFor="phone" className="block text-sm font-medium mb-2">
+                            Phone *
+                        </label>
+                        <input
+                            type="tel"
+                            id="phone"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
+                            placeholder="+91 98765 43210"
+                            required
+                        />
+                    </div>
 
-                        <div>
-                            <label htmlFor="service" className="block text-sm font-medium mb-2">
-                                Service Interested In *
-                            </label>
-                            <select
-                                id="service"
-                                name="service"
-                                value={formData.service}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
-                                required
-                            >
-                                <option value="">Select a service</option>
-                                {services.map((service) => (
-                                    <option key={service} value={service}>
-                                        {service}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                    <div>
+                        <label htmlFor="service" className="block text-sm font-medium mb-2">
+                            Service Interested In *
+                        </label>
+                        <select
+                            id="service"
+                            name="service"
+                            value={formData.service}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
+                            required
+                        >
+                            <option value="">Select a service</option>
+                            {services.map((service) => (
+                                <option key={service} value={service}>
+                                    {service}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                        <SubmitButton />
-                    </motion.form>
-                ) : (
-                    <motion.div
-                        key="success"
-                        className="text-center py-12"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: 'spring', damping: 15 }}
-                    >
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-cyan to-purple flex items-center justify-center">
-                            <svg
-                                className="w-10 h-10 text-white"
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2 gradient-text">Success!</h3>
-                        <p className="text-gray-300">Redirecting to booking page...</p>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </>
+                    <SubmitButton />
+                </motion.form>
+            ) : (
+                <motion.div
+                    key="success"
+                    className="text-center py-12"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', damping: 15 }}
+                >
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-cyan to-purple flex items-center justify-center">
+                        <svg
+                            className="w-10 h-10 text-white"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold mb-2 gradient-text">Success!</h3>
+                    <p className="text-gray-300">Redirecting to booking page...</p>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 }

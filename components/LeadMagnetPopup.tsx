@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import { captureEmailLead, type CaptureEmailResult } from '@/actions/capture-email-lead';
@@ -115,51 +115,48 @@ export default function LeadMagnetPopup() {
     };
 
     return (
-        <>
-            <Toaster />
-            <Modal isOpen={showPopup} onClose={handleClose} title="🎁 Free SEO Audit">
-                {!isSuccess ? (
-                    <div>
-                        <p className="text-gray-300 mb-6 leading-relaxed">
-                            Want a <span className="gradient-text font-semibold">Free SEO Audit</span>?
-                            Enter your email to book a 15-min strategy call with our experts.
-                        </p>
+        <Modal isOpen={showPopup} onClose={handleClose} title="🎁 Free SEO Audit">
+            {!isSuccess ? (
+                <div>
+                    <p className="text-gray-300 mb-6 leading-relaxed">
+                        Want a <span className="gradient-text font-semibold">Free SEO Audit</span>?
+                        Enter your email to book a 15-min strategy call with our experts.
+                    </p>
 
-                        <form action={formAction} className="space-y-4">
-                            <input
-                                type="email"
-                                name="email"
-                                placeholder="your@email.com"
-                                required
-                                className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
-                            />
-                            <SubmitButton />
-                        </form>
+                    <form action={formAction} className="space-y-4">
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="your@email.com"
+                            required
+                            className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
+                        />
+                        <SubmitButton />
+                    </form>
 
-                        <p className="text-xs text-gray-500 mt-4 text-center">
-                            No spam. Unsubscribe anytime.
-                        </p>
+                    <p className="text-xs text-gray-500 mt-4 text-center">
+                        No spam. Unsubscribe anytime.
+                    </p>
+                </div>
+            ) : (
+                <div className="text-center py-6">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan to-purple flex items-center justify-center">
+                        <svg
+                            className="w-8 h-8 text-white"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path d="M5 13l4 4L19 7"></path>
+                        </svg>
                     </div>
-                ) : (
-                    <div className="text-center py-6">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan to-purple flex items-center justify-center">
-                            <svg
-                                className="w-8 h-8 text-white"
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-bold gradient-text mb-2">Thank You!</h3>
-                        <p className="text-gray-300">Opening booking page...</p>
-                    </div>
-                )}
-            </Modal>
-        </>
+                    <h3 className="text-xl font-bold gradient-text mb-2">Thank You!</h3>
+                    <p className="text-gray-300">Opening booking page...</p>
+                </div>
+            )}
+        </Modal>
     );
 }
