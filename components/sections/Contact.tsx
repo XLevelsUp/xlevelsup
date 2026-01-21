@@ -51,7 +51,7 @@ export default function Contact() {
                             href="tel:+1234567890"
                             className="hover:text-cyan transition-colors"
                         >
-                            📞 +91 73588 66646
+                            📞 +91 90470 55888
                         </a>
                     </div>
                 </motion.div>
