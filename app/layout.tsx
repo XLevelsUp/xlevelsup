@@ -43,8 +43,8 @@ export const metadata: Metadata = {
         sizes: '32x32',
       },
       {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
+        url: '/xlu_fav_icon.png',
+        type: 'image/png',
       },
     ],
     apple: '/xlu_fav_icon.png',

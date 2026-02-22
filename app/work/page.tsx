@@ -12,6 +12,7 @@ export default function WorkPage() {
             description: 'Engineered a high-performance eCommerce platform that increased online revenue by 300% in 6 months.',
             metrics: ['300% Revenue Growth', '70% Faster Load Times', '2.5x Conversion Rate'],
             gradient: 'from-cyan/20 to-purple/20',
+            link: 'https://pratyagrasilks.com/',
         },
         {
             id: 2,
@@ -20,6 +21,7 @@ export default function WorkPage() {
             description: 'Optimized tech stack and built a high-performance platform with focus on user experience and brand identity.',
             metrics: ['70% Load Time Reduction', '2.5x Conversions', 'Modern Tech Stack'],
             gradient: 'from-purple/20 to-pink/20',
+            link: 'https://www.wanderingkite.in/',
         },
         {
             id: 3,
@@ -121,7 +123,8 @@ export default function WorkPage() {
                                 {/* View Project Button */}
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                     <Link
-                                        href={`/work/${project.id}`}
+                                        href={ project?.link || `/work/${project.id}`}
+                                        target={ project?.link ? '_blank' : '_self' }
                                         className="inline-flex items-center gap-2 text-cyan hover:text-purple transition-colors duration-200"
                                     >
                                         <span className="font-semibold">View Project</span>

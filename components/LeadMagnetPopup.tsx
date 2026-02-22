@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useState, useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import toast from 'react-hot-toast';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
@@ -48,8 +48,8 @@ export default function LeadMagnetPopup() {
     const [showPopup, setShowPopup] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
-    // useFormState for server action integration
-    const [state, formAction] = useFormState(
+    // useActionState for server action integration
+    const [state, formAction] = useActionState(
         async (prevState: CaptureEmailResult, formData: FormData) => {
             return await captureEmailLead(formData);
         },

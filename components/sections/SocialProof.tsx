@@ -25,11 +25,37 @@ export default function SocialProof() {
                     Trusted by Industry Leaders
                 </motion.h3>
 
-                <div className="relative overflow-hidden">
+                <div className="relative overflow-hidden hidden sm:block">
                     <motion.div
                         className="flex gap-16"
                         animate={{
                             x: [0, -50 + '%'],
+                        }}
+                        transition={{
+                            x: {
+                                repeat: Infinity,
+                                repeatType: 'loop',
+                                duration: 20,
+                                ease: 'linear',
+                            },
+                        }}
+                    >
+                        {duplicatedClients.map((client, index) => (
+                            <div
+                                key={index}
+                                className="flex-shrink-0 text-2xl font-bold text-gray-500 hover:text-white transition-colors duration-300 whitespace-nowrap"
+                            >
+                                {client}
+                            </div>
+                        ))}
+                    </motion.div>
+                </div>
+
+                <div className="relative overflow-hidden sm:hidden block">
+                    <motion.div
+                        className="flex gap-16"
+                        animate={{
+                            x: [0, -200 + '%'],
                         }}
                         transition={{
                             x: {

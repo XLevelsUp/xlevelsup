@@ -1,7 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
-import { useState, useEffect } from 'react';
+import { useFormStatus } from 'react-dom';
+import { useState, useEffect, useActionState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -57,8 +57,8 @@ export default function ContactForm() {
         service: '',
     });
 
-    // useFormState requires action with signature: (state, formData) => Promise<state>
-    const [state, formAction] = useFormState(
+    // useActionState requires action with signature: (state, formData) => Promise<state>
+    const [state, formAction] = useActionState(
         async (prevState: CaptureLeadResult, formData: FormData) => {
             return await captureLead(formData);
         },
