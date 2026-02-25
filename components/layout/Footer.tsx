@@ -37,18 +37,26 @@ export default function Footer() {
                             </li>
                             <li>
                                 <Link
-                                    href="/solutions/growth-systems"
-                                    className="text-gray-400 hover:text-cyan transition-colors duration-200"
-                                >
-                                    Growth Systems
-                                </Link>
-                            </li>
-                            <li>
-                                <Link
                                     href="/solutions/search-engineering"
                                     className="text-gray-400 hover:text-cyan transition-colors duration-200"
                                 >
                                     Search Engineering
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/solutions/digital-marketing"
+                                    className="text-gray-400 hover:text-cyan transition-colors duration-200"
+                                >
+                                    Digital Marketing
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/solutions/growth-systems"
+                                    className="text-gray-400 hover:text-cyan transition-colors duration-200"
+                                >
+                                    Growth Systems
                                 </Link>
                             </li>
                             <li>

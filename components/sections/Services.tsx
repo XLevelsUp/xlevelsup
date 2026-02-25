@@ -21,24 +21,31 @@ export default function Services() {
         },
         {
             id: 3,
+            title: 'Digital Marketing',
+            description: 'Tech-driven social media management, studio video production, and targeted Meta Ads — all in one system designed to turn viewers into paying customers.',
+            icon: '📲',
+            className: '',
+        },
+        {
+            id: 4,
             title: 'Data-Driven Ad Campaigns',
             description: 'SEO strategies and paid advertising campaigns backed by analytics. We engineer visibility, optimize for conversions, and maximize customer acquisition ROI.',
             icon: '📈',
             className: '',
         },
         {
-            id: 4,
+            id: 5,
             title: 'Growth Engineering',
             description: 'We analyze your workflows, digital presence, and metrics, then apply technology and automation to engineer measurable efficiency improvements.',
             icon: '📊',
             className: '',
         },
         {
-            id: 5,
+            id: 6,
             title: 'AI & Automation',
             description: 'We engineer custom AI agents and intelligent workflows that handle lead qualification, CRM management, and 24/7 customer support, allowing you to scale your business without increasing headcount.',
             icon: '🤖',
-            className: 'md:col-span-2',
+            className: '',
         },
     ];
     const containerVariants = {

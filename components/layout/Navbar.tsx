@@ -21,8 +21,9 @@ export default function Navbar() {
 
     const solutions = [
         { name: 'Marketing Architecture', href: '/solutions/marketing-architecture' },
-        { name: 'Growth Systems', href: '/solutions/growth-systems' },
         { name: 'Search Engineering', href: '/solutions/search-engineering' },
+        { name: 'Digital Marketing', href: '/solutions/digital-marketing' },
+        { name: 'Growth Systems', href: '/solutions/growth-systems' },
         { name: 'AI & Automation', href: '/solutions/ai-automation' },
     ];
 
