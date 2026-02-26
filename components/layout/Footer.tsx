@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Footer() {
     const currentYear = new Date().getFullYear();
@@ -12,13 +13,14 @@ export default function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
                     {/* Column 1: Brand Info */}
                     <div>
-                        <h3 className="text-2xl font-bold tracking-wider gradient-text mb-4">
+                        {/* <h3 className="text-2xl font-bold tracking-wider gradient-text mb-4">
                             XLEVELSUP
-                        </h3>
+                        </h3> */}
+                        <Image src="/xlevelsup_logo_footer.svg" width={155} height={24} alt="XLEVELSUP Logo" className="mb-4" />
                         <p className="text-gray-400 leading-relaxed">
                             Engineering X Times More Growth.
                         </p>
-                        <p className="text-gray-500 text-sm mt-4">
+                        <p className="text-gray-400 text-sm mt-4">
                             Tech-driven marketing company focused on measurable business growth.
                         </p>
                     </div>

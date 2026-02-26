@@ -79,10 +79,10 @@ export default function Testimonials() {
                     </AnimatePresence>
 
                     {/* Navigation buttons */}
-                    <div className="flex justify-center gap-4 mt-8">
+                    <div className="flex justify-center gap-6 mt-8">
                         <button
                             onClick={prevTestimonial}
-                            className="glass w-12 h-12 rounded-full flex items-center justify-center hover:border-cyan transition-colors"
+                            className="glass w-14 h-14 rounded-full flex items-center justify-center hover:border-cyan transition-colors cursor-pointer"
                             aria-label="Previous testimonial"
                         >
                             <svg
@@ -99,7 +99,7 @@ export default function Testimonials() {
                         </button>
                         <button
                             onClick={nextTestimonial}
-                            className="glass w-12 h-12 rounded-full flex items-center justify-center hover:border-cyan transition-colors"
+                            className="glass w-14 h-14 rounded-full flex items-center justify-center hover:border-cyan transition-colors cursor-pointer"
                             aria-label="Next testimonial"
                         >
                             <svg
@@ -117,12 +117,12 @@ export default function Testimonials() {
                     </div>
 
                     {/* Dots indicator */}
-                    <div className="flex justify-center gap-2 mt-6">
+                    <div className="flex justify-center gap-3 mt-6">
                         {testimonials.map((_, index) => (
                             <button
                                 key={index}
                                 onClick={() => setCurrentIndex(index)}
-                                className={`w-2 h-2 rounded-full transition-all ${index === currentIndex
+                                className={`min-w-3 min-h-3 cursor-pointer rounded-full transition-all ${index === currentIndex
                                     ? 'bg-gradient-to-r from-cyan to-purple w-8'
                                     : 'bg-gray-600'
                                     }`}

@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
+import { i } from 'framer-motion/client';
 
 export default function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -46,12 +48,13 @@ export default function Navbar() {
                 <div className="flex items-center justify-between h-20">
                     {/* Logo */}
                     <Link href="/" className="flex items-center">
-                        <span className="hidden sm:block text-2xl font-bold tracking-wider gradient-text">
+                        {/* <span className="hidden sm:block text-2xl font-bold tracking-wider gradient-text">
                             XLEVELSUP
-                        </span>
-                        <span className="block sm:hidden text-2xl font-bold tracking-wider gradient-text">
+                        </span> */}
+                        <Image src="/xlevelsup_logo.svg" width={155} height={32} alt="XLEVELSUP Logo" />
+                        {/* <span className="block sm:hidden text-2xl font-bold tracking-wider gradient-text">
                             XLU
-                        </span>
+                        </span> */}
                     </Link>
 
                     {/* Desktop Navigation */}
