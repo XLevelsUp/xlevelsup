@@ -27,7 +27,7 @@ export default function Footer() {
 
                     {/* Column 2: Solutions */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Solutions</h4>
+                        <h3 className="text-white font-semibold mb-4">Solutions</h3>
                         <ul className="space-y-2">
                             <li>
                                 <Link
@@ -74,7 +74,7 @@ export default function Footer() {
 
                     {/* Column 3: Company */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Company</h4>
+                        <h3 className="text-white font-semibold mb-4">Company</h3>
                         <ul className="space-y-2">
                             <li>
                                 <Link
@@ -121,7 +121,7 @@ export default function Footer() {
 
                     {/* Column 4: Connect */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Connect</h4>
+                        <h3 className="text-white font-semibold mb-4">Connect</h3>
 
                         {/* Social Icons Placeholder */}
                         <div className="flex gap-4 mb-6">
@@ -169,7 +169,7 @@ export default function Footer() {
                 <div className="h-px bg-gradient-to-r from-transparent via-cyan/50 to-transparent mb-8"></div>
 
                 {/* Copyright */}
-                <div className="text-center text-gray-500 text-sm">
+                <div className="text-center text-white/50 text-sm">
                     <p>
                         © {currentYear} XLEVELSUP. Built with Next.js & Passion.
                     </p>

@@ -16,14 +16,14 @@ export default function SocialProof() {
     return (
         <section className="py-16 px-4 bg-dark-800/50">
             <div className="max-w-7xl mx-auto">
-                <motion.h3
+                <motion.h2
                     className="text-center text-gray-400 text-sm uppercase tracking-wider mb-8"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                 >
                     Trusted by Industry Leaders
-                </motion.h3>
+                </motion.h2>
 
                 <div className="relative overflow-hidden hidden sm:block">
                     <motion.div
