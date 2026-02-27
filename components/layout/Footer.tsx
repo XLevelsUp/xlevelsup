@@ -21,7 +21,7 @@ export default function Footer() {
                             Engineering X Times More Growth.
                         </p>
                         <p className="text-gray-400 text-sm mt-4">
-                            Tech-driven marketing company focused on measurable business growth.
+                            Engineering the digital infrastructure, custom software, and algorithmic growth systems that scale modern businesses.
                         </p>
                     </div>
 

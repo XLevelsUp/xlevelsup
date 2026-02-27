@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'About XLEVELSUP | Merging Code & Creativity',
-    description: 'XLEVELSUP bridges the gap between software engineering and creative marketing. Meet the team building the future of growth.',
+    title: 'About XLEVELSUP | End-to-End Tech & Software Solutions',
+    description: 'XLEVELSUP is a technology firm, not a marketing agency. We build full-stack digital products, AI automation systems, and integrated growth solutions for ambitious businesses.',
 };
 
 export default function AboutLayout({

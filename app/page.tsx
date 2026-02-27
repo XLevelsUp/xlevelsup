@@ -8,14 +8,15 @@ import Contact from '@/components/sections/Contact';
 import LeadMagnetPopup from '@/components/LeadMagnetPopup';
 
 export const metadata: Metadata = {
-  title: 'XLEVELSUP | Engineering Business Growth',
-  description: 'Stop guessing. Start engineering. We build high-performance Next.js websites, scalable eCommerce apps, and algorithmic ad campaigns to scale business revenue.',
+  title: 'XLEVELSUP | Custom Software & End-to-End Tech Solutions',
+  description: 'We engineer custom web applications, AI automation workflows, and integrated growth marketing systems. Your end-to-end technology partner for scalable business growth.',
   keywords: [
-    'Marketing Engineering',
-    'Growth Hacking Agency',
-    'Next.js Developers India',
-    'Performance Marketing',
+    'Custom Software Development',
+    'Next.js Engineers India',
     'AI Automation',
+    'Full-Stack Development',
+    'Tech Partner India',
+    'Web Application Engineering',
     'XLU',
   ],
 };

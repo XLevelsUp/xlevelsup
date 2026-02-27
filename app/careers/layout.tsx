@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Careers at XLEVELSUP | Join the Growth Engineers',
-    description: 'We are hiring Senior Engineers, Performance Marketers, and Creative Designers. Help us redefine how businesses grow.',
+    title: 'Careers at XLEVELSUP | Build the Future of Software',
+    description: 'We are hiring Senior Software Engineers, AI Automation Engineers, and Digital Growth Specialists. Help build end-to-end tech solutions for scale.',
     keywords: [
-        'Tech Jobs Chennai',
-        'Marketing Jobs',
-        'React Developer Jobs',
-        'Remote Startups',
+        'Software Engineer Jobs Coimbatore',
+        'Full-Stack Developer Jobs India',
+        'AI Engineer India',
+        'Tech Startup Jobs',
+        'Remote Engineering Jobs',
     ],
 };
 
