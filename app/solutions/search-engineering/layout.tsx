@@ -4,6 +4,8 @@ export const metadata: Metadata = {
     title: 'Technical SEO & Programmatic Search Engineering | XLEVELSUP',
     description: 'Dominate search intent with Programmatic SEO and Schema markup. We build content engines that capture traffic at scale.',
     keywords: [
+        'SEO Services Coimbatore',
+        'Technical SEO Agency',
         'Programmatic SEO',
         'Technical SEO Audit',
         'Schema Markup',

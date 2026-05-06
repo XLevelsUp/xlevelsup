@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Data-Driven Performance Marketing & Ad Systems | XLEVELSUP',
-    description: 'Lower your CAC with server-side tracking (CAPI) and automated CRM funnels. We engineer ad strategies based on data, not gut feelings.',
+    title: 'Performance Marketing & Growth Systems | XLevelsUp',
+    description: 'Data-driven performance marketing and growth systems to lower CAC and maximize ROAS for your business.',
     keywords: [
-        'Facebook CAPI Setup',
         'Performance Marketing',
-        'ROAS Optimization',
         'Google Ads Management',
+        'Facebook Ads Management',
+        'ROAS Optimization',
         'Marketing Automation',
     ],
 };

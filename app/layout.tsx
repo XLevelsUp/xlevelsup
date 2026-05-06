@@ -20,16 +20,17 @@ export const metadata: Metadata = {
   description: "XLEVELSUP is a technology firm building high-performance web applications, AI automation workflows, and integrated growth marketing systems to scale your business end-to-end.",
   keywords: [
     "Custom Software Development",
-    "Web Application Engineering",
-    "Enterprise Tech Solutions",
-    "AI Automation India",
-    "Growth Marketing as a Service",
-    "Next.js Development India",
-    "Full-Stack Engineering",
-    "Scalable Cloud Infrastructure",
-    "Headless eCommerce",
-    "Digital Products",
-    "Tech Partner India",
+    "Digital Marketing Agency Coimbatore",
+    "SEO Services India",
+    "Google Ads Management",
+    "Meta Ads Agency",
+    "Performance Marketing",
+    "Growth Marketing Services",
+    "Search Engine Optimization",
+    "Analytics & Tracking",
+    "Digital Marketing Strategy",
+    "SEM Agency India",
+    "PPC Management",
     "Coimbatore Tech Company",
     "Tamil Nadu Software Development",
     "XLU",
@@ -68,8 +69,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "XLEVELSUP | Custom Software & Scalable Tech Infrastructure",
-    description: "XLEVELSUP is a technology firm building high-performance web applications, AI automation workflows, and integrated growth marketing systems to scale your business end-to-end.",
+    title: "XLevelsUp — Digital Marketing & SEO Agency | Coimbatore",
+    description: "XLevelsUp is a performance-driven digital marketing agency specializing in SEO, Google Ads, Meta Ads & analytics to help brands grow measurably.",
     images: ["/xlu_fav_icon.png"],
   },
   robots: {
@@ -106,6 +107,34 @@ export default function RootLayout({
         <Footer />
       </body>
       <GoogleAnalytics gaId="G-YPEGJ3VNCT" />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "@id": "https://www.xlevelsup.com/#organization",
+            "name": "XLevelsUp",
+            "alternateName": ["XLU", "XLEVELSUP"],
+            "legalName": "XLEVELSUP Technologies Private Limited",
+            "url": "https://www.xlevelsup.com",
+            "logo": "https://www.xlevelsup.com/logo.png",
+            "sameAs": [
+              "https://www.linkedin.com/company/xlevelsup",
+              "https://twitter.com/xlevelsup",
+              "https://www.instagram.com/xlevelsup",
+              "https://www.facebook.com/xlevelsup"
+            ],
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": "+91-90470-55888",
+              "contactType": "customer service",
+              "areaServed": "IN",
+              "availableLanguage": "English"
+            }
+          })
+        }}
+      />
     </html>
   );
 }

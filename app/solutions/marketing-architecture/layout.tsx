@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Product Engineering & Web App Development | XLEVELSUP',
-    description: 'We architect and build custom Next.js web apps, headless eCommerce platforms, and scalable cloud infrastructure engineered for 100/100 Core Web Vitals and business growth.',
+    title: 'Marketing Architecture & Strategy | XLevelsUp Agency',
+    description: 'Strategic marketing architecture and planning by XLevelsUp to build scalable growth systems for your brand.',
     keywords: [
-        'Custom Software Development',
-        'Next.js Web App',
-        'Headless eCommerce',
-        'Full-Stack Engineering',
-        'Cloud Architecture',
+        'Marketing Strategy',
+        'Digital Marketing Planning',
+        'Marketing Architecture',
+        'Growth Systems Design',
+        'Marketing Technology Stack',
     ],
 };
 

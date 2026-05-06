@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Tech-Driven Digital Marketing & Video Ads | XLEVELSUP',
-    description: 'We partner with premium studios to shoot high-retention content, then use algorithmic distribution and Meta Ads to turn viewers into revenue.',
+    title: 'Digital Marketing & Meta Ads | XLevelsUp',
+    description: 'Performance-driven digital marketing and Meta Ads management to drive measurable revenue growth for your brand.',
     keywords: [
-        'Digital Marketing Agency Chennai',
+        'Digital Marketing Agency Coimbatore',
         'Social Media Management',
         'Meta Ads Agency',
         'Video Marketing Services',

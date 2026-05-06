@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'AI Automation & Workflow Engineering | XLEVELSUP',
-    description: 'Scale operations, not costs. We engineer custom AI agents and Python workflows to automate lead qualification, CRM entry, and customer support.',
+    title: 'AI & Marketing Automation | XLevelsUp',
+    description: 'AI-powered marketing automation to scale operations, automate lead qualification, and enhance customer engagement.',
     keywords: [
         'AI Automation',
-        'Python Automation',
-        'Workflow Automation',
-        'AI Agents',
+        'Marketing Automation',
+        'AI-Powered Tools',
+        'Lead Qualification Automation',
+        'Customer Support Automation',
         'Business Process Automation',
         'LangChain Development',
         'OpenAI Integration',
