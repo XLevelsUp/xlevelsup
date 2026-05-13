@@ -105,36 +105,36 @@ export default function RootLayout({
           {children}
         </div>
         <Footer />
+        <GoogleAnalytics gaId="G-YPEGJ3VNCT" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "@id": "https://www.xlevelsup.com/#organization",
+              "name": "XLevelsUp",
+              "alternateName": ["XLU", "XLEVELSUP"],
+              "legalName": "XLEVELSUP Technologies Private Limited",
+              "url": "https://www.xlevelsup.com",
+              "logo": "https://www.xlevelsup.com/logo.png",
+              "sameAs": [
+                "https://www.linkedin.com/company/xlevelsup",
+                "https://twitter.com/xlevelsup",
+                "https://www.instagram.com/xlevelsup",
+                "https://www.facebook.com/xlevelsup"
+              ],
+              "contactPoint": {
+                "@type": "ContactPoint",
+                "telephone": "+91-90470-55888",
+                "contactType": "customer service",
+                "areaServed": "IN",
+                "availableLanguage": "English"
+              }
+            })
+          }}
+        />
       </body>
-      <GoogleAnalytics gaId="G-YPEGJ3VNCT" />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "@id": "https://www.xlevelsup.com/#organization",
-            "name": "XLevelsUp",
-            "alternateName": ["XLU", "XLEVELSUP"],
-            "legalName": "XLEVELSUP Technologies Private Limited",
-            "url": "https://www.xlevelsup.com",
-            "logo": "https://www.xlevelsup.com/logo.png",
-            "sameAs": [
-              "https://www.linkedin.com/company/xlevelsup",
-              "https://twitter.com/xlevelsup",
-              "https://www.instagram.com/xlevelsup",
-              "https://www.facebook.com/xlevelsup"
-            ],
-            "contactPoint": {
-              "@type": "ContactPoint",
-              "telephone": "+91-90470-55888",
-              "contactType": "customer service",
-              "areaServed": "IN",
-              "availableLanguage": "English"
-            }
-          })
-        }}
-      />
     </html>
   );
 }
