@@ -1,6 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
+
+
 
 // Job data structure
 interface Job {

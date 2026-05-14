@@ -1,8 +1,10 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import SystemDiagram from '@/components/solutions/SystemDiagram';
+
+
 
 export default function GrowthSystemsPage() {
     const features = [

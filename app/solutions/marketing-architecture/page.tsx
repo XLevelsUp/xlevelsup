@@ -1,8 +1,10 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import LighthouseScore from '@/components/solutions/LighthouseScore';
+
+
 
 export default function MarketingArchitecturePage() {
     const techStack = [

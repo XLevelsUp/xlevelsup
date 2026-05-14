@@ -1,6 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
+
+
 
 const EFFECTIVE_DATE = 'April 7, 2026';
 

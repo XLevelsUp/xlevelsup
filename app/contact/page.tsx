@@ -1,7 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import ContactForm from '@/components/ContactForm';
+
+
 
 export default function ContactPage() {
     return (
