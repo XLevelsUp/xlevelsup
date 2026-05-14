@@ -1,9 +1,11 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import ComparisonTable from '@/components/solutions/ComparisonTable';
 import ExponentialGraph from '@/components/solutions/ExponentialGraph';
+
+
 
 export default function SearchEngineeringPage() {
     return (

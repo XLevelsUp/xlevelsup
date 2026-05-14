@@ -7,9 +7,13 @@ import Testimonials from '@/components/sections/Testimonials';
 import Contact from '@/components/sections/Contact';
 import LeadMagnetPopup from '@/components/LeadMagnetPopup';
 
+export const dynamic = 'force-static';
+export const revalidate = 86400;
+
 export const metadata: Metadata = {
   title: 'XLEVELSUP | Custom Software & End-to-End Tech Solutions',
-  description: 'We engineer custom web applications, AI automation workflows, and integrated growth marketing systems. Your end-to-end technology partner for scalable business growth.',
+  description:
+    'We engineer custom web applications, AI automation workflows, and integrated growth marketing systems. Your end-to-end technology partner for scalable business growth.',
   keywords: [
     'Custom Software Development',
     'Next.js Engineers India',
@@ -23,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
+    <main className='min-h-screen'>
       <Hero />
       <Services />
       <SocialProof />

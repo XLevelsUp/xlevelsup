@@ -2,7 +2,7 @@
 
 import { useFormStatus } from 'react-dom';
 import { useState, useEffect, useActionState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Button from './ui/Button';

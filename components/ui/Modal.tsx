@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { ModalProps } from '@/types';
 
 export default function Modal({ isOpen, onClose, children, title }: ModalProps) {

@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
-import { i } from 'framer-motion/client';
 
 export default function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -94,10 +93,9 @@ export default function Navbar() {
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="absolute top-full left-0 mt-2 w-64 glass rounded-lg shadow-xl overflow-hidden"
+                                        className="absolute top-full left-0 mt-2 w-64 bg-dark-900 border border-gray-800 rounded-lg shadow-xl overflow-hidden z-50"
                                     >
-                                        {solutions.map((solution, index) => (
+                                        {solutions.map((solution) => (
                                             <Link
                                                 key={solution.href}
                                                 href={solution.href}
@@ -128,7 +126,7 @@ export default function Navbar() {
                         <Button
                             onClick={scrollToContact}
                             variant="secondary"
-                            className="!px-6 !py-2 text-sm"
+                            className="px-6! py-2! text-sm"
                         >
                             Get Growth Audit
                         </Button>
@@ -241,7 +239,7 @@ export default function Navbar() {
                             <Button
                                 onClick={scrollToContact}
                                 variant="primary"
-                                className="w-full !py-3"
+                                className="w-full py-3!"
                             >
                                 Get Growth Audit
                             </Button>

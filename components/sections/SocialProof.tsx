@@ -1,16 +1,17 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 
 export default function SocialProof() {
   const clients = [
-    { name: 'Pratyagra Silks', url: 'https://pratyagrasilks.com' },
-    { name: 'Wanderingkite', url: 'https://www.wanderingkite.in' },
-    { name: 'Nihaa Jewels', url: 'https://www.nihaajewels.com' },
-    { name: 'Alusea', url: 'https://www.alusea.in' },
-    { name: 'Kandangi Sarees', url: 'https://www.kandangisarees.com' },
-    { name: 'TagMyTaxi', url: 'https://tagmytaxi.ae' },
-    { name: 'Astrosara', url: 'https://astrosara.in' },
+    { name: 'Pratyagra Silks' },
+    { name: 'Wanderingkite' },
+    { name: 'Nihaa Jewels' },
+    { name: 'Alusea' },
+    { name: 'Kandangi Sarees' },
+    { name: 'TagMyTaxi' },
+    { name: 'Astrosara' },
+    { name: 'Studio OS' },
   ];
 
   // Duplicate for seamless loop
@@ -19,9 +20,6 @@ export default function SocialProof() {
   return (
     <section className='py-16 px-4 bg-dark-800/50'>
       <style>{`
-        .pause-hover:hover .marquee-content {
-          animation-play-state: paused !important;
-        }
         @keyframes scroll-desktop {
           0% { transform: translateX(0%); }
           100% { transform: translateX(-50%); }
@@ -47,34 +45,28 @@ export default function SocialProof() {
           Trusted by Industry Leaders
         </motion.h2>
 
-        <div className='relative overflow-hidden hidden sm:block pause-hover'>
+        <div className='relative overflow-hidden hidden sm:block'>
           <div className='flex gap-16 animate-scroll-desktop marquee-content w-max'>
             {duplicatedClients.map((client, index) => (
-              <a
+              <div
                 key={index}
-                href={client.url}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='shrink-0 text-2xl font-bold text-gray-500 hover:text-white hover:scale-110 hover:-translate-y-1 transition-all duration-300 whitespace-nowrap block'
+                className='shrink-0 text-2xl font-bold text-gray-500 whitespace-nowrap block'
               >
                 {client.name}
-              </a>
+              </div>
             ))}
           </div>
         </div>
 
-        <div className='relative overflow-hidden sm:hidden block pause-hover'>
+        <div className='relative overflow-hidden sm:hidden block'>
           <div className='flex gap-16 animate-scroll-mobile marquee-content w-max'>
             {duplicatedClients.map((client, index) => (
-              <a
+              <div
                 key={index}
-                href={client.url}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='shrink-0 text-2xl font-bold text-gray-500 hover:text-white hover:scale-110 hover:-translate-y-1 transition-all duration-300 whitespace-nowrap block'
+                className='shrink-0 text-2xl font-bold text-gray-500 whitespace-nowrap block'
               >
                 {client.name}
-              </a>
+              </div>
             ))}
           </div>
         </div>

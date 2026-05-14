@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { CardProps } from '@/types';
 
 export default function Card({ title, description, icon, className = '' }: CardProps) {
