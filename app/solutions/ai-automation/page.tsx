@@ -54,9 +54,9 @@ export default function AIAutomationPage() {
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6">
-                        Scale <span className="gradient-text">Operations</span>,
-                        <br />
-                        Not <span className="gradient-text">Costs</span>.
+                        AI Automation Systems &{' '}
+                        <span className="gradient-text">Custom Operational Intelligence</span>{' '}
+                        Workflows
                     </h1>
                     <p className="text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
                         We engineer custom AI agents and Python workflows to automate lead qualification, CRM entry, and customer support.
@@ -74,7 +74,8 @@ export default function AIAutomationPage() {
                 >
                     <div className="glass p-8 rounded-2xl border-red-500/20">
                         <h2 className="text-2xl font-bold mb-4 text-center">
-                            The <span className="text-red-400">Manual Tax</span>
+                            Custom AI Agent Workflows Built for{' '}
+                            <span className="text-red-400">Enterprise Scale</span>
                         </h2>
                         <div className="grid md:grid-cols-3 gap-6">
                             <div className="text-center">

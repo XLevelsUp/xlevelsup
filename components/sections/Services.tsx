@@ -84,8 +84,8 @@ export default function Services() {
                         Our Solutions
                     </p>
                     <h2 className="text-4xl md:text-5xl font-bold mb-4">
-                        A Unified{' '}
-                        <span className="gradient-text">Technology Ecosystem</span>
+                        Everything Your Business Needs —{' '}
+                        <span className="gradient-text">Design, Web, Marketing & AI Automation</span>
                     </h2>
                     <p className="text-gray-400 text-lg max-w-2xl mx-auto">
                         Four integrated disciplines. One strategic partner. Built to compound your market position over time.

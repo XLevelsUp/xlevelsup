@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Marketing Architecture & Strategy | XLevelsUp Agency',
-    description: 'Strategic marketing architecture and planning by XLevelsUp to build scalable growth systems for your brand.',
+    title: 'Website Development & eCommerce Stores India | XLEVELSUP',
+    description: 'XLEVELSUP builds high-performance marketing websites and eCommerce stores on Next.js — engineered for speed, conversion, and Lighthouse 95+ scores. Your brand\'s digital home, built to scale.',
     keywords: [
-        'Marketing Strategy',
-        'Digital Marketing Planning',
-        'Marketing Architecture',
-        'Growth Systems Design',
-        'Marketing Technology Stack',
+        'eCommerce Website Development India',
+        'Next.js Website Development',
+        'Marketing Website Coimbatore',
+        'Web Design Agency India',
+        'Website Development Company Coimbatore',
+        'eCommerce Development Coimbatore',
+        'XLEVELSUP',
     ],
 };
 

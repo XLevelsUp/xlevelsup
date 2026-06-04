@@ -1,14 +1,17 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Digital Marketing & Meta Ads | XLevelsUp',
-    description: 'Performance-driven digital marketing and Meta Ads management to drive measurable revenue growth for your brand.',
+    title: 'Social Media Management, Meta Ads & Content Creation | XLEVELSUP',
+    description: 'XLEVELSUP manages your social media, creates high-performing ad creatives, and runs Meta Ads campaigns engineered to drive measurable revenue growth for your brand.',
     keywords: [
+        'Social Media Management Coimbatore',
+        'Meta Ads Agency India',
+        'Instagram Marketing Agency',
+        'Content Creation Agency India',
+        'Instagram Reels Marketing',
         'Digital Marketing Agency Coimbatore',
-        'Social Media Management',
-        'Meta Ads Agency',
         'Video Marketing Services',
-        'Content Creation Studio',
+        'XLEVELSUP',
     ],
 };
 

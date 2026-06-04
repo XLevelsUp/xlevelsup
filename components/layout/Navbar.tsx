@@ -50,7 +50,7 @@ export default function Navbar() {
                         {/* <span className="hidden sm:block text-2xl font-bold tracking-wider gradient-text">
                             XLEVELSUP
                         </span> */}
-                        <Image src="/xlevelsup_logo.svg" width={155} height={32} alt="XLEVELSUP Logo" />
+                        <Image src="/xlevelsup_logo.svg" width={155} height={32} alt="XLEVELSUP logo — Custom Software Development & AI Automation Company India" />
                         {/* <span className="block sm:hidden text-2xl font-bold tracking-wider gradient-text">
                             XLU
                         </span> */}

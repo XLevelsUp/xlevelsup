@@ -1,14 +1,17 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Performance Marketing & Growth Systems | XLevelsUp',
-    description: 'Data-driven performance marketing and growth systems to lower CAC and maximize ROAS for your business.',
+    title: 'Google Ads, Server-Side Tracking & Performance Marketing | XLEVELSUP',
+    description: 'XLEVELSUP manages Google Ads campaigns, implements server-side conversion tracking, and builds data-driven growth systems to lower your CAC and maximise ROAS.',
     keywords: [
+        'Google Ads Management Coimbatore',
+        'Google Ads Agency India',
+        'PPC Management India',
+        'Server-Side Conversion Tracking',
         'Performance Marketing',
-        'Google Ads Management',
-        'Facebook Ads Management',
         'ROAS Optimization',
-        'Marketing Automation',
+        'Facebook Ads Management',
+        'XLEVELSUP',
     ],
 };
 

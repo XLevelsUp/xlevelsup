@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'About XLEVELSUP | End-to-End Tech & Software Solutions',
-    description: 'Learn about XLevelsUp, a performance-driven digital marketing agency specializing in SEO, Google Ads, Meta Ads & analytics to help brands grow measurably.',
+    title: 'About XLEVELSUP | End-to-End Design, Web, Marketing & AI Agency India',
+    description: 'XLEVELSUP is an end-to-end growth partner based in Coimbatore, India — delivering logo design, website development, eCommerce, Meta & Google Ads, social media management, ERP software, and AI automation for businesses that want to scale.',
 };
 
 export default function AboutLayout({

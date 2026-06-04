@@ -22,7 +22,7 @@ export default function Hero() {
 
             <div className="relative z-10 max-w-5xl mx-auto text-center">
                 {/* Eyebrow label */}
-                <motion.div
+                {/* <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
@@ -30,12 +30,12 @@ export default function Hero() {
                 >
                     <span className="w-2 h-2 rounded-full bg-cyan animate-pulse"></span>
                     End-to-End Technology Partner
-                </motion.div>
+                </motion.div> */}
 
                 {/* H1 — NO animation, instant render for LCP */}
-                <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-                    Build the Infrastructure.{' '}
-                    <span className="gradient-text">Own the Market.</span>
+                <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+                    Your End-to-End Growth Partner —{' '}
+                    <span className="gradient-text">From Logo Design to AI Automation</span>
                 </h1>
 
                 <motion.p
