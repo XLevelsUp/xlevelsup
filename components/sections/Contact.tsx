@@ -48,7 +48,7 @@ export default function Contact() {
                             📧 hello@xlevelsup.com
                         </a>
                         <a
-                            href="tel:+1234567890"
+                            href="tel:+919047055888"
                             className="hover:text-cyan transition-colors"
                         >
                             📞 +91 90470 55888

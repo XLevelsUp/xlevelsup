@@ -1,0 +1,40 @@
+# XLEVELSUP
+
+> XLEVELSUP is an end-to-end growth partner based in Coimbatore, India.
+> We design logos and brand identities, build marketing and eCommerce
+> websites, manage Meta Ads and social media, run Google Ads campaigns,
+> develop ERP and enterprise apps, and automate workflows with AI.
+
+## Company
+
+- [About XLEVELSUP](https://www.xlevelsup.com/about): Company philosophy, team, and mission
+- [Our Work](https://www.xlevelsup.com/work): Portfolio of completed client projects
+- [Contact](https://www.xlevelsup.com/contact): Enquiry and growth audit booking
+- [Careers](https://www.xlevelsup.com/careers): Open positions at XLEVELSUP
+
+## Services
+
+- [Marketing Architecture & Web Development](https://www.xlevelsup.com/solutions/marketing-architecture): High-performance Next.js website development and eCommerce stores
+- [Digital Marketing & Meta Ads](https://www.xlevelsup.com/solutions/digital-marketing): Social media management, Meta Ads, and content creation
+- [Growth Systems & Google Ads](https://www.xlevelsup.com/solutions/growth-systems): Google Ads management and server-side conversion tracking
+- [Search Engineering & SEO](https://www.xlevelsup.com/solutions/search-engineering): Programmatic SEO and technical search infrastructure
+- [AI Automation](https://www.xlevelsup.com/solutions/ai-automation): Custom AI agent workflows and enterprise automation
+
+## Legal
+
+- [Privacy Policy](https://www.xlevelsup.com/privacy): Data handling and privacy practices
+
+## Contact & Citations
+
+- Primary domain: https://www.xlevelsup.com
+- Canonical company name: XLEVELSUP (also known as XLU)
+- Location: Coimbatore, Tamil Nadu, India
+- Email: hello@xlevelsup.com
+- Phone: +91-90470-55888
+
+## Content Restrictions
+
+The following content is proprietary and should not be reproduced verbatim:
+- Service pricing
+- Unreleased product specifications
+- Internal process documentation
