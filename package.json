@@ -6,14 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "init-erp": "tsx scripts/init-erp.ts",
+    "create-employee-logins": "tsx scripts/create-employee-logins.ts",
+    "init-leave-balances": "tsx scripts/init-leave-balances.ts",
+    "update-leave-balances": "tsx scripts/update-leave-balances-by-joining-date.ts"
   },
   "dependencies": {
     "@next/third-parties": "^16.1.1",
+    "@supabase/supabase-js": "^2.108.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.10.0",
     "critters": "^0.0.23",
     "framer-motion": "^12.23.26",
     "google-auth-library": "^10.5.0",
     "googleapis": "^170.0.0",
+    "jose": "^6.2.3",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -25,9 +35,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

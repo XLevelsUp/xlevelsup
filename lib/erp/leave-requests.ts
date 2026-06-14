@@ -1,0 +1,463 @@
+/**
+ * Database functions for Leave Request management
+ */
+
+import { supabaseServer as supabase } from '@/lib/supabase-server';
+import type {
+  LeaveRequest,
+  LeaveRequestWithEmployee,
+  LeaveRequestFormData,
+  LeaveBalance,
+} from '@/types/erp';
+
+/**
+ * Calculate total days between two dates (inclusive, excludes weekends)
+ * This is a simple calculation. You can enhance it to exclude holidays.
+ */
+function calculateLeaveDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  let days = 0;
+
+  for (
+    let date = new Date(start);
+    date <= end;
+    date.setDate(date.getDate() + 1)
+  ) {
+    const dayOfWeek = date.getDay();
+    // Skip weekends (0 = Sunday, 6 = Saturday)
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      days++;
+    }
+  }
+
+  return days;
+}
+
+/**
+ * Get all leave requests with employee details (for admin)
+ */
+export async function getAllLeaveRequests(filters?: {
+  status?: string;
+  employee_id?: number;
+  start_date?: string;
+  end_date?: string;
+}): Promise<LeaveRequestWithEmployee[]> {
+  let query = supabase
+    .from('leave_requests')
+    .select(
+      `
+      *,
+      employee:employees!employee_id(id, employee_id, name, department),
+      reviewer:employees!reviewed_by(name)
+    `,
+    )
+    .order('created_at', { ascending: false });
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.employee_id) {
+    query = query.eq('employee_id', filters.employee_id);
+  }
+
+  if (filters?.start_date) {
+    query = query.gte('start_date', filters.start_date);
+  }
+
+  if (filters?.end_date) {
+    query = query.lte('end_date', filters.end_date);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  // Transform the data to match LeaveRequestWithEmployee interface
+  return (
+    data?.map((item: any) => ({
+      ...item,
+      employee_name: item.employee?.name || 'Unknown',
+      employee_id_display: item.employee?.employee_id || '',
+      employee_department: item.employee?.department || '',
+      reviewer_name: item.reviewer?.name || null,
+    })) || []
+  );
+}
+
+/**
+ * Get leave requests for specific employee
+ */
+export async function getEmployeeLeaveRequests(
+  employeeId: number,
+): Promise<LeaveRequest[]> {
+  const { data, error } = await supabase
+    .from('leave_requests')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Get leave request by ID
+ */
+export async function getLeaveRequestById(
+  id: number,
+): Promise<LeaveRequest | null> {
+  const { data, error } = await supabase
+    .from('leave_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
+/**
+ * Create leave request
+ */
+export async function createLeaveRequest(
+  employeeId: number,
+  data: LeaveRequestFormData,
+): Promise<LeaveRequest> {
+  // Calculate total days
+  const totalDays = calculateLeaveDays(data.start_date, data.end_date);
+
+  const { data: leaveRequest, error } = await supabase
+    .from('leave_requests')
+    .insert({
+      employee_id: employeeId,
+      leave_type: data.leave_type,
+      start_date: data.start_date,
+      end_date: data.end_date,
+      total_days: totalDays,
+      reason: data.reason,
+      status: 'pending',
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return leaveRequest;
+}
+
+/**
+ * Update leave request (employee can only update pending requests)
+ */
+export async function updateLeaveRequest(
+  id: number,
+  employeeId: number,
+  data: LeaveRequestFormData,
+): Promise<LeaveRequest> {
+  // Calculate total days
+  const totalDays = calculateLeaveDays(data.start_date, data.end_date);
+
+  const { data: leaveRequest, error } = await supabase
+    .from('leave_requests')
+    .update({
+      leave_type: data.leave_type,
+      start_date: data.start_date,
+      end_date: data.end_date,
+      total_days: totalDays,
+      reason: data.reason,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('employee_id', employeeId)
+    .eq('status', 'pending') // Can only update pending requests
+    .select()
+    .single();
+
+  if (error) throw error;
+  return leaveRequest;
+}
+
+/**
+ * Cancel leave request (employee can cancel pending or approved requests)
+ */
+export async function cancelLeaveRequest(
+  id: number,
+  employeeId: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from('leave_requests')
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('employee_id', employeeId)
+    .in('status', ['pending', 'approved']);
+
+  if (error) throw error;
+}
+
+/**
+ * Review leave request (approve/reject by admin/manager)
+ */
+export async function reviewLeaveRequest(
+  id: number,
+  reviewerId: number,
+  status: 'approved' | 'rejected',
+  comments?: string,
+): Promise<LeaveRequest> {
+  const { data: leaveRequest, error } = await supabase
+    .from('leave_requests')
+    .update({
+      status,
+      reviewed_by: reviewerId,
+      reviewed_at: new Date().toISOString(),
+      review_comments: comments || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('status', 'pending') // Can only review pending requests
+    .select()
+    .single();
+
+  if (error) throw error;
+  return leaveRequest;
+}
+
+/**
+ * Get leave balance for employee
+ */
+export async function getEmployeeLeaveBalance(
+  employeeId: number,
+  year?: number,
+): Promise<LeaveBalance[]> {
+  const currentYear = year || new Date().getFullYear();
+
+  const { data, error } = await supabase
+    .from('leave_balances')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .eq('year', currentYear);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Calculate prorated leave allocation based on joining date and department
+ */
+function calculateProratedLeaves(
+  joiningDate: Date,
+  year: number,
+  department?: string,
+) {
+  const joiningYear = joiningDate.getFullYear();
+  const joiningMonth = joiningDate.getMonth(); // 0-11
+
+  // Internship employees only get casual leave (1.5 days/month)
+  const isInternship = department?.toLowerCase() === 'internship';
+
+  // If joined before current year, give full allocation
+  if (joiningYear < year) {
+    if (isInternship) {
+      return {
+        casual: 18,
+        floater: 0,
+        sick: 0,
+        earned: 0,
+      };
+    }
+    return {
+      casual: 18,
+      floater: 2,
+      sick: 10,
+      earned: 0,
+    };
+  }
+
+  // If joined in current year, calculate months remaining (including joining month)
+  const monthsInYear = 12;
+  const monthsRemaining = monthsInYear - joiningMonth; // e.g., joined in June (5) = 12-5 = 7 months
+
+  // Calculate prorated leaves
+  const casual = monthsRemaining * 1.5; // 1.5 days per month
+
+  if (isInternship) {
+    return {
+      casual,
+      floater: 0,
+      sick: 0,
+      earned: 0,
+    };
+  }
+
+  const floater = Math.round((monthsRemaining / monthsInYear) * 2); // Prorated floater
+  const sick = Math.round((monthsRemaining / monthsInYear) * 10); // Prorated sick leave
+  const earned = 0; // Always starts at 0
+
+  return {
+    casual,
+    floater,
+    sick,
+    earned,
+  };
+}
+
+/**
+ * Initialize leave balance for new employee
+ * New Policy:
+ * - Regular Employees:
+ *   - Casual Leave: 18 days/year (1.5 days/month) - prorated based on joining date
+ *   - Floater Leave: 2 days/year - prorated based on joining date
+ *   - Sick Leave: 10 days/year - prorated based on joining date
+ *   - Earned Leave: 0 initially, earned based on OT hours
+ * - Internship Employees:
+ *   - Casual Leave: 1.5 days/month only (no floater, sick, or earned leave)
+ */
+export async function initializeLeaveBalance(
+  employeeId: number,
+  joiningDate: Date | string,
+  department?: string,
+): Promise<void> {
+  const currentYear = new Date().getFullYear();
+  const joining =
+    typeof joiningDate === 'string' ? new Date(joiningDate) : joiningDate;
+
+  // Calculate prorated leave allocation based on joining date and department
+  const allocation = calculateProratedLeaves(joining, currentYear, department);
+
+  // Filter out leave types with 0 allocation (for internships)
+  const leaveAllocations = [
+    { leave_type: 'casual', total_allocated: allocation.casual },
+    { leave_type: 'floater', total_allocated: allocation.floater },
+    { leave_type: 'sick', total_allocated: allocation.sick },
+    { leave_type: 'earned', total_allocated: allocation.earned },
+  ].filter(
+    (leave) => leave.total_allocated > 0 || leave.leave_type === 'earned',
+  );
+
+  // Insert all leave balances
+  const { error } = await supabase.from('leave_balances').insert(
+    leaveAllocations.map((leave) => ({
+      employee_id: employeeId,
+      year: currentYear,
+      ...leave,
+      used_days: 0,
+    })),
+  );
+
+  // Ignore conflict errors (balance already exists)
+  if (error && error.code !== '23505') throw error;
+}
+
+/**
+ * Get pending leave requests count
+ */
+export async function getPendingLeaveRequestsCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from('leave_requests')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending');
+
+  if (error) throw error;
+  return count || 0;
+}
+
+/**
+ * Calculate earned leave days from overtime hours
+ * Policy: 8 hours of OT = 1 day of earned leave
+ */
+export function calculateEarnedLeaveFromOT(overtimeHours: number): number {
+  const HOURS_PER_EARNED_DAY = 8;
+  return Math.floor(overtimeHours / HOURS_PER_EARNED_DAY);
+}
+
+/**
+ * Update earned leave balance based on total OT hours for employee
+ * This should be called periodically (e.g., monthly) or when OT is recorded
+ */
+export async function updateEarnedLeaveBalance(
+  employeeId: number,
+  year?: number,
+): Promise<void> {
+  const currentYear = year || new Date().getFullYear();
+
+  // Get total overtime hours for the year
+  const startDate = `${currentYear}-01-01`;
+  const endDate = `${currentYear}-12-31`;
+
+  const { data: attendanceRecords, error: attendanceError } = await supabase
+    .from('attendance')
+    .select('overtime_hours')
+    .eq('employee_id', employeeId)
+    .gte('date', startDate)
+    .lte('date', endDate);
+
+  if (attendanceError) throw attendanceError;
+
+  // Calculate total OT hours
+  const totalOTHours =
+    attendanceRecords?.reduce(
+      (sum, record) => sum + (record.overtime_hours || 0),
+      0,
+    ) || 0;
+
+  // Calculate earned leave days
+  const earnedDays = calculateEarnedLeaveFromOT(totalOTHours);
+
+  // Update or insert earned leave balance
+  const { error: upsertError } = await supabase
+    .from('leave_balances')
+    .upsert(
+      {
+        employee_id: employeeId,
+        year: currentYear,
+        leave_type: 'earned',
+        total_allocated: earnedDays,
+        used_days: 0, // Only update total_allocated, keep used_days as is
+      },
+      {
+        onConflict: 'employee_id,year,leave_type',
+        ignoreDuplicates: false,
+      },
+    )
+    .select()
+    .single();
+
+  if (upsertError) {
+    // If record exists, just update total_allocated
+    const { error: updateError } = await supabase
+      .from('leave_balances')
+      .update({ total_allocated: earnedDays })
+      .eq('employee_id', employeeId)
+      .eq('year', currentYear)
+      .eq('leave_type', 'earned');
+
+    if (updateError) throw updateError;
+  }
+}
+
+/**
+ * Batch update earned leave for all employees
+ * Should be run periodically (e.g., monthly cron job)
+ */
+export async function batchUpdateEarnedLeaveBalances(
+  year?: number,
+): Promise<void> {
+  const currentYear = year || new Date().getFullYear();
+
+  // Get all active employees
+  const { data: employees, error: employeesError } = await supabase
+    .from('employees')
+    .select('id')
+    .eq('status', 'active');
+
+  if (employeesError) throw employeesError;
+
+  // Update earned leave for each employee
+  if (employees) {
+    await Promise.all(
+      employees.map((emp) => updateEarnedLeaveBalance(emp.id, currentYear)),
+    );
+  }
+}

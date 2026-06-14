@@ -1,0 +1,180 @@
+'use server';
+
+/**
+ * Server actions for Leave Requests
+ */
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import type { LeaveRequestFormData } from '@/types/erp';
+import {
+  createLeaveRequest,
+  updateLeaveRequest,
+  cancelLeaveRequest,
+  reviewLeaveRequest,
+} from '@/lib/erp/leave-requests';
+
+// Validation schema
+const leaveRequestSchema = z.object({
+  leave_type: z.enum([
+    'sick',
+    'casual',
+    'floater',
+    'earned',
+    'unpaid',
+    'maternity',
+    'paternity',
+    'other',
+  ]),
+  start_date: z.string().min(1, 'Start date is required'),
+  end_date: z.string().min(1, 'End date is required'),
+  reason: z.string().min(10, 'Reason must be at least 10 characters'),
+});
+
+const reviewSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+  review_comments: z.string().optional(),
+});
+
+/**
+ * Create leave request action (for employees)
+ */
+export async function createLeaveRequestAction(
+  employeeId: number,
+  prevState: any,
+  formData: FormData,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const data: LeaveRequestFormData = {
+      leave_type: formData.get('leave_type') as any,
+      start_date: formData.get('start_date') as string,
+      end_date: formData.get('end_date') as string,
+      reason: formData.get('reason') as string,
+    };
+
+    // Validate
+    const validated = leaveRequestSchema.parse(data);
+
+    // Validate date range
+    const startDate = new Date(validated.start_date);
+    const endDate = new Date(validated.end_date);
+    if (endDate < startDate) {
+      return {
+        success: false,
+        error: 'End date must be after or equal to start date',
+      };
+    }
+
+    // Create leave request
+    await createLeaveRequest(employeeId, validated);
+
+    revalidatePath('/employee/leave');
+    return { success: true };
+  } catch (error) {
+    console.error('Create leave request error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: 'Failed to create leave request' };
+  }
+}
+
+/**
+ * Update leave request action (for employees)
+ */
+export async function updateLeaveRequestAction(
+  leaveRequestId: number,
+  employeeId: number,
+  prevState: any,
+  formData: FormData,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const data: LeaveRequestFormData = {
+      leave_type: formData.get('leave_type') as any,
+      start_date: formData.get('start_date') as string,
+      end_date: formData.get('end_date') as string,
+      reason: formData.get('reason') as string,
+    };
+
+    // Validate
+    const validated = leaveRequestSchema.parse(data);
+
+    // Validate date range
+    const startDate = new Date(validated.start_date);
+    const endDate = new Date(validated.end_date);
+    if (endDate < startDate) {
+      return {
+        success: false,
+        error: 'End date must be after or equal to start date',
+      };
+    }
+
+    // Update leave request
+    await updateLeaveRequest(leaveRequestId, employeeId, validated);
+
+    revalidatePath('/employee/leave');
+    return { success: true };
+  } catch (error) {
+    console.error('Update leave request error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: 'Failed to update leave request' };
+  }
+}
+
+/**
+ * Cancel leave request action (for employees)
+ */
+export async function cancelLeaveRequestAction(
+  leaveRequestId: number,
+  employeeId: number,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await cancelLeaveRequest(leaveRequestId, employeeId);
+
+    revalidatePath('/employee/leave');
+    return { success: true };
+  } catch (error) {
+    console.error('Cancel leave request error:', error);
+    return { success: false, error: 'Failed to cancel leave request' };
+  }
+}
+
+/**
+ * Review leave request action (for admin/managers)
+ */
+export async function reviewLeaveRequestAction(
+  leaveRequestId: number,
+  reviewerId: number,
+  prevState: any,
+  formData: FormData,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const data = {
+      status: formData.get('status') as 'approved' | 'rejected',
+      review_comments: formData.get('review_comments') as string | undefined,
+    };
+
+    // Validate
+    const validated = reviewSchema.parse(data);
+
+    // Review leave request
+    await reviewLeaveRequest(
+      leaveRequestId,
+      reviewerId,
+      validated.status,
+      validated.review_comments,
+    );
+
+    revalidatePath('/erp/leave-requests');
+    revalidatePath('/employee/leave');
+    return { success: true };
+  } catch (error) {
+    console.error('Review leave request error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: 'Failed to review leave request' };
+  }
+}
