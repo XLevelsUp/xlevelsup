@@ -7,6 +7,7 @@ import { requireEmployeeAuth } from '@/lib/erp/employee-portal-auth';
 import { getEmployeeAttendanceWithRequests } from '@/lib/erp/attendance-change-requests';
 import { getEmployeeAttendanceChangeRequests } from '@/lib/erp/attendance-change-requests';
 import { supabase } from '@/lib/supabase';
+import type { AttendanceChangeRequest, Attendance } from '@/types/erp';
 import AttendanceRecordsTable from '@/components/erp/employee/AttendanceRecordsTable';
 import AttendanceChangeRequestForm from '@/components/erp/employee/AttendanceChangeRequestForm';
 import AttendanceChangeRequestsList from '@/components/erp/employee/AttendanceChangeRequestsList';
@@ -19,8 +20,8 @@ export default async function EmployeeAttendancePage() {
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const startDate = threeMonthsAgo.toISOString().split('T')[0];
 
-  let attendanceRecords = [];
-  let changeRequests = [];
+  let attendanceRecords: any[] = [];
+  let changeRequests: AttendanceChangeRequest[] = [];
   let isFeatureAvailable = true;
 
   try {

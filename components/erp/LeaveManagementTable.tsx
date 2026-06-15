@@ -15,6 +15,31 @@ interface LeaveManagementTableProps {
   adminId: number;
 }
 
+// Helper functions - shared between components
+const getLeaveTypeLabel = (type: string) => {
+  const labels: Record<string, string> = {
+    sick: 'Sick',
+    casual: 'Casual',
+    floater: 'Floater',
+    earned: 'Earned (OT)',
+    unpaid: 'Unpaid',
+    maternity: 'Maternity',
+    paternity: 'Paternity',
+    other: 'Other',
+    // Legacy support
+    annual: 'Casual', // Migrated from annual
+  };
+  return labels[type] || type;
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
+
 export default function LeaveManagementTable({
   requests,
   adminId,
@@ -66,30 +91,6 @@ export default function LeaveManagementTable({
     };
 
     return badges[status as keyof typeof badges] || badges.pending;
-  };
-
-  const getLeaveTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      sick: 'Sick',
-      casual: 'Casual',
-      floater: 'Floater',
-      earned: 'Earned (OT)',
-      unpaid: 'Unpaid',
-      maternity: 'Maternity',
-      paternity: 'Paternity',
-      other: 'Other',
-      // Legacy support
-      annual: 'Casual', // Migrated from annual
-    };
-    return labels[type] || type;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   return (
@@ -276,7 +277,7 @@ function ReviewModal({
         </div>
 
         {/* Leave Details */}
-        <div>
+        <div className='bg-gray-900/50 rounded-lg p-4'>
           <h3 className='font-semibold text-white mb-2'>Leave Details</h3>
           <div className='space-y-2 text-sm'>
             <div>

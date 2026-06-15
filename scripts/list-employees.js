@@ -21,7 +21,9 @@ async function listEmployees() {
 
     const { data: employees, error } = await supabase
       .from('employees')
-      .select('id, employee_id, name, email, department, role, status, account_status')
+      .select(
+        'id, employee_id, name, email, department, role, status, account_status',
+      )
       .order('employee_id');
 
     if (error) {

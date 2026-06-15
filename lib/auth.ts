@@ -25,6 +25,7 @@ export interface SessionPayload {
   userId: number;
   email: string;
   role: UserRole;
+  [key: string]: unknown;
 }
 
 /**

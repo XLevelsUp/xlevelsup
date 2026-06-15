@@ -297,7 +297,7 @@ export default function EmployeeForm({
             name='monthly_salary'
             min='0'
             step='0.01'
-            defaultValue={employee?.monthly_salary}
+            defaultValue={employee?.monthly_salary || ''}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             placeholder='50000'
           />

@@ -4,13 +4,13 @@
  * Employee Portal Login Page
  */
 
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { employeeLoginAction } from '@/actions/erp/employee-auth';
 import Button from '@/components/ui/Button';
 import { toast } from 'react-hot-toast';
 
-export default function EmployeeLoginPage() {
+function EmployeeLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState(
@@ -142,5 +142,19 @@ export default function EmployeeLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EmployeeLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a]'>
+          <div className='text-white'>Loading...</div>
+        </div>
+      }
+    >
+      <EmployeeLoginForm />
+    </Suspense>
   );
 }
