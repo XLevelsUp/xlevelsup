@@ -274,6 +274,7 @@ export interface AttendanceChangeRequest {
   request_date: string;
   current_status?: AttendanceStatus | null;
   requested_status: AttendanceStatus;
+  leave_type?: string | null;
   reason: string;
   status: AttendanceChangeStatus;
   reviewed_by?: number | null;

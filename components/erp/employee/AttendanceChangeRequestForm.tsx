@@ -4,9 +4,10 @@
  * Attendance Change Request Form Component
  */
 
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { createAttendanceChangeRequestAction } from '@/actions/erp/attendance-change-requests';
 import Button from '@/components/ui/Button';
+import DatePicker from '@/components/ui/DatePicker';
 import { toast } from 'react-hot-toast';
 
 interface AttendanceChangeRequestFormProps {
@@ -16,7 +17,18 @@ interface AttendanceChangeRequestFormProps {
 export default function AttendanceChangeRequestForm({
   employeeId,
 }: AttendanceChangeRequestFormProps) {
+  const [requestedStatus, setRequestedStatus] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+
   const handleFormAction = async (prevState: any, formData: FormData) => {
+    // Validate date selection
+    if (!selectedDate) {
+      return { success: false, error: 'Please select a date' };
+    }
+
+    // Add the selected date to form data
+    formData.set('request_date', selectedDate);
+
     return await createAttendanceChangeRequestAction(
       employeeId,
       prevState,
@@ -35,6 +47,8 @@ export default function AttendanceChangeRequestForm({
       ) as HTMLFormElement;
       if (form) {
         form.reset();
+        setRequestedStatus('');
+        setSelectedDate('');
       }
       // Reload page to show updated data
       setTimeout(() => {
@@ -47,26 +61,19 @@ export default function AttendanceChangeRequestForm({
 
   return (
     <form id='change-request-form' action={formAction} className='space-y-4'>
-      {/* Request Date */}
-      <div>
-        <label
-          htmlFor='request_date'
-          className='block text-sm font-medium mb-2'
-        >
-          Date <span className='text-red-500'>*</span>
-        </label>
-        <input
-          type='date'
-          id='request_date'
-          name='request_date'
-          required
-          max={new Date().toISOString().split('T')[0]}
-          className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
-        />
-        <p className='text-xs text-gray-500 mt-1'>
-          Select the date for attendance change
-        </p>
-      </div>
+      {/* Request Date - Calendar Picker */}
+      <DatePicker
+        label='Date'
+        value={selectedDate}
+        onChange={setSelectedDate}
+        maxDate={new Date().toISOString().split('T')[0]}
+        required
+        placeholder='Select the date for attendance change'
+        helperText='Select the date for attendance change'
+      />
+
+      {/* Hidden field for form submission */}
+      <input type='hidden' name='request_date' value={selectedDate} />
 
       {/* Hidden fields for modification requests (populated by table) */}
       <input type='hidden' id='current_status' name='current_status' />
@@ -84,6 +91,8 @@ export default function AttendanceChangeRequestForm({
           id='requested_status'
           name='requested_status'
           required
+          value={requestedStatus}
+          onChange={(e) => setRequestedStatus(e.target.value)}
           className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
         >
           <option value=''>Select status</option>
@@ -95,6 +104,36 @@ export default function AttendanceChangeRequestForm({
           <option value='holiday'>Holiday</option>
         </select>
       </div>
+
+      {/* Leave Type (only shown when Paid Leave is selected) */}
+      {requestedStatus === 'paid-leave' && (
+        <div>
+          <label
+            htmlFor='leave_type'
+            className='block text-sm font-medium mb-2'
+          >
+            Leave Type <span className='text-red-500'>*</span>
+          </label>
+          <select
+            id='leave_type'
+            name='leave_type'
+            required
+            className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
+          >
+            <option value=''>Select leave type</option>
+            <option value='sick'>Sick Leave</option>
+            <option value='casual'>Casual Leave</option>
+            <option value='floater'>Floater Leave</option>
+            <option value='earned'>Earned Leave (OT)</option>
+            <option value='maternity'>Maternity Leave</option>
+            <option value='paternity'>Paternity Leave</option>
+            <option value='other'>Other</option>
+          </select>
+          <p className='text-xs text-gray-500 mt-1'>
+            Select which leave balance to deduct from
+          </p>
+        </div>
+      )}
 
       {/* Reason */}
       <div>
@@ -119,7 +158,6 @@ export default function AttendanceChangeRequestForm({
       <div className='bg-blue-900/20 border border-blue-700/30 rounded-lg p-3'>
         <p className='text-xs text-blue-300'>
           <strong>Note:</strong> Your request will be reviewed by HR/Admin.
-          You'll be notified once it's approved or rejected.
         </p>
       </div>
 

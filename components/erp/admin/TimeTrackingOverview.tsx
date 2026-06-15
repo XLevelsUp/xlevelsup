@@ -15,7 +15,9 @@ interface TimeTrackingOverviewProps {
 export default function TimeTrackingOverview({
   employees,
 }: TimeTrackingOverviewProps) {
-  const [filter, setFilter] = useState<'all' | 'working' | 'completed' | 'not_started'>('all');
+  const [filter, setFilter] = useState<
+    'all' | 'working' | 'completed' | 'not_started'
+  >('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter employees
@@ -23,7 +25,9 @@ export default function TimeTrackingOverview({
     const matchesFilter =
       filter === 'all' ||
       (filter === 'working' && emp.is_clocked_in) ||
-      (filter === 'completed' && !emp.is_clocked_in && emp.total_hours_today >= 8) ||
+      (filter === 'completed' &&
+        !emp.is_clocked_in &&
+        emp.total_hours_today >= 8) ||
       (filter === 'not_started' && emp.status === 'not_started');
 
     const matchesSearch =
@@ -120,7 +124,13 @@ export default function TimeTrackingOverview({
                 : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
             }`}
           >
-            Completed ({employees.filter((e) => !e.is_clocked_in && e.total_hours_today >= 8).length})
+            Completed (
+            {
+              employees.filter(
+                (e) => !e.is_clocked_in && e.total_hours_today >= 8,
+              ).length
+            }
+            )
           </button>
           <button
             onClick={() => setFilter('not_started')}
@@ -130,7 +140,8 @@ export default function TimeTrackingOverview({
                 : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
             }`}
           >
-            Not Started ({employees.filter((e) => e.status === 'not_started').length})
+            Not Started (
+            {employees.filter((e) => e.status === 'not_started').length})
           </button>
         </div>
       </div>
@@ -164,7 +175,10 @@ export default function TimeTrackingOverview({
             <tbody className='divide-y divide-gray-800'>
               {sortedEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className='px-6 py-8 text-center text-gray-400'>
+                  <td
+                    colSpan={6}
+                    className='px-6 py-8 text-center text-gray-400'
+                  >
                     No employees found matching your filters.
                   </td>
                 </tr>

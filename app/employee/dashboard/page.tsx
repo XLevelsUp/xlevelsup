@@ -145,7 +145,7 @@ export default async function EmployeeDashboardPage() {
         {/* Quick Actions */}
         <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6'>
           <h2 className='text-xl font-bold text-white mb-4'>Quick Actions</h2>
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
             <Link
               href='/employee/attendance'
               className='block p-4 bg-green-500/10 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors'
@@ -164,15 +164,6 @@ export default async function EmployeeDashboardPage() {
               </h3>
               <p className='text-sm text-gray-400'>
                 View and manage your leave requests
-              </p>
-            </Link>
-            <Link
-              href='/employee/settings'
-              className='block p-4 bg-[var(--purple)]/10 border border-[var(--purple)]/30 rounded-lg hover:bg-[var(--purple)]/20 transition-colors'
-            >
-              <h3 className='font-semibold text-white mb-1'>⚙️ Settings</h3>
-              <p className='text-sm text-gray-400'>
-                Change password and preferences
               </p>
             </Link>
           </div>

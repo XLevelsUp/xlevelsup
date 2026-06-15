@@ -167,7 +167,7 @@ export default function AttendanceChangeRequestsManagementTable({
                       {formatDate(request.request_date)}
                     </td>
                     <td className='py-3 px-2'>
-                      <div className='flex items-center gap-1'>
+                      <div className='flex items-center gap-1 flex-wrap'>
                         {request.current_status ? (
                           <>
                             {getAttendanceStatusBadge(request.current_status)}
@@ -180,6 +180,12 @@ export default function AttendanceChangeRequestsManagementTable({
                             {getAttendanceStatusBadge(request.requested_status)}
                           </>
                         )}
+                        {request.requested_status === 'paid-leave' &&
+                          request.leave_type && (
+                            <span className='text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded ml-1'>
+                              {request.leave_type.toUpperCase()}
+                            </span>
+                          )}
                       </div>
                     </td>
                     <td className='py-3 px-2'>
@@ -243,7 +249,7 @@ export default function AttendanceChangeRequestsManagementTable({
               </div>
               <div>
                 <p className='text-xs text-gray-500'>Change Requested</p>
-                <div className='flex items-center gap-2 mt-1'>
+                <div className='flex items-center gap-2 mt-1 flex-wrap'>
                   {selectedRequest.current_status ? (
                     <>
                       {getAttendanceStatusBadge(selectedRequest.current_status)}
@@ -260,6 +266,12 @@ export default function AttendanceChangeRequestsManagementTable({
                       )}
                     </>
                   )}
+                  {selectedRequest.requested_status === 'paid-leave' &&
+                    selectedRequest.leave_type && (
+                      <span className='text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded'>
+                        {selectedRequest.leave_type.toUpperCase()} LEAVE
+                      </span>
+                    )}
                 </div>
               </div>
               <div>

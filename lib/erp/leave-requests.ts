@@ -184,6 +184,22 @@ export async function cancelLeaveRequest(
   id: number,
   employeeId: number,
 ): Promise<void> {
+  // First, get the leave request details to check if it was approved
+  const { data: existingRequest, error: fetchError } = await supabase
+    .from('leave_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('employee_id', employeeId)
+    .in('status', ['pending', 'approved'])
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!existingRequest)
+    throw new Error('Leave request not found or cannot be cancelled');
+
+  const wasApproved = existingRequest.status === 'approved';
+
+  // Update the leave request status to cancelled
   const { error } = await supabase
     .from('leave_requests')
     .update({
@@ -195,6 +211,44 @@ export async function cancelLeaveRequest(
     .in('status', ['pending', 'approved']);
 
   if (error) throw error;
+
+  // If the leave was approved, restore the leave balance
+  if (wasApproved) {
+    const year = new Date(existingRequest.start_date).getFullYear();
+
+    // Get the current leave balance
+    const { data: currentBalance, error: balanceFetchError } = await supabase
+      .from('leave_balances')
+      .select('used_days')
+      .eq('employee_id', existingRequest.employee_id)
+      .eq('year', year)
+      .eq('leave_type', existingRequest.leave_type)
+      .single();
+
+    if (balanceFetchError) {
+      console.error('Failed to fetch leave balance:', balanceFetchError);
+    } else if (currentBalance) {
+      // Restore the leave balance - decrement used_days
+      const newUsedDays = Math.max(
+        0,
+        Number(currentBalance.used_days) - Number(existingRequest.total_days),
+      );
+
+      const { error: balanceError } = await supabase
+        .from('leave_balances')
+        .update({
+          used_days: newUsedDays,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('employee_id', existingRequest.employee_id)
+        .eq('year', year)
+        .eq('leave_type', existingRequest.leave_type);
+
+      if (balanceError) {
+        console.error('Failed to restore leave balance:', balanceError);
+      }
+    }
+  }
 }
 
 /**
@@ -206,6 +260,19 @@ export async function reviewLeaveRequest(
   status: 'approved' | 'rejected',
   comments?: string,
 ): Promise<LeaveRequest> {
+  // First, get the leave request details
+  const { data: existingRequest, error: fetchError } = await supabase
+    .from('leave_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('status', 'pending')
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!existingRequest)
+    throw new Error('Leave request not found or already reviewed');
+
+  // Update the leave request status
   const { data: leaveRequest, error } = await supabase
     .from('leave_requests')
     .update({
@@ -221,6 +288,45 @@ export async function reviewLeaveRequest(
     .single();
 
   if (error) throw error;
+
+  // If approved, deduct from leave balance
+  if (status === 'approved') {
+    const year = new Date(existingRequest.start_date).getFullYear();
+
+    // First, get the current leave balance
+    const { data: currentBalance, error: balanceFetchError } = await supabase
+      .from('leave_balances')
+      .select('used_days')
+      .eq('employee_id', existingRequest.employee_id)
+      .eq('year', year)
+      .eq('leave_type', existingRequest.leave_type)
+      .single();
+
+    if (balanceFetchError) {
+      console.error('Failed to fetch leave balance:', balanceFetchError);
+    } else if (currentBalance) {
+      // Update the leave balance - increment used_days
+      const newUsedDays =
+        Number(currentBalance.used_days) + Number(existingRequest.total_days);
+
+      const { error: balanceError } = await supabase
+        .from('leave_balances')
+        .update({
+          used_days: newUsedDays,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('employee_id', existingRequest.employee_id)
+        .eq('year', year)
+        .eq('leave_type', existingRequest.leave_type);
+
+      if (balanceError) {
+        console.error('Failed to update leave balance:', balanceError);
+        // Note: We don't throw here to avoid rolling back the approval
+        // The admin can manually adjust the balance if needed
+      }
+    }
+  }
+
   return leaveRequest;
 }
 

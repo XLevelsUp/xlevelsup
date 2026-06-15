@@ -16,7 +16,8 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Time Tracking Dashboard | XLEVELSUP ERP',
-  description: 'Real-time employee clock in/out tracking and attendance monitoring',
+  description:
+    'Real-time employee clock in/out tracking and attendance monitoring',
 };
 
 export default async function TimeTrackingPage() {
@@ -183,10 +184,10 @@ export default async function TimeTrackingPage() {
         {/* Info */}
         <div className='mt-8 glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>
-            💡 <strong>Tip:</strong> This dashboard shows real-time status. Employees
-            can clock in/out from their portal. Data is refreshed when you reload
-            the page. Hours are calculated automatically including all sessions
-            throughout the day.
+            💡 <strong>Tip:</strong> This dashboard shows real-time status.
+            Employees can clock in/out from their portal. Data is refreshed when
+            you reload the page. Hours are calculated automatically including
+            all sessions throughout the day.
           </p>
         </div>
       </main>

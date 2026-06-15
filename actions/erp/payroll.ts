@@ -95,7 +95,7 @@ export async function generatePayrollAction(
 
       // Calculate payroll
       const calculation = calculatePayroll(
-        employee.monthly_salary,
+        employee.monthly_salary || 0,
         presentDays,
         halfDays,
         paidLeaveDays,

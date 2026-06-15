@@ -75,6 +75,7 @@ export async function createAttendanceChangeRequest(
     request_date: string;
     current_status?: AttendanceStatus | null;
     requested_status: AttendanceStatus;
+    leave_type?: string | null;
     reason: string;
     attendance_id?: number | null;
   },
@@ -86,6 +87,7 @@ export async function createAttendanceChangeRequest(
       request_date: requestData.request_date,
       current_status: requestData.current_status,
       requested_status: requestData.requested_status,
+      leave_type: requestData.leave_type,
       reason: requestData.reason,
       attendance_id: requestData.attendance_id,
       status: 'pending',
@@ -157,6 +159,41 @@ export async function reviewAttendanceChangeRequest(
         });
 
       if (attendanceError) throw attendanceError;
+    }
+
+    // If the requested status is paid-leave, deduct from leave balance
+    if (request.requested_status === 'paid-leave' && request.leave_type) {
+      const year = new Date(request.request_date).getFullYear();
+
+      // Get the current leave balance
+      const { data: currentBalance, error: balanceFetchError } = await supabase
+        .from('leave_balances')
+        .select('used_days')
+        .eq('employee_id', request.employee_id)
+        .eq('year', year)
+        .eq('leave_type', request.leave_type)
+        .single();
+
+      if (balanceFetchError) {
+        console.error('Failed to fetch leave balance:', balanceFetchError);
+      } else if (currentBalance) {
+        // Update the leave balance - increment used_days by 1 (full day)
+        const newUsedDays = Number(currentBalance.used_days) + 1;
+
+        const { error: balanceError } = await supabase
+          .from('leave_balances')
+          .update({
+            used_days: newUsedDays,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('employee_id', request.employee_id)
+          .eq('year', year)
+          .eq('leave_type', request.leave_type);
+
+        if (balanceError) {
+          console.error('Failed to update leave balance:', balanceError);
+        }
+      }
     }
   }
 }

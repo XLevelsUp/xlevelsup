@@ -28,7 +28,10 @@ export default async function LeaveManagementPage() {
           </p>
         </div>
 
-        <LeaveManagementTable requests={leaveRequests} adminId={session.userId} />
+        <LeaveManagementTable
+          requests={leaveRequests}
+          adminId={session.userId}
+        />
       </main>
     </div>
   );
