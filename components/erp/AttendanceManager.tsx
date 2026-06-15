@@ -81,7 +81,7 @@ export default function AttendanceManager({
   return (
     <div>
       {/* Header */}
-      <div className='flex items-center justify-between mb-8'>
+      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
         <div>
           <h1 className='text-3xl font-bold gradient-text'>
             Attendance Management
@@ -90,7 +90,11 @@ export default function AttendanceManager({
             Track daily attendance for all employees
           </p>
         </div>
-        <Button variant='primary' onClick={() => setShowAddModal(true)}>
+        <Button 
+          variant='primary' 
+          onClick={() => setShowAddModal(true)}
+          className='whitespace-nowrap'
+        >
           + Add Attendance
         </Button>
       </div>

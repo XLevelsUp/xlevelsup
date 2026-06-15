@@ -14,6 +14,7 @@ export async function getAllExpenses(filters?: {
   month?: string;
   dateFrom?: string;
   dateTo?: string;
+  paidBy?: string;
 }): Promise<Expense[]> {
   let query = supabase.from('expenses').select('*');
 
@@ -23,6 +24,10 @@ export async function getAllExpenses(filters?: {
 
   if (filters?.category) {
     query = query.eq('category', filters.category);
+  }
+
+  if (filters?.paidBy) {
+    query = query.eq('paid_by', filters.paidBy);
   }
 
   if (filters?.month) {

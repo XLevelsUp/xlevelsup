@@ -7,6 +7,7 @@
  * - Multiple sessions per day support
  * - Warning when clocking out < 8 hours
  * - Shows total hours worked today
+ * - Location tracking on clock in/out
  */
 
 import { useState, useEffect } from 'react';
@@ -15,6 +16,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { toast } from 'react-hot-toast';
 import type { TimeLog, TimeLogSummary } from '@/types/erp';
+import { getCurrentPosition } from '@/lib/utils/geolocation';
 
 interface ClockInOutProps {
   employeeId: number;
@@ -119,7 +121,26 @@ export default function ClockInOut({
   const handleClockIn = async () => {
     setIsProcessing(true);
     try {
-      const result = await clockInAction(employeeId);
+      // Get location first
+      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
+      
+      try {
+        const position = await getCurrentPosition();
+        location = {
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracy: position.accuracy,
+        };
+        toast.success('Location captured');
+      } catch (error: any) {
+        // Location failed, but continue with clock in
+        console.warn('Location capture failed:', error);
+        toast('Location unavailable - clocking in without location', {
+          icon: '⚠️',
+        });
+      }
+
+      const result = await clockInAction(employeeId, location);
 
       if (result.success) {
         toast.success('Clocked in successfully!');
@@ -154,7 +175,26 @@ export default function ClockInOut({
     setShowWarningModal(false);
 
     try {
-      const result = await clockOutAction(employeeId);
+      // Get location first
+      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
+      
+      try {
+        const position = await getCurrentPosition();
+        location = {
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracy: position.accuracy,
+        };
+        toast.success('Location captured');
+      } catch (error: any) {
+        // Location failed, but continue with clock out
+        console.warn('Location capture failed:', error);
+        toast('Location unavailable - clocking out without location', {
+          icon: '⚠️',
+        });
+      }
+
+      const result = await clockOutAction(employeeId, undefined, location);
 
       if (result.success) {
         toast.success('Clocked out successfully!');

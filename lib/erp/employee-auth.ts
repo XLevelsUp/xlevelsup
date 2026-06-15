@@ -18,46 +18,63 @@ export async function authenticateEmployee(
   email: string,
   password: string,
 ): Promise<{ employee: Employee; requirePasswordChange: boolean } | null> {
-  // Get employee by email
-  const { data: employee, error } = await supabase
-    .from('employees')
-    .select('*')
-    .eq('email', email)
-    .eq('status', 'active')
-    .single();
+  try {
+    // Get employee by email
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('email', email)
+      .eq('status', 'active')
+      .single();
 
-  if (error || !employee) {
+    if (error) {
+      // Log database error but don't expose details
+      console.error('Database error during authentication:', error.message);
+      return null;
+    }
+
+    if (!employee) {
+      return null;
+    }
+
+    // Check if account is suspended or locked
+    if (
+      employee.account_status === 'suspended' ||
+      employee.account_status === 'locked'
+    ) {
+      return null;
+    }
+
+    // Verify password
+    if (!employee.password_hash) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, employee.password_hash);
+    if (!isValid) {
+      return null;
+    }
+
+    // Update last login
+    const { error: updateError } = await supabase
+      .from('employees')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', employee.id);
+
+    if (updateError) {
+      // Log error but don't fail authentication
+      console.error('Failed to update last login:', updateError.message);
+    }
+
+    return {
+      employee,
+      requirePasswordChange: employee.require_password_change || false,
+    };
+  } catch (error) {
+    // Catch any unexpected errors (network issues, etc.)
+    console.error('Unexpected error during authentication:', error);
     return null;
   }
-
-  // Check if account is suspended or locked
-  if (
-    employee.account_status === 'suspended' ||
-    employee.account_status === 'locked'
-  ) {
-    return null;
-  }
-
-  // Verify password
-  if (!employee.password_hash) {
-    return null;
-  }
-
-  const isValid = await bcrypt.compare(password, employee.password_hash);
-  if (!isValid) {
-    return null;
-  }
-
-  // Update last login
-  await supabase
-    .from('employees')
-    .update({ last_login: new Date().toISOString() })
-    .eq('id', employee.id);
-
-  return {
-    employee,
-    requirePasswordChange: employee.require_password_change || false,
-  };
 }
 
 /**
@@ -67,18 +84,32 @@ export async function changeEmployeePassword(
   employeeId: number,
   newPassword: string,
 ): Promise<void> {
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  try {
+    const passwordHash = await bcrypt.hash(newPassword, 10);
 
-  const { error } = await supabase
-    .from('employees')
-    .update({
-      password_hash: passwordHash,
-      require_password_change: false,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', employeeId);
+    const { error } = await supabase
+      .from('employees')
+      .update({
+        password_hash: passwordHash,
+        require_password_change: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', employeeId);
 
-  if (error) throw error;
+    if (error) {
+      console.error('Database error changing password:', error.message);
+      throw new Error('Failed to update password. Please try again.');
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('Failed to update password')
+    ) {
+      throw error;
+    }
+    console.error('Unexpected error changing password:', error);
+    throw new Error('An unexpected error occurred. Please try again later.');
+  }
 }
 
 /**
@@ -119,7 +150,12 @@ export async function verifyEmployeeSession(
     }
 
     return payload as unknown as EmployeeSession;
-  } catch {
+  } catch (error) {
+    // Session verification failed - token expired or invalid
+    console.error(
+      'Session verification failed:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return null;
   }
 }
@@ -130,12 +166,24 @@ export async function verifyEmployeeSession(
 export async function getEmployeeByEmail(
   email: string,
 ): Promise<Employee | null> {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('*')
-    .eq('email', email)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-  if (error) return null;
-  return data;
+    if (error) {
+      console.error(
+        'Database error fetching employee by email:',
+        error.message,
+      );
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error fetching employee:', error);
+    return null;
+  }
 }

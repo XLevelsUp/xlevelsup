@@ -4,13 +4,14 @@
  * Server actions for Employee Portal Authentication
  */
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { z } from 'zod';
 import {
   authenticateEmployee,
   changeEmployeePassword,
   createEmployeeSession,
 } from '@/lib/erp/employee-auth';
+import { createLoginLog } from '@/lib/erp/login-logs';
 
 // Validation schemas
 const loginSchema = z.object({
@@ -44,6 +45,16 @@ export async function employeeLoginAction(
   try {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
+    
+    // Get location data if provided
+    const latitude = formData.get('latitude') ? parseFloat(formData.get('latitude') as string) : undefined;
+    const longitude = formData.get('longitude') ? parseFloat(formData.get('longitude') as string) : undefined;
+    const accuracy = formData.get('accuracy') ? parseFloat(formData.get('accuracy') as string) : undefined;
+    
+    // Get request headers for IP and user agent
+    const headersList = await headers();
+    const ipAddress = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'unknown';
+    const userAgent = headersList.get('user-agent') || 'unknown';
 
     // Validate input
     const validated = loginSchema.parse({ email, password });
@@ -55,10 +66,27 @@ export async function employeeLoginAction(
     );
 
     if (!result) {
+      // Log failed login attempt with location
+      // We need to find employee ID from email - but we can't without exposing security
+      // So we'll skip logging failed attempts without employee ID
       return {
         success: false,
         error: 'Invalid email or password',
       };
+    }
+
+    // Log successful login with location
+    try {
+      await createLoginLog(result.employee.id, 'success', {
+        latitude,
+        longitude,
+        accuracy,
+        ipAddress,
+        userAgent,
+      });
+    } catch (logError) {
+      // Don't fail login if logging fails
+      console.error('Failed to create login log:', logError);
     }
 
     // Create session

@@ -79,7 +79,14 @@ export async function getTimeLogSummary(
 /**
  * Clock in - create new time log entry
  */
-export async function clockIn(employeeId: number): Promise<TimeLog> {
+export async function clockIn(
+  employeeId: number,
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  },
+): Promise<TimeLog> {
   // Check if already clocked in
   const activeLog = await getActiveTimeLog(employeeId);
   if (activeLog) {
@@ -96,6 +103,9 @@ export async function clockIn(employeeId: number): Promise<TimeLog> {
       date: today,
       clock_in_time: now.toISOString(),
       status: 'active',
+      clock_in_latitude: location?.latitude || null,
+      clock_in_longitude: location?.longitude || null,
+      clock_in_location_accuracy: location?.accuracy || null,
     })
     .select()
     .single();
@@ -110,6 +120,11 @@ export async function clockIn(employeeId: number): Promise<TimeLog> {
 export async function clockOut(
   employeeId: number,
   notes?: string,
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  },
 ): Promise<TimeLog> {
   // Get active session
   const activeLog = await getActiveTimeLog(employeeId);
@@ -147,6 +162,9 @@ export async function clockOut(
       total_hours: parseFloat(totalHours.toFixed(2)),
       status: 'completed',
       notes: notes || null,
+      clock_out_latitude: location?.latitude || null,
+      clock_out_longitude: location?.longitude || null,
+      clock_out_location_accuracy: location?.accuracy || null,
       updated_at: now.toISOString(),
     })
     .eq('id', activeLog.id)

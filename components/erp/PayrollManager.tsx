@@ -91,7 +91,7 @@ export default function PayrollManager({
   return (
     <div>
       {/* Header */}
-      <div className='flex items-center justify-between mb-8'>
+      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
         <div>
           <h1 className='text-3xl font-bold gradient-text'>
             Payroll Management
@@ -100,7 +100,11 @@ export default function PayrollManager({
             Generate and manage employee salaries
           </p>
         </div>
-        <Button variant='primary' onClick={() => setShowGenerateModal(true)}>
+        <Button 
+          variant='primary' 
+          onClick={() => setShowGenerateModal(true)}
+          className='whitespace-nowrap'
+        >
           Generate Payroll
         </Button>
       </div>

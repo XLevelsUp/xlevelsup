@@ -4,11 +4,12 @@
  * Employee Portal Login Page
  */
 
-import { useActionState, useEffect, Suspense } from 'react';
+import { useActionState, useEffect, Suspense, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { employeeLoginAction } from '@/actions/erp/employee-auth';
 import Button from '@/components/ui/Button';
 import { toast } from 'react-hot-toast';
+import { getCurrentPosition } from '@/lib/utils/geolocation';
 
 function EmployeeLoginForm() {
   const router = useRouter();
@@ -17,6 +18,8 @@ function EmployeeLoginForm() {
     employeeLoginAction,
     null,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
 
   // Check for password change success message
   useEffect(() => {
@@ -42,6 +45,54 @@ function EmployeeLoginForm() {
       toast.error(state.error);
     }
   }, [state, router]);
+
+  // Handle form submission with location capture
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!formRef.current) return;
+
+    setIsCapturingLocation(true);
+
+    // Try to get location
+    try {
+      const position = await getCurrentPosition();
+
+      // Add location to form data via hidden inputs
+      const latInput = document.createElement('input');
+      latInput.type = 'hidden';
+      latInput.name = 'latitude';
+      latInput.value = position.latitude.toString();
+      formRef.current.appendChild(latInput);
+
+      const lonInput = document.createElement('input');
+      lonInput.type = 'hidden';
+      lonInput.name = 'longitude';
+      lonInput.value = position.longitude.toString();
+      formRef.current.appendChild(lonInput);
+
+      const accInput = document.createElement('input');
+      accInput.type = 'hidden';
+      accInput.name = 'accuracy';
+      accInput.value = position.accuracy.toString();
+      formRef.current.appendChild(accInput);
+
+      toast.success('Location captured', { duration: 1000 });
+    } catch (error) {
+      // Location failed, continue without it
+      console.warn('Location capture failed:', error);
+      toast('Location unavailable - continuing without location', {
+        icon: '⚠️',
+        duration: 2000,
+      });
+    } finally {
+      setIsCapturingLocation(false);
+    }
+
+    // Submit the form
+    const formData = new FormData(formRef.current);
+    formAction(formData);
+  };
 
   return (
     <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-4'>
@@ -119,9 +170,13 @@ function EmployeeLoginForm() {
               type='submit'
               variant='primary'
               className='w-full'
-              disabled={isPending}
+              disabled={isPending || isCapturingLocation}
             >
-              {isPending ? 'Logging in...' : 'Login'}
+              {isCapturingLocation
+                ? 'Capturing location...'
+                : isPending
+                  ? 'Logging in...'
+                  : 'Login'}
             </Button>
           </form>
 

@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllExpenses, getAllExpenseCategories } from '@/lib/erp/expenses';
+import { getAllEmployees } from '@/lib/erp/employees';
 import ERPNavbar from '@/components/erp/ERPNavbar';
 import ExpenseManager from '@/components/erp/ExpenseManager';
 import { getCurrentMonth } from '@/lib/erp/utils';
@@ -8,7 +9,12 @@ import { getCurrentMonth } from '@/lib/erp/utils';
 export default async function ExpensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; status?: string; category?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    status?: string;
+    category?: string;
+    paidBy?: string;
+  }>;
 }) {
   const session = await getSession();
   if (!session) {
@@ -19,9 +25,11 @@ export default async function ExpensesPage({
   const month = params.month || getCurrentMonth();
   const status = params.status;
   const category = params.category;
+  const paidBy = params.paidBy;
 
-  const expenses = await getAllExpenses({ month, status, category });
+  const expenses = await getAllExpenses({ month, status, category, paidBy });
   const categories = await getAllExpenseCategories();
+  const employees = await getAllEmployees({ status: 'active' });
 
   return (
     <div className='min-h-screen'>
@@ -30,9 +38,11 @@ export default async function ExpensesPage({
         <ExpenseManager
           expenses={expenses}
           categories={categories}
+          employees={employees}
           initialMonth={month}
           initialStatus={status}
           initialCategory={category}
+          initialPaidBy={paidBy}
         />
       </main>
     </div>

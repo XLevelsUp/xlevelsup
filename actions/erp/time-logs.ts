@@ -20,9 +20,16 @@ export interface ActionResult {
 /**
  * Clock In Action
  */
-export async function clockInAction(employeeId: number): Promise<ActionResult> {
+export async function clockInAction(
+  employeeId: number,
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  },
+): Promise<ActionResult> {
   try {
-    const timeLog = await dbClockIn(employeeId);
+    const timeLog = await dbClockIn(employeeId, location);
 
     revalidatePath('/employee/dashboard');
 
@@ -45,12 +52,17 @@ export async function clockInAction(employeeId: number): Promise<ActionResult> {
 export async function clockOutAction(
   employeeId: number,
   notes?: string,
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  },
 ): Promise<ActionResult> {
   try {
     // Get summary to check if less than 8 hours
     const summary = await getTimeLogSummary(employeeId);
 
-    const timeLog = await dbClockOut(employeeId, notes);
+    const timeLog = await dbClockOut(employeeId, notes, location);
 
     revalidatePath('/employee/dashboard');
 

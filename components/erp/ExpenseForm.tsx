@@ -5,6 +5,7 @@ import { useState, useEffect, useActionState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { createExpenseAction } from '@/actions/erp/expenses';
+import type { Employee } from '@/types/erp';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -23,11 +24,13 @@ function SubmitButton() {
 
 interface ExpenseFormProps {
   categories: string[];
+  employees: Employee[];
   onSuccess?: () => void;
 }
 
 export default function ExpenseForm({
   categories,
+  employees,
   onSuccess,
 }: ExpenseFormProps) {
   const [state, formAction] = useActionState(
@@ -129,14 +132,20 @@ export default function ExpenseForm({
           <label htmlFor='paid_by' className='block text-sm font-medium mb-2'>
             Paid By *
           </label>
-          <input
-            type='text'
+          <select
             id='paid_by'
             name='paid_by'
             required
-            placeholder='Employee name or company'
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-          />
+          >
+            <option value=''>Select Employee</option>
+            {employees.map((employee) => (
+              <option key={employee.id} value={employee.name}>
+                {employee.name} ({employee.employee_id})
+              </option>
+            ))}
+            <option value='Company'>Company</option>
+          </select>
         </div>
 
         <div>

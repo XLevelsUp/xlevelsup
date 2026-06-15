@@ -134,6 +134,9 @@ export interface Expense {
   paid_by_user?: number | null;
   paid_at?: string | null;
   rejection_reason?: string | null;
+  reimbursed?: boolean | null;
+  reimbursed_by?: number | null;
+  reimbursed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -189,7 +192,7 @@ export interface ExpenseFormData {
   paid_by: string;
   payment_mode: string;
   description: string;
-  receipt_url?: string;
+  receipt_url?: string | null;
 }
 
 // Leave Management Types
@@ -307,6 +310,13 @@ export interface TimeLog {
   total_hours?: number | null;
   status: TimeLogStatus;
   notes?: string | null;
+  // Location tracking
+  clock_in_latitude?: number | null;
+  clock_in_longitude?: number | null;
+  clock_in_location_accuracy?: number | null;
+  clock_out_latitude?: number | null;
+  clock_out_longitude?: number | null;
+  clock_out_location_accuracy?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -316,4 +326,19 @@ export interface TimeLogSummary {
   is_clocked_in: boolean;
   active_session?: TimeLog | null;
   completed_sessions: TimeLog[];
+}
+
+// Login Logs Types
+export interface LoginLog {
+  id: number;
+  employee_id: number;
+  login_time: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_accuracy?: number | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  status: 'success' | 'failed';
+  failure_reason?: string | null;
+  created_at: string;
 }
