@@ -146,7 +146,8 @@ export async function updateExpenseStatus(
     updateData.approved_at = new Date().toISOString();
     updateData.rejection_reason = rejectionReason || null;
   } else if (status === 'paid') {
-    updateData.paid_by = userId;
+    // Use paid_by_user (foreign key) — do NOT overwrite paid_by (the person's name/text)
+    updateData.paid_by_user = userId;
     updateData.paid_at = new Date().toISOString();
   }
 

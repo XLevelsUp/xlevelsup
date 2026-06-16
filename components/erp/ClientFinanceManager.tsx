@@ -30,6 +30,8 @@ interface ClientFinanceManagerProps {
     netProfit: number;
     pendingIncome: number;
     pendingExpense: number;
+    advanceIncome: number;
+    pendingFromAdvance: number;
   };
 }
 
@@ -74,6 +76,26 @@ export default function ClientFinanceManager({
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      completed: 'bg-green-500/20 text-green-400',
+      advance: 'bg-blue-500/20 text-blue-400',
+      pending: 'bg-yellow-500/20 text-yellow-400',
+      cancelled: 'bg-gray-500/20 text-gray-400',
+    };
+    const labels: Record<string, string> = {
+      completed: '✓ Full Payment',
+      advance: '◑ Advance',
+      pending: '⏳ Pending',
+      cancelled: '✕ Cancelled',
+    };
+    return (
+      <span className={`px-2 py-1 rounded text-xs font-medium ${styles[status] || 'bg-gray-500/20 text-gray-400'}`}>
+        {labels[status] || status}
+      </span>
+    );
+  };
+
   const allCategories = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES];
 
   return (
@@ -86,8 +108,8 @@ export default function ClientFinanceManager({
             Track income and expenses for client projects
           </p>
         </div>
-        <Button 
-          variant='primary' 
+        <Button
+          variant='primary'
           onClick={() => setShowAddModal(true)}
           className='whitespace-nowrap'
         >
@@ -157,9 +179,9 @@ export default function ClientFinanceManager({
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
               <option value=''>All Statuses</option>
-              <option value='completed'>Completed</option>
+              <option value='completed'>Full Payment</option>
+              <option value='advance'>Advance Received</option>
               <option value='pending'>Pending</option>
-              <option value='failed'>Failed</option>
               <option value='cancelled'>Cancelled</option>
             </select>
           </div>
@@ -176,18 +198,20 @@ export default function ClientFinanceManager({
       </div>
 
       {/* Financial Summary */}
-      <div className='grid grid-cols-2 md:grid-cols-5 gap-4 mb-6'>
+      <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mb-4'>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Total Income</p>
           <p className='text-2xl font-bold text-green-400 mt-1'>
             {formatCurrency(summary.totalIncome)}
           </p>
+          <p className='text-xs text-gray-500 mt-1'>Full payments received</p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Total Expense</p>
           <p className='text-2xl font-bold text-red-400 mt-1'>
             {formatCurrency(summary.totalExpense)}
           </p>
+          <p className='text-xs text-gray-500 mt-1'>Completed expenses</p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Net Profit</p>
@@ -196,20 +220,40 @@ export default function ClientFinanceManager({
           >
             {formatCurrency(summary.netProfit)}
           </p>
+          <p className='text-xs text-gray-500 mt-1'>Income − Expense</p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Pending Income</p>
           <p className='text-2xl font-bold text-yellow-400 mt-1'>
             {formatCurrency(summary.pendingIncome)}
           </p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Pending Expense</p>
-          <p className='text-2xl font-bold text-orange-400 mt-1'>
-            {formatCurrency(summary.pendingExpense)}
-          </p>
+          <p className='text-xs text-gray-500 mt-1'>Awaiting full payment</p>
         </div>
       </div>
+
+      {/* Advance Tracking Summary */}
+      {(summary.advanceIncome > 0 || summary.pendingFromAdvance > 0) && (
+        <div className='grid grid-cols-2 gap-4 mb-6'>
+          <div className='glass p-4 rounded-lg border border-blue-500/20'>
+            <p className='text-sm text-gray-400'>Advance Received</p>
+            <p className='text-2xl font-bold text-blue-400 mt-1'>
+              {formatCurrency(summary.advanceIncome)}
+            </p>
+            <p className='text-xs text-gray-500 mt-1'>Partial payments collected</p>
+          </div>
+          <div className='glass p-4 rounded-lg border border-orange-500/20'>
+            <p className='text-sm text-gray-400'>Balance Pending (from Advances)</p>
+            <p className='text-2xl font-bold text-orange-400 mt-1'>
+              {formatCurrency(summary.pendingFromAdvance)}
+            </p>
+            <p className='text-xs text-gray-500 mt-1'>Remaining after advance</p>
+          </div>
+        </div>
+      )}
+
+      {!summary.advanceIncome && !summary.pendingFromAdvance && (
+        <div className='mb-6' />
+      )}
 
       {/* Transactions Table */}
       <div className='glass rounded-lg overflow-hidden'>
@@ -225,12 +269,13 @@ export default function ClientFinanceManager({
             headers={[
               'Date',
               'Type',
-              'Client',
+              'Client / Ref #',
               'Project',
               'Category',
               'Amount',
+              'Advance',
+              'Pending',
               'Status',
-              'Description',
               'Actions',
             ]}
           >
@@ -254,9 +299,9 @@ export default function ClientFinanceManager({
                   <div className='font-medium text-white'>
                     {transaction.client_name}
                   </div>
-                  {transaction.invoice_number && (
-                    <div className='text-xs text-gray-500'>
-                      {transaction.invoice_number}
+                  {(transaction.reference_number || transaction.invoice_number) && (
+                    <div className='text-xs text-gray-500 font-mono'>
+                      {transaction.reference_number || transaction.invoice_number}
                     </div>
                   )}
                 </TableCell>
@@ -286,22 +331,29 @@ export default function ClientFinanceManager({
                   )}
                 </TableCell>
                 <TableCell>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      transaction.payment_status === 'completed'
-                        ? 'bg-green-500/20 text-green-400'
-                        : transaction.payment_status === 'pending'
-                          ? 'bg-yellow-500/20 text-yellow-400'
-                          : transaction.payment_status === 'failed'
-                            ? 'bg-red-500/20 text-red-400'
-                            : 'bg-gray-500/20 text-gray-400'
-                    }`}
-                  >
-                    {transaction.payment_status}
-                  </span>
+                  {transaction.advance_amount ? (
+                    <span className='text-blue-400 font-semibold'>
+                      {formatCurrency(transaction.advance_amount)}
+                    </span>
+                  ) : (
+                    <span className='text-gray-600'>—</span>
+                  )}
                 </TableCell>
-                <TableCell className='max-w-xs truncate'>
-                  {transaction.description}
+                <TableCell>
+                  {transaction.pending_amount != null && transaction.pending_amount > 0 ? (
+                    <span className='text-orange-400 font-semibold'>
+                      {formatCurrency(transaction.pending_amount)}
+                    </span>
+                  ) : transaction.payment_status === 'pending' ? (
+                    <span className='text-yellow-400 font-semibold'>
+                      {formatCurrency(transaction.amount)}
+                    </span>
+                  ) : (
+                    <span className='text-gray-600'>—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {getStatusBadge(transaction.payment_status)}
                 </TableCell>
                 <TableCell>
                   <button

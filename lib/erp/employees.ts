@@ -23,8 +23,8 @@ function generateDefaultPassword(employeeId: string): string {
 async function generateEmployeeId(employmentType?: string): Promise<string> {
   try {
     const isTemporary = employmentType === 'temporary';
-    const prefix = isTemporary ? 'TEMP-XLU-' : 'XLU';
-    const pattern = isTemporary ? /TEMP-XLU-(\d+)/ : /XLU(\d+)/;
+    const prefix = isTemporary ? 'TEMP' : 'XLU';
+    const pattern = isTemporary ? /TEMP(\d+)/ : /XLU(\d+)/;
 
     // Get the latest employee with matching pattern
     const { data, error } = await supabase
@@ -36,12 +36,11 @@ async function generateEmployeeId(employmentType?: string): Promise<string> {
 
     if (error) {
       console.error('Error generating employee ID:', error.message);
-      console.error('Error generating employee ID:', error.message);
       throw handleDatabaseError(error, 'generate employee ID');
     }
 
     if (!data || data.length === 0) {
-      return `${prefix}${isTemporary ? '' : ''}001`; // First employee of this type
+      return `${prefix}000`; // First employee of this type starts at 000
     }
 
     // Extract number from last employee_id
@@ -55,7 +54,7 @@ async function generateEmployeeId(employmentType?: string): Promise<string> {
     }
 
     // Fallback if format doesn't match
-    return `${prefix}${isTemporary ? '' : ''}001`;
+    return `${prefix}000`;
   } catch (error) {
     throw handleDatabaseError(error, 'generate employee ID');
   }

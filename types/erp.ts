@@ -326,6 +326,7 @@ export interface TimeLogSummary {
   is_clocked_in: boolean;
   active_session?: TimeLog | null;
   completed_sessions: TimeLog[];
+  missed_clock_out?: TimeLog | null;
 }
 
 // Login Logs Types

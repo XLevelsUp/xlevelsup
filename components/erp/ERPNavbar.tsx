@@ -17,6 +17,14 @@ export default function ERPNavbar({ userEmail, userRole }: ERPNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
+  const isActivePath = (href: string) => {
+    if (pathname === href) return true;
+    const pathSegs = pathname.split('/').filter(Boolean);
+    const hrefSegs = href.split('/').filter(Boolean);
+    if (hrefSegs.length > pathSegs.length) return false;
+    return hrefSegs.every((seg, i) => pathSegs[i] === seg);
+  };
+
   const navItems = [
     { href: '/erp/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/erp/employees', label: 'Employees', icon: '👥' },
@@ -61,7 +69,7 @@ export default function ERPNavbar({ userEmail, userRole }: ERPNavbarProps) {
           {/* Navigation */}
           <div className='hidden md:flex items-center gap-1'>
             {navItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
+              const isActive = isActivePath(item.href);
               return (
                 <Link
                   key={item.href}
@@ -98,7 +106,7 @@ export default function ERPNavbar({ userEmail, userRole }: ERPNavbarProps) {
         {/* Mobile Navigation */}
         <div className='md:hidden flex gap-2 pb-3 overflow-x-auto'>
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = isActivePath(item.href);
             return (
               <Link
                 key={item.href}

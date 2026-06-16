@@ -1,7 +1,7 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useState, useEffect, useActionState } from 'react';
+import { useEffect, useActionState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { createExpenseAction } from '@/actions/erp/expenses';
@@ -33,6 +33,8 @@ export default function ExpenseForm({
   employees,
   onSuccess,
 }: ExpenseFormProps) {
+  const today = new Date().toISOString().split('T')[0];
+
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
       return await createExpenseAction(formData);
@@ -55,7 +57,6 @@ export default function ExpenseForm({
     }
   }, [state, onSuccess]);
 
-  const today = new Date().toISOString().split('T')[0];
 
   return (
     <form action={formAction} className='space-y-4'>
@@ -73,43 +74,38 @@ export default function ExpenseForm({
             max={today}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
+          <p className='text-xs text-gray-500 mt-1'>Expense will appear in the month matching this date</p>
         </div>
 
         <div>
           <label htmlFor='category' className='block text-sm font-medium mb-2'>
             Category *
           </label>
-          {categories.length > 0 ? (
-            <select
-              id='category'
-              name='category'
-              required
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            >
-              <option value=''>Select Category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-              <option value='Travel'>Travel</option>
-              <option value='Office Supplies'>Office Supplies</option>
-              <option value='Equipment'>Equipment</option>
-              <option value='Software'>Software</option>
-              <option value='Utilities'>Utilities</option>
-              <option value='Marketing'>Marketing</option>
-              <option value='Other'>Other</option>
-            </select>
-          ) : (
-            <input
-              type='text'
-              id='category'
-              name='category'
-              required
-              placeholder='e.g., Travel, Office Supplies'
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
-          )}
+          <select
+            id='category'
+            name='category'
+            required
+            className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+          >
+            <option value=''>Select Category</option>
+            {[
+              ...new Set([
+                ...categories,
+                'Travel',
+                'Office Supplies',
+                'Equipment',
+                'Software',
+                'Utilities',
+                'Marketing',
+                'Pantry',
+                'Other',
+              ]),
+            ].sort().map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

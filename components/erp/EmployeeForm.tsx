@@ -87,7 +87,7 @@ export default function EmployeeForm({
             {!isEdit && (
               <span className='text-gray-400 text-xs ml-2'>
                 (Auto-generated:{' '}
-                {employmentType === 'temporary' ? 'TEMP-XLU-001' : 'XLU001'})
+                {employmentType === 'temporary' ? 'TEMP000' : 'XLU000'})
               </span>
             )}
           </label>
@@ -100,8 +100,8 @@ export default function EmployeeForm({
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors disabled:opacity-50'
             placeholder={
               employmentType === 'temporary'
-                ? 'TEMP-XLU-001 (auto-generated)'
-                : 'XLU001 (auto-generated)'
+                ? 'TEMP000 (auto-generated)'
+                : 'XLU000 (auto-generated)'
             }
             disabled={isEdit} // Disable editing of ID when updating
           />

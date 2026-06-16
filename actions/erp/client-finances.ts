@@ -24,11 +24,13 @@ const transactionSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   subcategory: z.string().nullable().optional(),
   payment_mode: z.string().nullable().optional(),
-  payment_status: z.enum(['pending', 'completed', 'failed', 'cancelled']),
-  invoice_number: z.string().nullable().optional(),
+  payment_status: z.enum(['pending', 'completed', 'advance', 'cancelled']),
+  reference_number: z.string().nullable().optional(),
   receipt_url: z.string().nullable().optional(),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  advance_amount: z.number().nullable().optional(),
+  pending_amount: z.number().nullable().optional(),
 });
 
 export interface ClientTransactionActionResult {
@@ -65,24 +67,35 @@ export async function createClientTransactionAction(
   try {
     const session = await requireAuth();
 
+    const paymentStatus = formData.get('payment_status') as string;
+    const amountStr = formData.get('amount') as string;
+    const amount = parseFloat(amountStr);
+
+    const advanceAmountStr = formData.get('advance_amount') as string;
+    const advanceAmount = advanceAmountStr ? parseFloat(advanceAmountStr) : null;
+
+    // Auto-calculate pending amount for advance payments
+    let pendingAmount: number | null = null;
+    if (paymentStatus === 'advance' && advanceAmount !== null && !isNaN(advanceAmount)) {
+      pendingAmount = amount - advanceAmount;
+    }
+
     const rawData = {
       transaction_date: formData.get('transaction_date') as string,
       type: formData.get('type') as 'income' | 'expense',
-      amount: parseFloat(formData.get('amount') as string),
+      amount,
       client_name: formData.get('client_name') as string,
       project_name: (formData.get('project_name') as string) || null,
       category: formData.get('category') as string,
       subcategory: (formData.get('subcategory') as string) || null,
       payment_mode: (formData.get('payment_mode') as string) || null,
-      payment_status: formData.get('payment_status') as
-        | 'pending'
-        | 'completed'
-        | 'failed'
-        | 'cancelled',
-      invoice_number: (formData.get('invoice_number') as string) || null,
+      payment_status: paymentStatus as 'pending' | 'completed' | 'advance' | 'cancelled',
+      reference_number: (formData.get('reference_number') as string) || null,
       receipt_url: (formData.get('receipt_url') as string) || null,
-      description: formData.get('description') as string,
+      description: (formData.get('description') as string) || null,
       notes: (formData.get('notes') as string) || null,
+      advance_amount: advanceAmount,
+      pending_amount: pendingAmount,
     };
 
     const validatedData = transactionSchema.parse(rawData);
@@ -112,24 +125,34 @@ export async function updateClientTransactionAction(
   try {
     await requireRole(['admin', 'hr']);
 
+    const paymentStatus = formData.get('payment_status') as string;
+    const amountStr = formData.get('amount') as string;
+    const amount = parseFloat(amountStr);
+
+    const advanceAmountStr = formData.get('advance_amount') as string;
+    const advanceAmount = advanceAmountStr ? parseFloat(advanceAmountStr) : null;
+
+    let pendingAmount: number | null = null;
+    if (paymentStatus === 'advance' && advanceAmount !== null && !isNaN(advanceAmount)) {
+      pendingAmount = amount - advanceAmount;
+    }
+
     const rawData = {
       transaction_date: formData.get('transaction_date') as string,
       type: formData.get('type') as 'income' | 'expense',
-      amount: parseFloat(formData.get('amount') as string),
+      amount,
       client_name: formData.get('client_name') as string,
       project_name: (formData.get('project_name') as string) || null,
       category: formData.get('category') as string,
       subcategory: (formData.get('subcategory') as string) || null,
       payment_mode: (formData.get('payment_mode') as string) || null,
-      payment_status: formData.get('payment_status') as
-        | 'pending'
-        | 'completed'
-        | 'failed'
-        | 'cancelled',
-      invoice_number: (formData.get('invoice_number') as string) || null,
+      payment_status: paymentStatus as 'pending' | 'completed' | 'advance' | 'cancelled',
+      reference_number: (formData.get('reference_number') as string) || null,
       receipt_url: (formData.get('receipt_url') as string) || null,
-      description: formData.get('description') as string,
+      description: (formData.get('description') as string) || null,
       notes: (formData.get('notes') as string) || null,
+      advance_amount: advanceAmount,
+      pending_amount: pendingAmount,
     };
 
     const validatedData = transactionSchema.parse(rawData);

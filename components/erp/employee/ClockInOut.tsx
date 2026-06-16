@@ -38,6 +38,22 @@ export default function ClockInOut({
     setIsMounted(true);
   }, []);
 
+  // Show toast warning if there is a missed clock-out
+  useEffect(() => {
+    if (isMounted && summary.missed_clock_out) {
+      const formattedDate = new Date(summary.missed_clock_out.date).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      toast(`You missed to clock out on ${formattedDate}. Please regularise it.`, {
+        icon: '⚠️',
+        duration: 8000,
+        id: 'missed-clock-out-toast',
+      });
+    }
+  }, [isMounted, summary.missed_clock_out]);
+
   // Update timer every second when clocked in
   useEffect(() => {
     if (!summary.is_clocked_in || !summary.active_session) {
@@ -217,6 +233,34 @@ export default function ClockInOut({
     <>
       <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6'>
         <h2 className='text-xl font-bold text-white mb-4'>⏰ Time Tracker</h2>
+
+        {/* Missed Clock-Out Warning */}
+        {summary.missed_clock_out && (
+          <div className='mb-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-sm text-yellow-400'>
+            <div className='flex items-start gap-3'>
+              <span className='text-lg'>⚠️</span>
+              <div>
+                <p className='font-semibold mb-1'>Missed Clock-Out Detected</p>
+                <p className='text-gray-300 text-xs mb-2 leading-relaxed'>
+                  You clocked in but missed to clock out on{' '}
+                  <strong>
+                    {new Date(summary.missed_clock_out.date).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </strong>.
+                </p>
+                <a
+                  href='/employee/attendance'
+                  className='text-xs font-semibold text-cyan hover:underline hover:text-cyan/80 transition-colors'
+                >
+                  Regularise Missed Clock-Out →
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Current Status */}
         <div className='mb-6'>

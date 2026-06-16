@@ -3,7 +3,7 @@
  */
 
 export type TransactionType = 'income' | 'expense';
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
+export type PaymentStatus = 'pending' | 'completed' | 'advance' | 'cancelled';
 
 export interface ClientTransaction {
   id: number;
@@ -16,10 +16,14 @@ export interface ClientTransaction {
   subcategory?: string | null;
   payment_mode?: string | null;
   payment_status: PaymentStatus;
+  /** @deprecated use reference_number instead */
   invoice_number?: string | null;
+  reference_number?: string | null;
   receipt_url?: string | null;
-  description: string;
+  description?: string | null;
   notes?: string | null;
+  advance_amount?: number | null;
+  pending_amount?: number | null;
   created_by?: number | null;
   created_at: string;
   updated_at: string;
@@ -35,10 +39,12 @@ export interface ClientTransactionFormData {
   subcategory?: string | null;
   payment_mode?: string | null;
   payment_status: PaymentStatus;
-  invoice_number?: string | null;
+  reference_number?: string | null;
   receipt_url?: string | null;
-  description: string;
+  description?: string | null;
   notes?: string | null;
+  advance_amount?: number | null;
+  pending_amount?: number | null;
 }
 
 // Predefined categories

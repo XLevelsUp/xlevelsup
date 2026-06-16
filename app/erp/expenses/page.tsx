@@ -4,7 +4,6 @@ import { getAllExpenses, getAllExpenseCategories } from '@/lib/erp/expenses';
 import { getAllEmployees } from '@/lib/erp/employees';
 import ERPNavbar from '@/components/erp/ERPNavbar';
 import ExpenseManager from '@/components/erp/ExpenseManager';
-import { getCurrentMonth } from '@/lib/erp/utils';
 
 export default async function ExpensesPage({
   searchParams,
@@ -22,7 +21,8 @@ export default async function ExpensesPage({
   }
 
   const params = await searchParams;
-  const month = params.month || getCurrentMonth();
+  // month is optional — if not specified, show ALL expenses across all months
+  const month = params.month || undefined;
   const status = params.status;
   const category = params.category;
   const paidBy = params.paidBy;
@@ -39,7 +39,7 @@ export default async function ExpensesPage({
           expenses={expenses}
           categories={categories}
           employees={employees}
-          initialMonth={month}
+          initialMonth={month || ''}
           initialStatus={status}
           initialCategory={category}
           initialPaidBy={paidBy}

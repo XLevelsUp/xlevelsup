@@ -204,6 +204,8 @@ export async function getFinancialSummary(filters?: {
   netProfit: number;
   pendingIncome: number;
   pendingExpense: number;
+  advanceIncome: number;
+  pendingFromAdvance: number;
 }> {
   try {
     const transactions = await getAllClientTransactions(filters);
@@ -227,12 +229,22 @@ export async function getFinancialSummary(filters?: {
       .filter((t) => t.payment_status === 'pending')
       .reduce((sum, t) => sum + t.amount, 0);
 
+    const advanceIncome = income
+      .filter((t) => t.payment_status === 'advance')
+      .reduce((sum, t) => sum + (t.advance_amount ?? 0), 0);
+
+    const pendingFromAdvance = income
+      .filter((t) => t.payment_status === 'advance')
+      .reduce((sum, t) => sum + (t.pending_amount ?? 0), 0);
+
     return {
       totalIncome,
       totalExpense,
       netProfit: totalIncome - totalExpense,
       pendingIncome,
       pendingExpense,
+      advanceIncome,
+      pendingFromAdvance,
     };
   } catch (error) {
     throw handleDatabaseError(error, 'calculate financial summary');

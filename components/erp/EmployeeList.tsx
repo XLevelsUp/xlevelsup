@@ -82,8 +82,8 @@ export default function EmployeeList({
             Manage employee records and information
           </p>
         </div>
-        <Button 
-          variant='primary' 
+        <Button
+          variant='primary'
           onClick={() => setShowCreateModal(true)}
           className='whitespace-nowrap'
         >

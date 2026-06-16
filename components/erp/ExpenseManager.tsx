@@ -43,7 +43,8 @@ export default function ExpenseManager({
 
   const handleFilterChange = () => {
     const params = new URLSearchParams();
-    params.set('month', month);
+    // Only add month to URL if explicitly selected
+    if (month) params.set('month', month);
     if (status) params.set('status', status);
     if (category) params.set('category', category);
     if (paidBy) params.set('paidBy', paidBy);
@@ -108,8 +109,8 @@ export default function ExpenseManager({
             Manage and track all business expenses
           </p>
         </div>
-        <Button 
-          variant='primary' 
+        <Button
+          variant='primary'
           onClick={() => setShowAddModal(true)}
           className='whitespace-nowrap'
         >
@@ -120,14 +121,40 @@ export default function ExpenseManager({
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
         <div className='grid grid-cols-1 md:grid-cols-5 gap-4'>
+          {/* Month — ✕ overlaid inside the input */}
           <div>
-            <label className='block text-sm font-medium mb-2'>Month</label>
-            <input
-              type='month'
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
+            <label className='block text-sm font-medium mb-2'>
+              Month
+              {!month && (
+                <span className='ml-2 text-xs font-normal text-gray-500'>(All)</span>
+              )}
+            </label>
+            <div className='relative'>
+              <input
+                type='month'
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              />
+              {month && (
+                <button
+                  type='button'
+                  title='Clear — show all months'
+                  onClick={() => {
+                    setMonth('');
+                    // Immediately navigate without month param so API reloads all data
+                    const params = new URLSearchParams();
+                    if (status) params.set('status', status);
+                    if (category) params.set('category', category);
+                    if (paidBy) params.set('paidBy', paidBy);
+                    router.push(`/erp/expenses${params.toString() ? `?${params.toString()}` : ''}`);
+                  }}
+                  className='absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 text-white text-xs transition-colors'
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Status</label>

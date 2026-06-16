@@ -90,8 +90,8 @@ export default function AttendanceManager({
             Track daily attendance for all employees
           </p>
         </div>
-        <Button 
-          variant='primary' 
+        <Button
+          variant='primary'
           onClick={() => setShowAddModal(true)}
           className='whitespace-nowrap'
         >

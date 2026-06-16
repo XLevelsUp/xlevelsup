@@ -48,6 +48,53 @@ export async function getTimeLogsByDate(
 }
 
 /**
+ * Check if employee has any missed clock-outs from previous days
+ * (i.e. time logs with status 'active' and date < today that don't have pending/approved change requests)
+ */
+export async function getMissedClockOut(
+  employeeId: number,
+): Promise<TimeLog | null> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get all active sessions from previous days
+    const { data: activeLogs, error: logsError } = await supabase
+      .from('time_logs')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .eq('status', 'active')
+      .lt('date', today)
+      .order('date', { ascending: false });
+
+    if (logsError) throw logsError;
+    if (!activeLogs || activeLogs.length === 0) return null;
+
+    // For each active log, check if there is a pending or approved attendance change request
+    for (const log of activeLogs) {
+      const { data: requests, error: reqError } = await supabase
+        .from('attendance_change_requests')
+        .select('id')
+        .eq('employee_id', employeeId)
+        .eq('request_date', log.date)
+        .in('status', ['pending', 'approved'])
+        .limit(1);
+
+      if (reqError) throw reqError;
+
+      // If no pending or approved change request exists, this is an unregularized missed clock-out
+      if (!requests || requests.length === 0) {
+        return log;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching missed clock out:', error);
+    return null;
+  }
+}
+
+/**
  * Get time log summary for employee today
  */
 export async function getTimeLogSummary(
@@ -66,6 +113,9 @@ export async function getTimeLogSummary(
     0,
   );
 
+  // Get any unregularized missed clock-out from previous days
+  const missedClockOut = await getMissedClockOut(employeeId);
+
   // Don't calculate current session hours on server side to avoid hydration mismatch
   // Client will calculate this dynamically
   return {
@@ -73,6 +123,7 @@ export async function getTimeLogSummary(
     is_clocked_in: !!activeSession,
     active_session: activeSession,
     completed_sessions: completedSessions,
+    missed_clock_out: missedClockOut,
   };
 }
 

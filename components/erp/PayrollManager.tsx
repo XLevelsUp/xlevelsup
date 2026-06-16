@@ -100,8 +100,8 @@ export default function PayrollManager({
             Generate and manage employee salaries
           </p>
         </div>
-        <Button 
-          variant='primary' 
+        <Button
+          variant='primary'
           onClick={() => setShowGenerateModal(true)}
           className='whitespace-nowrap'
         >

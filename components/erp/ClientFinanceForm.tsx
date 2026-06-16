@@ -45,6 +45,9 @@ export default function ClientFinanceForm({
 
   const [transactionType, setTransactionType] =
     useState<TransactionType>('income');
+  const [paymentStatus, setPaymentStatus] = useState<string>('completed');
+  const [amount, setAmount] = useState<string>('');
+  const [advanceAmount, setAdvanceAmount] = useState<string>('');
 
   useEffect(() => {
     if (state.success) {
@@ -64,6 +67,11 @@ export default function ClientFinanceForm({
   const today = new Date().toISOString().split('T')[0];
   const categories =
     transactionType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  const pendingAmountCalc =
+    paymentStatus === 'advance' && amount && advanceAmount
+      ? parseFloat(amount) - parseFloat(advanceAmount)
+      : null;
 
   return (
     <form action={formAction} className='space-y-4'>
@@ -107,7 +115,7 @@ export default function ClientFinanceForm({
 
         <div>
           <label htmlFor='amount' className='block text-sm font-medium mb-2'>
-            Amount (₹) *
+            Total Amount (₹) *
           </label>
           <input
             type='number'
@@ -117,6 +125,8 @@ export default function ClientFinanceForm({
             min='0'
             step='0.01'
             placeholder='10000.00'
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
         </div>
@@ -211,41 +221,81 @@ export default function ClientFinanceForm({
             id='payment_status'
             name='payment_status'
             required
-            defaultValue='completed'
+            value={paymentStatus}
+            onChange={(e) => setPaymentStatus(e.target.value)}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           >
+            <option value='completed'>Completed (Full Payment)</option>
+            <option value='advance'>Advance Received</option>
             <option value='pending'>Pending</option>
-            <option value='completed'>Completed</option>
-            <option value='failed'>Failed</option>
             <option value='cancelled'>Cancelled</option>
           </select>
         </div>
 
+        {/* Advance amount — only shown when status is 'advance' */}
+        {paymentStatus === 'advance' && (
+          <>
+            <div>
+              <label
+                htmlFor='advance_amount'
+                className='block text-sm font-medium mb-2'
+              >
+                Advance Received (₹) *
+              </label>
+              <input
+                type='number'
+                id='advance_amount'
+                name='advance_amount'
+                required
+                min='0'
+                step='0.01'
+                placeholder='5000.00'
+                value={advanceAmount}
+                onChange={(e) => setAdvanceAmount(e.target.value)}
+                className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              />
+            </div>
+
+            <div>
+              <label className='block text-sm font-medium mb-2'>
+                Pending Amount (₹)
+              </label>
+              <div className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-yellow-400 font-semibold'>
+                {pendingAmountCalc !== null && !isNaN(pendingAmountCalc)
+                  ? `₹${pendingAmountCalc.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                  : '—'}
+              </div>
+              <p className='text-xs text-gray-500 mt-1'>Auto-calculated: Total − Advance</p>
+            </div>
+          </>
+        )}
+
         <div>
           <label
-            htmlFor='invoice_number'
+            htmlFor='reference_number'
             className='block text-sm font-medium mb-2'
           >
-            Invoice Number
+            Reference Number
           </label>
           <input
             type='text'
-            id='invoice_number'
-            name='invoice_number'
-            placeholder='INV-2024-001'
+            id='reference_number'
+            name='reference_number'
+            placeholder='INV-001 / UPI Txn ID / etc.'
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
+          <p className='text-xs text-gray-500 mt-1'>Invoice no., UPI Txn ID, cheque no., etc.</p>
         </div>
       </div>
 
       <div>
         <label htmlFor='description' className='block text-sm font-medium mb-2'>
-          Description *
+          Description
+          <span className='text-gray-500 ml-1 font-normal'>(optional)</span>
         </label>
         <textarea
           id='description'
           name='description'
-          required
           rows={3}
           placeholder='Brief description of the transaction...'
           className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
