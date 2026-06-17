@@ -151,7 +151,7 @@ export default function ClockInOut({
       } catch (error: any) {
         // Location failed, but continue with clock in
         console.warn('Location capture failed:', error);
-        toast('Location unavailable - clocking in without location', {
+        toast(`Location unavailable (${error.message || 'Unknown error'}) - clocking in without location`, {
           icon: '⚠️',
         });
       }
@@ -205,7 +205,7 @@ export default function ClockInOut({
       } catch (error: any) {
         // Location failed, but continue with clock out
         console.warn('Location capture failed:', error);
-        toast('Location unavailable - clocking out without location', {
+        toast(`Location unavailable (${error.message || 'Unknown error'}) - clocking out without location`, {
           icon: '⚠️',
         });
       }
@@ -252,7 +252,7 @@ export default function ClockInOut({
                   </strong>.
                 </p>
                 <a
-                  href='/employee/attendance'
+                  href={`/employee/attendance?date=${summary.missed_clock_out.date}&missed=true`}
                   className='text-xs font-semibold text-cyan hover:underline hover:text-cyan/80 transition-colors'
                 >
                   Regularise Missed Clock-Out →

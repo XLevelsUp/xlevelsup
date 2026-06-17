@@ -34,11 +34,12 @@ export async function getAllEmployeesTimeStatus(): Promise<
 > {
   const today = new Date().toISOString().split('T')[0];
 
-  // Get all active employees
+  // Get all active employees except temporary employees
   const { data: employees, error: empError } = await supabase
     .from('employees')
-    .select('id, employee_id, name, department, status')
+    .select('id, employee_id, name, department, status, employment_type')
     .eq('status', 'active')
+    .neq('employment_type', 'temporary')
     .order('name', { ascending: true });
 
   if (empError) throw empError;

@@ -186,6 +186,11 @@ export default function AttendanceChangeRequestsManagementTable({
                               {request.leave_type.toUpperCase()}
                             </span>
                           )}
+                        {request.clock_out_time && (
+                          <span className='text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded ml-1'>
+                            🕒 {request.clock_out_time.substring(0, 5)}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className='py-3 px-2'>
@@ -274,6 +279,14 @@ export default function AttendanceChangeRequestsManagementTable({
                     )}
                 </div>
               </div>
+              {selectedRequest.clock_out_time && (
+                <div>
+                  <p className='text-xs text-gray-500'>Requested Clock-Out Time</p>
+                  <p className='text-sm text-cyan-400 font-semibold mt-1'>
+                    {selectedRequest.clock_out_time.substring(0, 5)}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className='text-xs text-gray-500'>Reason</p>
                 <p className='text-sm text-gray-300 mt-1'>

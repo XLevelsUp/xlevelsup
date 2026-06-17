@@ -552,11 +552,12 @@ export async function batchUpdateEarnedLeaveBalances(
 ): Promise<void> {
   const currentYear = year || new Date().getFullYear();
 
-  // Get all active employees
+  // Get all active employees except temporary employees
   const { data: employees, error: employeesError } = await supabase
     .from('employees')
-    .select('id')
-    .eq('status', 'active');
+    .select('id, employment_type')
+    .eq('status', 'active')
+    .neq('employment_type', 'temporary');
 
   if (employeesError) throw employeesError;
 

@@ -123,6 +123,13 @@ export default function AttendanceChangeRequestsList({
               )}
             </div>
 
+            {request.clock_out_time && (
+              <div className='text-xs text-cyan-400 font-medium flex items-center gap-1 mt-1'>
+                <span>🕒 Requested Clock-Out Time:</span>
+                <span>{request.clock_out_time.substring(0, 5)}</span>
+              </div>
+            )}
+
             <div className='bg-gray-900/50 rounded p-2'>
               <p className='text-xs text-gray-400 font-medium mb-1'>Reason:</p>
               <p className='text-sm text-gray-300'>{request.reason}</p>

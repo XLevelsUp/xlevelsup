@@ -21,6 +21,15 @@ export interface GeolocationError {
  */
 export async function getCurrentPosition(): Promise<GeolocationData> {
   return new Promise((resolve, reject) => {
+    // Check if context is secure (HTTPS or localhost) - Geolocation is disabled on HTTP
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      reject({
+        code: 1, // PERMISSION_DENIED
+        message: 'Location access is blocked because this site is not using a secure connection (HTTPS). Please access the site over HTTPS or localhost.',
+      });
+      return;
+    }
+
     if (!navigator.geolocation) {
       reject({
         code: 0,
@@ -48,13 +57,13 @@ export async function getCurrentPosition(): Promise<GeolocationData> {
         let message = 'Unable to retrieve location';
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            message = 'Location permission denied. Please enable location access.';
+            message = 'Location permission denied. Please click the site settings/lock icon in your browser address bar to allow location access.';
             break;
           case error.POSITION_UNAVAILABLE:
-            message = 'Location information unavailable.';
+            message = 'Location information is unavailable. Ensure location services are enabled on your device.';
             break;
           case error.TIMEOUT:
-            message = 'Location request timed out.';
+            message = 'Location request timed out. Please try again.';
             break;
         }
         reject({

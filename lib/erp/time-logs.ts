@@ -251,21 +251,30 @@ export async function getTimeLogsByRange(
  */
 export async function getAllTimeLogs(filters?: {
   date?: string;
+  month?: string;
   employee_id?: number;
   status?: 'active' | 'completed';
-}): Promise<TimeLog[]> {
+}): Promise<any[]> {
   let query = supabase
     .from('time_logs')
     .select(
       `
       *,
-      employee:employees!employee_id(id, employee_id, name, department)
+      employee:employees!employee_id(id, employee_id, name, department, employment_type)
     `,
     )
     .order('clock_in_time', { ascending: false });
 
   if (filters?.date) {
     query = query.eq('date', filters.date);
+  }
+
+  if (filters?.month) {
+    const startDate = `${filters.month}-01`;
+    const nextMonth = new Date(filters.month + '-01');
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextMonthStr = nextMonth.toISOString().substring(0, 10);
+    query = query.gte('date', startDate).lt('date', nextMonthStr);
   }
 
   if (filters?.employee_id) {
@@ -279,7 +288,11 @@ export async function getAllTimeLogs(filters?: {
   const { data, error } = await query;
 
   if (error) throw error;
-  return data || [];
+  
+  // Exclude temporary employees by default
+  return (data || []).filter(
+    (log: any) => log.employee?.employment_type !== 'temporary'
+  );
 }
 
 /**

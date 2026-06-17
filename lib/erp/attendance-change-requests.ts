@@ -76,6 +76,7 @@ export async function createAttendanceChangeRequest(
     current_status?: AttendanceStatus | null;
     requested_status: AttendanceStatus;
     leave_type?: string | null;
+    clock_out_time?: string | null;
     reason: string;
     attendance_id?: number | null;
   },
@@ -88,6 +89,7 @@ export async function createAttendanceChangeRequest(
       current_status: requestData.current_status,
       requested_status: requestData.requested_status,
       leave_type: requestData.leave_type,
+      clock_out_time: requestData.clock_out_time,
       reason: requestData.reason,
       attendance_id: requestData.attendance_id,
       status: 'pending',
@@ -159,6 +161,50 @@ export async function reviewAttendanceChangeRequest(
         });
 
       if (attendanceError) throw attendanceError;
+    }
+
+    // If the request has a clock_out_time, update the active time log for that date
+    if (request.clock_out_time) {
+      // Find the active time log for that employee and date
+      const { data: timeLog, error: logFetchError } = await supabase
+        .from('time_logs')
+        .select('*')
+        .eq('employee_id', request.employee_id)
+        .eq('date', request.request_date)
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+
+      if (logFetchError) {
+        console.error('Failed to fetch active time log for regularization:', logFetchError);
+      } else if (timeLog) {
+        // Calculate the total working hours
+        let clockInTime: Date;
+        if (timeLog.clock_in_time.includes('+') || timeLog.clock_in_time.endsWith('Z')) {
+          clockInTime = new Date(timeLog.clock_in_time);
+        } else {
+          clockInTime = new Date(timeLog.clock_in_time + 'Z');
+        }
+
+        const clockOutTime = new Date(`${request.request_date}T${request.clock_out_time}`);
+        const diffMs = clockOutTime.getTime() - clockInTime.getTime();
+        const totalHours = Math.max(0, diffMs / (1000 * 60 * 60));
+
+        const { error: logUpdateError } = await supabase
+          .from('time_logs')
+          .update({
+            clock_out_time: clockOutTime.toISOString(),
+            total_hours: parseFloat(totalHours.toFixed(2)),
+            status: 'completed',
+            notes: `Regularized via change request #${requestId}. ${request.reason}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', timeLog.id);
+
+        if (logUpdateError) {
+          console.error('Failed to update time log during regularization:', logUpdateError);
+        }
+      }
     }
 
     // If the requested status is paid-leave, deduct from leave balance

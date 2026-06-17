@@ -12,11 +12,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const today = new Date().toISOString().split('T')[0];
   const currentMonth = today.substring(0, 7); // YYYY-MM
 
-  // Total active employees
+  // Total active employees except temporary employees
   const { data: employees, error: employeeError } = await supabase
     .from('employees')
-    .select('*')
-    .eq('status', 'active');
+    .select('id, employment_type')
+    .eq('status', 'active')
+    .neq('employment_type', 'temporary');
 
   if (employeeError) throw employeeError;
   const employeeCount = employees?.length || 0;

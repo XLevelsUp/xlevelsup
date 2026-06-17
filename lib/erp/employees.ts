@@ -82,6 +82,8 @@ export async function getAllEmployees(filters?: {
 
     if (filters?.employment_type) {
       query = query.eq('employment_type', filters.employment_type);
+    } else {
+      query = query.neq('employment_type', 'temporary');
     }
 
     if (filters?.search) {
@@ -306,12 +308,14 @@ export async function getEmployeeCountByStatus(): Promise<{
   const { data: activeData, error: activeError } = await supabase
     .from('employees')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .neq('employment_type', 'temporary');
 
   const { data: inactiveData, error: inactiveError } = await supabase
     .from('employees')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'inactive');
+    .eq('status', 'inactive')
+    .neq('employment_type', 'temporary');
 
   if (activeError) throw activeError;
   if (inactiveError) throw inactiveError;

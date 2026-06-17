@@ -6,19 +6,69 @@
  * with option to request changes
  */
 
-import { useState } from 'react';
-import type { AttendanceWithChangeRequest } from '@/types/erp';
+import React, { useState } from 'react';
+import type { AttendanceWithChangeRequest, TimeLog } from '@/types/erp';
 
 interface AttendanceRecordsTableProps {
   records: AttendanceWithChangeRequest[];
   employeeId: number;
+  timeLogs?: TimeLog[];
 }
 
 export default function AttendanceRecordsTable({
   records,
   employeeId,
+  timeLogs = [],
 }: AttendanceRecordsTableProps) {
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
+  const [selectedDateStr, setSelectedDateStr] = useState<string>('');
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+
+  const formatTime = (timeString: string) => {
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
+  const formatDateSafe = (dateString: string) => {
+    try {
+      const parts = dateString.split('T')[0].split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const day = parseInt(parts[2]);
+        const date = new Date(year, month, day);
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          weekday: 'short',
+        });
+      }
+    } catch (e) {
+      // fallback
+    }
+    return formatDate(dateString);
+  };
+
+  // Group time logs by date
+  const timeLogsMap = new Map<string, TimeLog[]>();
+  timeLogs.forEach((log) => {
+    if (log.date) {
+      const dateStr = typeof log.date === 'string' ? log.date.split('T')[0] : new Date(log.date).toISOString().split('T')[0];
+      if (!timeLogsMap.has(dateStr)) {
+        timeLogsMap.set(dateStr, []);
+      }
+      timeLogsMap.get(dateStr)!.push(log);
+    }
+  });
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [tableFilter, setTableFilter] = useState<string>('all');
 
@@ -100,6 +150,7 @@ export default function AttendanceRecordsTable({
   // Handle cell selection
   const handleDaySelect = (dayDate: Date, hasRecord: boolean, record?: AttendanceWithChangeRequest) => {
     const dateStr = formatDateKey(dayDate);
+    setSelectedDateStr(dateStr);
     const form = document.getElementById('change-request-form');
     
     if (form) {
@@ -234,6 +285,8 @@ export default function AttendanceRecordsTable({
                 const record = recordsMap.get(dateStr);
                 const hasRecord = !!record;
                 const isToday = formatDateKey(new Date()) === dateStr;
+                const dayLogs = timeLogsMap.get(dateStr) || [];
+                const sessionsCount = dayLogs.length;
 
                 // Pick style based on status
                 let style = {
@@ -290,6 +343,16 @@ export default function AttendanceRecordsTable({
                         </div>
                       )}
 
+                      {/* Sessions indicator */}
+                      {sessionsCount > 0 && (
+                        <div className='text-[8px] text-gray-400 font-medium leading-none flex items-center gap-0.5 mt-0.5'>
+                          <span>🕒</span>
+                          <span>
+                            {sessionsCount} {sessionsCount === 1 ? 'session' : 'sessions'}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Pending correction request dot */}
                       {record?.has_pending_request && (
                         <div className='flex items-center gap-1 text-[8px] text-yellow-400 font-medium leading-none'>
@@ -303,6 +366,92 @@ export default function AttendanceRecordsTable({
               })}
             </div>
           </div>
+
+          {/* Selected Date Details */}
+          {selectedDateStr && (
+            <div className='bg-[#111111]/80 border border-gray-800 rounded-lg p-4 space-y-3'>
+              <div className='flex items-center justify-between border-b border-gray-800 pb-2'>
+                <h3 className='text-sm font-semibold text-white flex items-center gap-2'>
+                  <span>📅</span> Sessions on {formatDateSafe(selectedDateStr)}
+                </h3>
+                <button
+                  onClick={() => setSelectedDateStr('')}
+                  className='text-xs text-gray-400 hover:text-white transition-colors'
+                >
+                  Close ×
+                </button>
+              </div>
+
+              {(() => {
+                const dayLogs = timeLogsMap.get(selectedDateStr) || [];
+                if (dayLogs.length === 0) {
+                  return (
+                    <p className='text-xs text-gray-500 italic'>
+                      No login/logout sessions logged for this day.
+                    </p>
+                  );
+                }
+
+                // Sort logs chronologically
+                const sortedLogs = [...dayLogs].sort(
+                  (a, b) => new Date(a.clock_in_time).getTime() - new Date(b.clock_in_time).getTime()
+                );
+
+                return (
+                  <div className='grid grid-cols-1 gap-2'>
+                    {sortedLogs.map((session, index) => (
+                      <div
+                        key={session.id}
+                        className='bg-dark-800/40 border border-gray-800/60 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs'
+                      >
+                        <div className='space-y-1.5'>
+                          <div className='flex items-center gap-2'>
+                            <span className='text-[10px] bg-cyan-500/10 text-[var(--cyan)] px-1.5 py-0.5 rounded border border-cyan-500/20 font-semibold'>
+                              Session {index + 1}
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                              session.status === 'active'
+                                ? 'bg-green-500/20 text-green-400 animate-pulse'
+                                : 'bg-gray-800 text-gray-400'
+                            }`}>
+                              {session.status.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className='text-gray-300'>
+                            <strong>Clock In:</strong> {formatTime(session.clock_in_time)}
+                            {session.clock_in_latitude != null && session.clock_in_longitude != null && (
+                              <span className='text-gray-500 ml-1.5'>
+                                📍 ({session.clock_in_latitude.toFixed(4)}, {session.clock_in_longitude.toFixed(4)})
+                              </span>
+                            )}
+                          </div>
+                          <div className='text-gray-300'>
+                            <strong>Clock Out:</strong> {session.clock_out_time ? formatTime(session.clock_out_time) : <span className='text-green-400 font-medium'>In Progress</span>}
+                            {session.clock_out_latitude != null && session.clock_out_longitude != null && (
+                              <span className='text-gray-500 ml-1.5'>
+                                📍 ({session.clock_out_latitude.toFixed(4)}, {session.clock_out_longitude.toFixed(4)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className='text-left sm:text-right border-t sm:border-t-0 border-gray-800/40 pt-2 sm:pt-0'>
+                          <div className='text-gray-500 font-medium'>Duration</div>
+                          <div className='font-mono font-bold text-white text-sm'>
+                            {session.total_hours ? `${session.total_hours.toFixed(2)} hrs` : 'Ongoing'}
+                          </div>
+                          {session.notes && (
+                            <p className='text-gray-400 italic mt-1 max-w-[200px] sm:max-w-xs truncate'>
+                              "{session.notes}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Color Legend */}
           <div className='flex flex-wrap gap-x-4 gap-y-2 bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 text-xs justify-center'>
@@ -400,41 +549,156 @@ export default function AttendanceRecordsTable({
                   <tr className='border-b border-gray-800 text-gray-400'>
                     <th className='text-left py-3 px-2 font-medium'>Date</th>
                     <th className='text-left py-3 px-2 font-medium'>Status</th>
+                    <th className='text-left py-3 px-2 font-medium'>Clock In / Out</th>
                     <th className='text-left py-3 px-2 font-medium'>Notes</th>
                     <th className='text-center py-3 px-2 font-medium'>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRecords.map((record) => (
-                    <tr
-                      key={record.id}
-                      className='border-b border-gray-800/50 hover:bg-gray-900/30 transition-colors'
-                    >
-                      <td className='py-3 px-2'>{formatDate(record.date)}</td>
-                      <td className='py-3 px-2'>{getStatusBadge(record.status)}</td>
-                      <td className='py-3 px-2 text-gray-400 text-xs max-w-xs truncate'>
-                        {record.notes || '-'}
-                      </td>
-                      <td className='py-3 px-2 text-center'>
-                        {record.has_pending_request ? (
-                          <span className='text-xs text-yellow-400 font-medium'>
-                            Pending Request
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              // Re-use logic to scroll and fill the form
-                              const dayDate = new Date(record.date);
-                              handleDaySelect(dayDate, true, record);
-                            }}
-                            className='text-xs text-[var(--cyan)] hover:underline font-semibold'
-                          >
-                            Request Change
-                          </button>
+                  {filteredRecords.map((record) => {
+                    const dateStr = record.date?.split('T')[0];
+                    const dayLogs = timeLogsMap.get(dateStr) || [];
+                    const isExpanded = !!expandedRows[record.id];
+                    
+                    // Sort logs chronologically to find earliest in and latest out
+                    const sortedLogs = [...dayLogs].sort(
+                      (a, b) => new Date(a.clock_in_time).getTime() - new Date(b.clock_in_time).getTime()
+                    );
+                    
+                    const earliestIn = sortedLogs[0]?.clock_in_time;
+                    const latestOut = sortedLogs[sortedLogs.length - 1]?.clock_out_time;
+                    const hasActive = sortedLogs.some(log => log.status === 'active');
+
+                    return (
+                      <React.Fragment key={record.id}>
+                        <tr className='border-b border-gray-800/50 hover:bg-gray-900/30 transition-colors'>
+                          <td className='py-3 px-2'>{formatDateSafe(record.date)}</td>
+                          <td className='py-3 px-2'>{getStatusBadge(record.status)}</td>
+                          <td className='py-3 px-2 text-xs'>
+                            {dayLogs.length === 0 ? (
+                              <span className='text-gray-500'>-</span>
+                            ) : (
+                              <div className='flex items-center gap-1.5'>
+                                <span className='font-medium text-white'>
+                                  {formatTime(earliestIn)} - {hasActive ? (
+                                    <span className='text-green-400 font-semibold animate-pulse'>Ongoing</span>
+                                  ) : latestOut ? (
+                                    formatTime(latestOut)
+                                  ) : (
+                                    '-'
+                                  )}
+                                </span>
+                                {sortedLogs.length > 1 && (
+                                  <span className='text-[10px] bg-gray-800 text-gray-400 px-1 py-0.5 rounded'>
+                                    {sortedLogs.length} sess
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className='py-3 px-2 text-gray-400 text-xs max-w-xs truncate'>
+                            {record.notes || '-'}
+                          </td>
+                          <td className='py-3 px-2 text-center'>
+                            <div className='flex items-center justify-center gap-3'>
+                              {dayLogs.length > 0 && (
+                                <button
+                                  onClick={() => {
+                                    setExpandedRows(prev => ({
+                                      ...prev,
+                                      [record.id]: !prev[record.id]
+                                    }));
+                                  }}
+                                  className='text-xs text-purple-400 hover:underline font-semibold'
+                                >
+                                  {isExpanded ? 'Hide Details' : 'Details'}
+                                </button>
+                              )}
+
+                              {record.has_pending_request ? (
+                                <span className='text-xs text-yellow-400 font-medium'>
+                                  Pending Request
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    // Re-use logic to scroll and fill the form
+                                    const dayDate = new Date(record.date);
+                                    handleDaySelect(dayDate, true, record);
+                                  }}
+                                  className='text-xs text-[var(--cyan)] hover:underline font-semibold'
+                                >
+                                  Request Change
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        
+                        {isExpanded && (
+                          <tr className='bg-[#0a0a0a]/50 border-b border-gray-800/80'>
+                            <td colSpan={5} className='px-4 py-3'>
+                              <div className='space-y-2 pl-4 border-l-2 border-purple-500/40'>
+                                <p className='text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2'>
+                                  Session History Breakdown ({dayLogs.length} session{dayLogs.length > 1 ? 's' : ''}):
+                                </p>
+                                <div className='grid grid-cols-1 gap-2'>
+                                  {sortedLogs.map((session, index) => (
+                                    <div
+                                      key={session.id}
+                                      className='bg-dark-800/20 border border-gray-800/60 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs'
+                                    >
+                                      <div className='space-y-1'>
+                                        <div className='flex items-center gap-2'>
+                                          <span className='text-[10px] bg-cyan-500/10 text-[var(--cyan)] px-1.5 py-0.5 rounded border border-cyan-500/20 font-semibold'>
+                                            Session {index + 1}
+                                          </span>
+                                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                                            session.status === 'active'
+                                              ? 'bg-green-500/20 text-green-400 animate-pulse'
+                                              : 'bg-gray-800 text-gray-400'
+                                          }`}>
+                                            {session.status.toUpperCase()}
+                                          </span>
+                                        </div>
+                                        <div className='text-gray-300 mt-1'>
+                                          <strong>Clock In:</strong> {formatTime(session.clock_in_time)}
+                                          {session.clock_in_latitude != null && session.clock_in_longitude != null && (
+                                            <span className='text-gray-500 ml-1.5'>
+                                              📍 ({session.clock_in_latitude.toFixed(4)}, {session.clock_in_longitude.toFixed(4)})
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className='text-gray-300'>
+                                          <strong>Clock Out:</strong> {session.clock_out_time ? formatTime(session.clock_out_time) : <span className='text-green-400 font-medium'>In Progress</span>}
+                                          {session.clock_out_latitude != null && session.clock_out_longitude != null && (
+                                            <span className='text-gray-500 ml-1.5'>
+                                              📍 ({session.clock_out_latitude.toFixed(4)}, {session.clock_out_longitude.toFixed(4)})
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className='text-left sm:text-right border-t sm:border-t-0 border-gray-800/40 pt-2 sm:pt-0'>
+                                        <div className='text-gray-500 font-medium'>Duration</div>
+                                        <div className='font-mono font-bold text-white text-sm'>
+                                          {session.total_hours ? `${session.total_hours.toFixed(2)} hrs` : 'Ongoing'}
+                                        </div>
+                                        {session.notes && (
+                                          <p className='text-gray-400 italic mt-1 max-w-[200px] sm:max-w-xs truncate'>
+                                            "{session.notes}"
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

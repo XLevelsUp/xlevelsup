@@ -11,6 +11,7 @@ import type { Employee, Attendance } from '@/types/erp';
 import { formatDisplayDate, getMonthName } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
+import Link from 'next/link';
 
 interface AttendanceManagerProps {
   employees: Employee[];
@@ -90,13 +91,20 @@ export default function AttendanceManager({
             Track daily attendance for all employees
           </p>
         </div>
-        <Button
-          variant='primary'
-          onClick={() => setShowAddModal(true)}
-          className='whitespace-nowrap'
-        >
-          + Add Attendance
-        </Button>
+        <div className='flex items-center gap-3 flex-wrap sm:flex-nowrap'>
+          <Link href='/erp/attendance/sessions'>
+            <Button variant='secondary' className='whitespace-nowrap'>
+              🕒 View Login/Logout Sessions
+            </Button>
+          </Link>
+          <Button
+            variant='primary'
+            onClick={() => setShowAddModal(true)}
+            className='whitespace-nowrap'
+          >
+            + Add Attendance
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

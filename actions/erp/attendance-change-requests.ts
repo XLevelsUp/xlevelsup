@@ -37,7 +37,12 @@ const attendanceChangeRequestSchema = z
       ])
       .nullable()
       .optional(),
-    reason: z.string().min(20, 'Reason must be at least 20 characters'),
+    clock_out_time: z
+      .string()
+      .regex(/^([0-9]{2}):([0-9]{2})(:[0-9]{2})?$/, 'Invalid clock-out time format')
+      .nullable()
+      .optional(),
+    reason: z.string().min(5, 'Reason must be at least 5 characters'),
     current_status: z
       .enum([
         'present',
@@ -83,6 +88,7 @@ export async function createAttendanceChangeRequestAction(
       request_date: formData.get('request_date') as string,
       requested_status: formData.get('requested_status') as string,
       leave_type: (formData.get('leave_type') as string) || null,
+      clock_out_time: (formData.get('clock_out_time') as string) || null,
       reason: formData.get('reason') as string,
       current_status: (formData.get('current_status') as string) || null,
       attendance_id: formData.get('attendance_id')
@@ -109,6 +115,7 @@ export async function createAttendanceChangeRequestAction(
       request_date: validated.request_date,
       requested_status: validated.requested_status as AttendanceStatus,
       leave_type: validated.leave_type,
+      clock_out_time: validated.clock_out_time,
       reason: validated.reason,
       current_status: validated.current_status as AttendanceStatus | null,
       attendance_id: validated.attendance_id,

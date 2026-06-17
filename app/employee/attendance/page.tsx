@@ -11,9 +11,15 @@ import type { AttendanceChangeRequest, Attendance } from '@/types/erp';
 import AttendanceRecordsTable from '@/components/erp/employee/AttendanceRecordsTable';
 import AttendanceChangeRequestForm from '@/components/erp/employee/AttendanceChangeRequestForm';
 import AttendanceChangeRequestsList from '@/components/erp/employee/AttendanceChangeRequestsList';
+import { getTimeLogsByRange } from '@/lib/erp/time-logs';
 
-export default async function EmployeeAttendancePage() {
+export default async function EmployeeAttendancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string; missed?: string }>;
+}) {
   const session = await requireEmployeeAuth();
+  const params = await searchParams;
 
   // Get attendance records for the last 3 months
   const threeMonthsAgo = new Date();
@@ -22,6 +28,7 @@ export default async function EmployeeAttendancePage() {
 
   let attendanceRecords: any[] = [];
   let changeRequests: AttendanceChangeRequest[] = [];
+  let timeLogs: any[] = [];
   let isFeatureAvailable = true;
 
   try {
@@ -41,6 +48,11 @@ export default async function EmployeeAttendancePage() {
         startDate,
       );
       changeRequests = await getEmployeeAttendanceChangeRequests(session.id);
+      timeLogs = await getTimeLogsByRange(
+        session.id,
+        startDate,
+        new Date().toISOString().split('T')[0]
+      );
     }
   } catch (error) {
     console.error('Attendance page error:', error);
@@ -118,6 +130,7 @@ export default async function EmployeeAttendancePage() {
               <AttendanceRecordsTable
                 records={attendanceRecords}
                 employeeId={session.id}
+                timeLogs={timeLogs}
               />
             </div>
 
@@ -135,7 +148,11 @@ export default async function EmployeeAttendancePage() {
             <div className='lg:col-span-1'>
               <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 sticky top-6'>
                 <h2 className='text-xl font-bold mb-4'>Request Change</h2>
-                <AttendanceChangeRequestForm employeeId={session.id} />
+                <AttendanceChangeRequestForm 
+                  employeeId={session.id} 
+                  initialDate={params?.date}
+                  initialIsMissed={params?.missed === 'true'}
+                />
               </div>
             </div>
           )}

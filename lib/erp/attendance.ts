@@ -188,11 +188,12 @@ export async function getTodayAttendance(): Promise<
 > {
   const today = new Date().toISOString().split('T')[0];
 
-  // Get all active employees
+  // Get all active employees except temporary employees
   const { data: employees, error: empError } = await supabase
     .from('employees')
-    .select('id, name')
+    .select('id, name, employment_type')
     .eq('status', 'active')
+    .neq('employment_type', 'temporary')
     .order('name');
 
   if (empError) throw empError;

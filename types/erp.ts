@@ -278,6 +278,7 @@ export interface AttendanceChangeRequest {
   current_status?: AttendanceStatus | null;
   requested_status: AttendanceStatus;
   leave_type?: string | null;
+  clock_out_time?: string | null;
   reason: string;
   status: AttendanceChangeStatus;
   reviewed_by?: number | null;
