@@ -147,13 +147,13 @@ export async function cancelLeaveRequestAction(
 export async function reviewLeaveRequestAction(
   leaveRequestId: number,
   reviewerId: number,
-  prevState: any,
-  formData: FormData,
+  status: 'approved' | 'rejected',
+  reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const data = {
-      status: formData.get('status') as 'approved' | 'rejected',
-      review_comments: formData.get('review_comments') as string | undefined,
+      status,
+      review_comments: reviewComments || undefined,
     };
 
     // Validate

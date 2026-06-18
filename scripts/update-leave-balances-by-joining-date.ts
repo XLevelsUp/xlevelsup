@@ -77,7 +77,7 @@ function calculateProratedLeaves(
     return {
       casual: 18,
       floater: 2,
-      sick: 10,
+      sick: 5,
       earned: 0,
     };
   }
@@ -99,7 +99,7 @@ function calculateProratedLeaves(
   }
 
   const floater = Math.round((monthsRemaining / monthsInYear) * 2); // Prorated floater
-  const sick = Math.round((monthsRemaining / monthsInYear) * 10); // Prorated sick leave
+  const sick = Math.round((monthsRemaining / monthsInYear) * 5); // Prorated sick leave
   const earned = 0; // Always starts at 0
 
   return {

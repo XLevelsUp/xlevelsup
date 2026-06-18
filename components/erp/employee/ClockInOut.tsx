@@ -138,7 +138,7 @@ export default function ClockInOut({
     setIsProcessing(true);
     try {
       // Get location first
-      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
+      let location: { latitude: number; longitude: number; accuracy: number };
       
       try {
         const position = await getCurrentPosition();
@@ -149,11 +149,10 @@ export default function ClockInOut({
         };
         toast.success('Location captured');
       } catch (error: any) {
-        // Location failed, but continue with clock in
-        console.warn('Location capture failed:', error);
-        toast(`Location unavailable (${error.message || 'Unknown error'}) - clocking in without location`, {
-          icon: '⚠️',
-        });
+        console.error('Location capture failed:', error);
+        toast.error(`Location required: ${error.message || 'Unable to retrieve location'}`);
+        setIsProcessing(false);
+        return;
       }
 
       const result = await clockInAction(employeeId, location);
@@ -192,7 +191,7 @@ export default function ClockInOut({
 
     try {
       // Get location first
-      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
+      let location: { latitude: number; longitude: number; accuracy: number };
       
       try {
         const position = await getCurrentPosition();
@@ -203,11 +202,10 @@ export default function ClockInOut({
         };
         toast.success('Location captured');
       } catch (error: any) {
-        // Location failed, but continue with clock out
-        console.warn('Location capture failed:', error);
-        toast(`Location unavailable (${error.message || 'Unknown error'}) - clocking out without location`, {
-          icon: '⚠️',
-        });
+        console.error('Location capture failed:', error);
+        toast.error(`Location required: ${error.message || 'Unable to retrieve location'}`);
+        setIsProcessing(false);
+        return;
       }
 
       const result = await clockOutAction(employeeId, undefined, location);

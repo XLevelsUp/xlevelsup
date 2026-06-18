@@ -88,7 +88,7 @@ export async function createEmployeeAction(
     await requireRole(['admin', 'hr']);
 
     const rawData = {
-      employee_id: formData.get('employee_id') as string,
+      employee_id: (formData.get('employee_id') as string) || undefined,
       name: formData.get('name') as string,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string,
@@ -136,7 +136,7 @@ export async function updateEmployeeAction(
     await requireRole(['admin', 'hr']);
 
     const rawData = {
-      employee_id: formData.get('employee_id') as string,
+      employee_id: (formData.get('employee_id') as string) || undefined,
       name: formData.get('name') as string,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string,

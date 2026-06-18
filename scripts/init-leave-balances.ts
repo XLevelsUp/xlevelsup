@@ -5,7 +5,7 @@
  * based on the new leave policy:
  * - Casual Leave: 18 days/year
  * - Floater Leave: 2 days/year
- * - Sick Leave: 10 days/year
+ * - Sick Leave: 5 days/year
  * - Earned Leave: 0 days initially (earned from OT)
  */
 
@@ -70,7 +70,7 @@ function calculateProratedLeaves(
     return {
       casual: 18,
       floater: 2,
-      sick: 10,
+      sick: 5,
       earned: 0,
     };
   }
@@ -92,7 +92,7 @@ function calculateProratedLeaves(
   }
 
   const floater = Math.round((monthsRemaining / monthsInYear) * 2); // Prorated floater
-  const sick = Math.round((monthsRemaining / monthsInYear) * 10); // Prorated sick leave
+  const sick = Math.round((monthsRemaining / monthsInYear) * 5); // Prorated sick leave
   const earned = 0; // Always starts at 0
 
   return {
@@ -137,7 +137,7 @@ async function initializeLeaveBalances() {
       '     • Casual Leave: 1.5 days/month (18 days/year if joined Jan)',
     );
     console.log('     • Floater Leave: 2 days/year (prorated by month)');
-    console.log('     • Sick Leave: 10 days/year (prorated by month)');
+    console.log('     • Sick Leave: 5 days/year (prorated by month)');
     console.log('     • Earned Leave: 0 initially (earned from OT)');
     console.log('   - Internship Employees:');
     console.log('     • Casual Leave: 1.5 days/month only');

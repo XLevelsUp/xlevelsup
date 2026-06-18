@@ -22,11 +22,13 @@ export default function AttendanceChangeRequestReviewForm({
   onSuccess,
 }: AttendanceChangeRequestReviewFormProps) {
   const handleFormAction = async (prevState: any, formData: FormData) => {
+    const status = formData.get('status') as 'approved' | 'rejected';
+    const comments = (formData.get('review_comments') as string) || undefined;
     return await reviewAttendanceChangeRequestAction(
       requestId,
       reviewerId,
-      prevState,
-      formData,
+      status,
+      comments,
     );
   };
 

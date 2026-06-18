@@ -137,13 +137,13 @@ export async function createAttendanceChangeRequestAction(
 export async function reviewAttendanceChangeRequestAction(
   requestId: number,
   reviewerId: number,
-  prevState: any,
-  formData: FormData,
+  status: 'approved' | 'rejected',
+  reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const rawData = {
-      status: formData.get('status') as string,
-      review_comments: formData.get('review_comments') as string,
+      status,
+      review_comments: reviewComments || undefined,
     };
 
     const validated = reviewSchema.parse(rawData);

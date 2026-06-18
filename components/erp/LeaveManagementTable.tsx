@@ -60,15 +60,12 @@ export default function LeaveManagementTable({
     if (!selectedRequest) return;
 
     setProcessing(true);
-    const formData = new FormData();
-    formData.append('status', status);
-    if (comments) formData.append('review_comments', comments);
 
     const result = await reviewLeaveRequestAction(
       selectedRequest.id,
       adminId,
-      null,
-      formData,
+      status,
+      comments || undefined,
     );
 
     setProcessing(false);

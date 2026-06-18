@@ -80,7 +80,7 @@ export async function saveAttendanceAction(
       date: formData.get('date') as string,
       status: formData.get('status') as string,
       overtime_hours: overtimeValue ? parseFloat(overtimeValue) : null,
-      notes: formData.get('notes') as string,
+      notes: (formData.get('notes') as string) || undefined,
     };
 
     const validatedData = attendanceSchema.parse(rawData);
