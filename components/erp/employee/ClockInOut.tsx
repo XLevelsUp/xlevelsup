@@ -27,7 +27,7 @@ export default function ClockInOut({
   employeeId,
   initialSummary,
 }: ClockInOutProps) {
-  const [summary, setSummary] = useState<TimeLogSummary>(initialSummary);
+  const [summary] = useState<TimeLogSummary>(initialSummary);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
