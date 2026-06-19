@@ -96,7 +96,7 @@ export async function getAllEmployeesTimeStatus(): Promise<
     if (activeLog) {
       status = 'working';
     } else if (completedLogs.length > 0) {
-      status = totalHours >= 8 ? 'completed' : 'completed';
+      status = totalHours >= 9 ? 'completed' : 'completed';
     } else {
       status = 'not_started';
     }
@@ -127,7 +127,7 @@ export async function getTimeTrackingStats(): Promise<TimeTrackingStats> {
     (e) => e.is_clocked_in,
   ).length;
   const completedDay = employeeStatuses.filter(
-    (e) => e.total_hours_today >= 8,
+    (e) => e.total_hours_today >= 9,
   ).length;
   const notStarted = employeeStatuses.filter(
     (e) => e.status === 'not_started',

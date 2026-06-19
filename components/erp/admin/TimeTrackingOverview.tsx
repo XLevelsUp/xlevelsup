@@ -27,7 +27,7 @@ export default function TimeTrackingOverview({
       (filter === 'working' && emp.is_clocked_in) ||
       (filter === 'completed' &&
         !emp.is_clocked_in &&
-        emp.total_hours_today >= 8) ||
+        emp.total_hours_today >= 9) ||
       (filter === 'not_started' && emp.status === 'not_started');
 
     const matchesSearch =
@@ -52,7 +52,7 @@ export default function TimeTrackingOverview({
           🟢 Working
         </span>
       );
-    } else if (emp.total_hours_today >= 8) {
+    } else if (emp.total_hours_today >= 9) {
       return (
         <span className='px-2 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400'>
           ✅ Completed
@@ -74,8 +74,8 @@ export default function TimeTrackingOverview({
   };
 
   const getHoursColor = (hours: number) => {
-    if (hours >= 8) return 'text-green-400';
-    if (hours >= 4) return 'text-yellow-400';
+    if (hours >= 9) return 'text-green-400';
+    if (hours >= 4.5) return 'text-yellow-400';
     return 'text-gray-400';
   };
 
@@ -127,7 +127,7 @@ export default function TimeTrackingOverview({
             Completed (
             {
               employees.filter(
-                (e) => !e.is_clocked_in && e.total_hours_today >= 8,
+                (e) => !e.is_clocked_in && e.total_hours_today >= 9,
               ).length
             }
             )
@@ -212,9 +212,9 @@ export default function TimeTrackingOverview({
                       >
                         {emp.total_hours_today.toFixed(2)} hrs
                       </div>
-                      {emp.total_hours_today < 8 && (
+                      {emp.total_hours_today < 9 && (
                         <div className='text-xs text-gray-500'>
-                          Pending: {(8 - emp.total_hours_today).toFixed(2)} hrs
+                          Pending: {(9 - emp.total_hours_today).toFixed(2)} hrs
                         </div>
                       )}
                     </td>

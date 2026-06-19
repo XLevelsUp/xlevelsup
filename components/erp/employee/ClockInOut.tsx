@@ -15,7 +15,7 @@ import { clockInAction, clockOutAction } from '@/actions/erp/time-logs';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { toast } from 'react-hot-toast';
-import type { TimeLog, TimeLogSummary } from '@/types/erp';
+import type { TimeLogSummary } from '@/types/erp';
 import { getCurrentPosition } from '@/lib/utils/geolocation';
 
 interface ClockInOutProps {
@@ -138,7 +138,7 @@ export default function ClockInOut({
     setIsProcessing(true);
     try {
       // Get location first
-      let location: { latitude: number; longitude: number; accuracy: number };
+      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
       
       try {
         const position = await getCurrentPosition();
@@ -148,11 +148,12 @@ export default function ClockInOut({
           accuracy: position.accuracy,
         };
         toast.success('Location captured');
-      } catch (error: any) {
-        console.error('Location capture failed:', error);
-        toast.error(`Location required: ${error.message || 'Unable to retrieve location'}`);
-        setIsProcessing(false);
-        return;
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn('Location capture failed:', error);
+        toast(`Location unavailable (${errMsg}) - clocking in without location`, {
+          icon: '⚠️',
+        });
       }
 
       const result = await clockInAction(employeeId, location);
@@ -165,6 +166,7 @@ export default function ClockInOut({
         toast.error(result.error || 'Failed to clock in');
       }
     } catch (error) {
+      console.error('Clock in failed:', error);
       toast.error('An error occurred');
     } finally {
       setIsProcessing(false);
@@ -175,8 +177,8 @@ export default function ClockInOut({
   const handleClockOut = async () => {
     const totalHours = getTotalHours();
 
-    // Show warning if less than 8 hours
-    if (totalHours < 8) {
+    // Show warning if less than 9 hours
+    if (totalHours < 9) {
       setShowWarningModal(true);
       return;
     }
@@ -191,7 +193,7 @@ export default function ClockInOut({
 
     try {
       // Get location first
-      let location: { latitude: number; longitude: number; accuracy: number };
+      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
       
       try {
         const position = await getCurrentPosition();
@@ -201,11 +203,12 @@ export default function ClockInOut({
           accuracy: position.accuracy,
         };
         toast.success('Location captured');
-      } catch (error: any) {
-        console.error('Location capture failed:', error);
-        toast.error(`Location required: ${error.message || 'Unable to retrieve location'}`);
-        setIsProcessing(false);
-        return;
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn('Location capture failed:', error);
+        toast(`Location unavailable (${errMsg}) - clocking out without location`, {
+          icon: '⚠️',
+        });
       }
 
       const result = await clockOutAction(employeeId, undefined, location);
@@ -218,6 +221,7 @@ export default function ClockInOut({
         toast.error(result.error || 'Failed to clock out');
       }
     } catch (error) {
+      console.error('Clock out failed:', error);
       toast.error('An error occurred');
     } finally {
       setIsProcessing(false);
@@ -225,7 +229,7 @@ export default function ClockInOut({
   };
 
   const totalHours = getTotalHours();
-  const isLessThan8Hours = totalHours < 8;
+  const isLessThan9Hours = totalHours < 9;
 
   return (
     <>
@@ -296,12 +300,12 @@ export default function ClockInOut({
                 <p className='text-2xl font-bold text-white'>
                   {isMounted ? totalHours.toFixed(2) : '0.00'} hrs
                 </p>
-                {isMounted && isLessThan8Hours && (
+                {isMounted && isLessThan9Hours && (
                   <p className='text-xs text-yellow-400 mt-1'>
-                    ⚠️ Pending: {(8 - totalHours).toFixed(2)} hrs
+                    ⚠️ Pending: {(9 - totalHours).toFixed(2)} hrs
                   </p>
                 )}
-                {isMounted && !isLessThan8Hours && (
+                {isMounted && !isLessThan9Hours && (
                   <p className='text-xs text-green-400 mt-1'>
                     ✅ Full day complete
                   </p>
@@ -310,7 +314,7 @@ export default function ClockInOut({
               <div className='text-right'>
                 <div className='text-xs text-gray-500'>Required</div>
                 <div className='text-lg font-semibold text-gray-400'>
-                  8.00 hrs
+                  9.00 hrs
                 </div>
               </div>
             </div>
@@ -373,7 +377,7 @@ export default function ClockInOut({
         </div>
       </div>
 
-      {/* Warning Modal for < 8 hours */}
+      {/* Warning Modal for < 9 hours */}
       <Modal
         isOpen={showWarningModal}
         onClose={() => setShowWarningModal(false)}
@@ -389,18 +393,18 @@ export default function ClockInOut({
           </p>
           <p className='text-gray-300'>
             Required working hours:{' '}
-            <strong className='text-white'>8.00 hours</strong>
+            <strong className='text-white'>9.00 hours</strong>
           </p>
           <p className='text-gray-300'>
             Pending hours:{' '}
             <strong className='text-red-400'>
-              {(8 - totalHours).toFixed(2)} hours
+              {(9 - totalHours).toFixed(2)} hours
             </strong>
           </p>
 
           <div className='bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4'>
             <p className='text-sm text-yellow-400'>
-              ⚠️ Clocking out before completing 8 hours may be marked as early
+              ⚠️ Clocking out before completing 9 hours may be marked as early
               leave or half-day.
             </p>
           </div>

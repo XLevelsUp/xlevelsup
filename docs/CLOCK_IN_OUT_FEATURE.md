@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive employee time tracking system with clock in/out functionality, live timer, and 8-hour validation.
+Comprehensive employee time tracking system with clock in/out functionality, live timer, and 9-hour validation.
 
 ## Features
 
@@ -11,7 +11,7 @@ Comprehensive employee time tracking system with clock in/out functionality, liv
 - **Clock In/Out**: Employees can clock in and out through the employee portal
 - **Live Timer**: Real-time display of elapsed time during active session
 - **Multiple Sessions**: Support for multiple clock in/out sessions per day
-- **8-Hour Validation**: Warning when attempting to clock out before completing 8 hours
+- **9-Hour Validation**: Warning when attempting to clock out before completing 9 hours
 - **Session History**: View all completed sessions for the day
 - **Total Hours**: Automatic calculation of total hours worked
 
@@ -74,7 +74,7 @@ CREATE TABLE time_logs (
 - Status indicator (Clocked In/Out)
 - Session breakdown display
 - Clock In/Out buttons
-- Warning modal for <8 hours
+- Warning modal for <9 hours
 
 ## Usage
 
@@ -84,7 +84,7 @@ CREATE TABLE time_logs (
 2. **Active Session**: Timer starts running automatically
 3. **Clock Out**: Click "🔴 Clock Out" button
 4. **Validation**:
-   - If <8 hours: Warning modal appears
+   - If <9 hours: Warning modal appears
    - Shows pending hours remaining
    - Option to continue or clock out anyway
 5. **Multiple Sessions**: Can clock in again same day to continue
@@ -94,7 +94,7 @@ CREATE TABLE time_logs (
 - **Active Time**: Real-time calculation from clock_in_time to now
 - **Completed Time**: Stored in total_hours field
 - **Daily Total**: Sum of all completed sessions + current active session
-- **Pending Hours**: 8 - total_hours (if less than 8)
+- **Pending Hours**: 9 - total_hours (if less than 9)
 
 ## Integration
 
@@ -143,7 +143,7 @@ Or run in Supabase SQL Editor:
 2. Navigate to dashboard: http://localhost:3000/employee/dashboard
 3. Click "Clock In" button
 4. Verify timer starts running
-5. Click "Clock Out" button (will show warning if <8 hours)
+5. Click "Clock Out" button (will show warning if <9 hours)
 6. Confirm clock out
 
 ## Technical Details
@@ -165,11 +165,11 @@ Or run in Supabase SQL Editor:
 
 ```typescript
 const totalHours = getTotalHours();
-const isLessThan8Hours = totalHours < 8;
+const isLessThan9Hours = totalHours < 9;
 
-if (isLessThan8Hours) {
+if (isLessThan9Hours) {
   // Show warning modal
-  const pendingHours = 8 - totalHours;
+  const pendingHours = 9 - totalHours;
   // Display: "Pending hours: X.XX hours"
 }
 ```
@@ -185,7 +185,7 @@ if (isLessThan8Hours) {
 
 ### Potential Features
 
-1. **Overtime Calculation**: Automatically calculate OT after 8 hours
+1. **Overtime Calculation**: Automatically calculate OT after 9 hours
 2. **Break Tracking**: Add break in/out buttons
 3. **Location Tracking**: Optional GPS location on clock in/out
 4. **Notifications**: Remind employees to clock in/out
