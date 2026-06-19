@@ -205,7 +205,8 @@ export type LeaveType =
   | 'unpaid'
   | 'maternity'
   | 'paternity'
-  | 'other';
+  | 'other'
+  | 'wfh';
 
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 

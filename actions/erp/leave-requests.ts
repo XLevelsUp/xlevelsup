@@ -12,6 +12,8 @@ import {
   updateLeaveRequest,
   cancelLeaveRequest,
   reviewLeaveRequest,
+  calculateLeaveDays,
+  getWfhDaysCountInMonth,
 } from '@/lib/erp/leave-requests';
 
 // Validation schema
@@ -25,6 +27,7 @@ const leaveRequestSchema = z.object({
     'maternity',
     'paternity',
     'other',
+    'wfh',
   ]),
   start_date: z.string().min(1, 'Start date is required'),
   end_date: z.string().min(1, 'End date is required'),
@@ -63,6 +66,34 @@ export async function createLeaveRequestAction(
         success: false,
         error: 'End date must be after or equal to start date',
       };
+    }
+
+    const requestedDays = calculateLeaveDays(validated.start_date, validated.end_date);
+    if (requestedDays === 0) {
+      return {
+        success: false,
+        error: 'The requested period must contain at least one working day (weekends are excluded).',
+      };
+    }
+
+    // WFH specific validation
+    if (validated.leave_type === 'wfh') {
+      const startMonth = validated.start_date.substring(0, 7); // YYYY-MM
+
+      if (requestedDays > 2) {
+        return {
+          success: false,
+          error: 'You cannot request more than 2 Work From Home days in a single request.',
+        };
+      }
+
+      const currentWfhDays = await getWfhDaysCountInMonth(employeeId, startMonth);
+      if (currentWfhDays + requestedDays > 2) {
+        return {
+          success: false,
+          error: `You can only apply for a maximum of 2 Work From Home days per month. You currently have ${currentWfhDays} WFH days approved/pending in ${startMonth}.`,
+        };
+      }
     }
 
     // Create leave request
@@ -107,6 +138,34 @@ export async function updateLeaveRequestAction(
         success: false,
         error: 'End date must be after or equal to start date',
       };
+    }
+
+    const requestedDays = calculateLeaveDays(validated.start_date, validated.end_date);
+    if (requestedDays === 0) {
+      return {
+        success: false,
+        error: 'The requested period must contain at least one working day (weekends are excluded).',
+      };
+    }
+
+    // WFH specific validation
+    if (validated.leave_type === 'wfh') {
+      const startMonth = validated.start_date.substring(0, 7); // YYYY-MM
+
+      if (requestedDays > 2) {
+        return {
+          success: false,
+          error: 'You cannot request more than 2 Work From Home days in a single request.',
+        };
+      }
+
+      const currentWfhDays = await getWfhDaysCountInMonth(employeeId, startMonth, leaveRequestId);
+      if (currentWfhDays + requestedDays > 2) {
+        return {
+          success: false,
+          error: `You can only apply for a maximum of 2 Work From Home days per month. You currently have ${currentWfhDays} WFH days approved/pending in ${startMonth} (excluding this request).`,
+        };
+      }
     }
 
     // Update leave request

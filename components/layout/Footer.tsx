@@ -191,11 +191,35 @@ export default function Footer() {
                 {/* Gradient Divider */}
                 <div className="h-px bg-linear-to-r from-transparent via-cyan/50 to-transparent mb-8"></div>
 
-                {/* Copyright */}
-                <div className="text-center text-white/50 text-sm">
-                    <p>
+                {/* Copyright and Portals */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-white/50 text-sm">
+                    <p className="order-2 md:order-1">
                         © {currentYear} XLEVELSUP. Built with Next.js & Passion.
                     </p>
+                    <div className="flex flex-wrap items-center justify-center gap-6 order-1 md:order-2">
+                        <Link
+                            href="/employee/login"
+                            className="flex items-center gap-2 text-gray-400 hover:text-cyan transition-colors duration-200 group text-sm"
+                        >
+                            <span className="p-1.5 rounded-md bg-gray-800/40 border border-gray-700/50 group-hover:border-cyan/50 group-hover:bg-cyan/10 transition-all duration-200">
+                                <svg className="w-4 h-4 text-gray-400 group-hover:text-cyan transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </span>
+                            <span className="font-medium">Employee Login</span>
+                        </Link>
+                        <Link
+                            href="/erp/login"
+                            className="flex items-center gap-2 text-gray-400 hover:text-cyan transition-colors duration-200 group text-sm"
+                        >
+                            <span className="p-1.5 rounded-md bg-gray-800/40 border border-gray-700/50 group-hover:border-cyan/50 group-hover:bg-cyan/10 transition-all duration-200">
+                                <svg className="w-4 h-4 text-gray-400 group-hover:text-cyan transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </span>
+                            <span className="font-medium">Admin Login</span>
+                        </Link>
+                    </div>
                 </div>
             </div>
         </footer>

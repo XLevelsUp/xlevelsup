@@ -4,15 +4,15 @@ import { useFormStatus } from 'react-dom';
 import { useEffect, useActionState, useState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
-import { createClientTransactionAction } from '@/actions/erp/client-finances';
+import { createClientTransactionAction, updateClientTransactionAction } from '@/actions/erp/client-finances';
 import {
   INCOME_CATEGORIES,
   EXPENSE_CATEGORIES,
   PAYMENT_MODES,
 } from '@/types/finance';
-import type { TransactionType } from '@/types/finance';
+import type { ClientTransaction, TransactionType } from '@/types/finance';
 
-function SubmitButton() {
+function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
 
   return (
@@ -22,7 +22,7 @@ function SubmitButton() {
       className='w-full'
       disabled={pending}
     >
-      {pending ? 'Saving...' : 'Save Transaction'}
+      {pending ? 'Saving...' : isEdit ? 'Update Transaction' : 'Save Transaction'}
     </Button>
   );
 }
@@ -30,14 +30,19 @@ function SubmitButton() {
 interface ClientFinanceFormProps {
   clients: string[];
   onSuccess?: () => void;
+  transaction?: ClientTransaction;
 }
 
 export default function ClientFinanceForm({
   clients,
   onSuccess,
+  transaction,
 }: ClientFinanceFormProps) {
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
+      if (transaction) {
+        return await updateClientTransactionAction(transaction.id, formData);
+      }
       return await createClientTransactionAction(formData);
     },
     { success: false },
@@ -50,8 +55,22 @@ export default function ClientFinanceForm({
   const [advanceAmount, setAdvanceAmount] = useState<string>('');
 
   useEffect(() => {
+    if (transaction) {
+      setTransactionType(transaction.type);
+      setPaymentStatus(transaction.payment_status);
+      setAmount(transaction.amount?.toString() || '');
+      setAdvanceAmount(transaction.advance_amount?.toString() || '');
+    } else {
+      setTransactionType('income');
+      setPaymentStatus('completed');
+      setAmount('');
+      setAdvanceAmount('');
+    }
+  }, [transaction]);
+
+  useEffect(() => {
     if (state.success) {
-      toast.success('Transaction saved successfully!', {
+      toast.success(transaction ? 'Transaction updated successfully!' : 'Transaction saved successfully!', {
         duration: 2000,
         position: 'top-center',
       });
@@ -62,7 +81,7 @@ export default function ClientFinanceForm({
         position: 'top-center',
       });
     }
-  }, [state, onSuccess]);
+  }, [state, onSuccess, transaction]);
 
   const today = new Date().toISOString().split('T')[0];
   const categories =
@@ -88,7 +107,7 @@ export default function ClientFinanceForm({
             id='transaction_date'
             name='transaction_date'
             required
-            defaultValue={today}
+            defaultValue={transaction?.transaction_date || today}
             max={today}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
@@ -144,6 +163,7 @@ export default function ClientFinanceForm({
             name='client_name'
             required
             list='clients-list'
+            defaultValue={transaction?.client_name || ''}
             placeholder='Client or Company Name'
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
@@ -165,6 +185,7 @@ export default function ClientFinanceForm({
             type='text'
             id='project_name'
             name='project_name'
+            defaultValue={transaction?.project_name || ''}
             placeholder='Optional project name'
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
@@ -178,6 +199,7 @@ export default function ClientFinanceForm({
             id='category'
             name='category'
             required
+            defaultValue={transaction?.category || ''}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           >
             <option value=''>Select Category</option>
@@ -199,6 +221,7 @@ export default function ClientFinanceForm({
           <select
             id='payment_mode'
             name='payment_mode'
+            defaultValue={transaction?.payment_mode || ''}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           >
             <option value=''>Select Payment Mode</option>
@@ -281,6 +304,7 @@ export default function ClientFinanceForm({
             type='text'
             id='reference_number'
             name='reference_number'
+            defaultValue={transaction?.reference_number || ''}
             placeholder='INV-001 / UPI Txn ID / etc.'
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
@@ -297,6 +321,7 @@ export default function ClientFinanceForm({
           id='description'
           name='description'
           rows={3}
+          defaultValue={transaction?.description || ''}
           placeholder='Brief description of the transaction...'
           className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
         />
@@ -310,13 +335,14 @@ export default function ClientFinanceForm({
           id='notes'
           name='notes'
           rows={2}
+          defaultValue={transaction?.notes || ''}
           placeholder='Additional notes (optional)...'
           className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
         />
       </div>
 
       <div className='pt-4'>
-        <SubmitButton />
+        <SubmitButton isEdit={!!transaction} />
       </div>
     </form>
   );

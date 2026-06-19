@@ -7,8 +7,10 @@
 import { useState } from 'react';
 import type { LeaveRequestWithEmployee } from '@/types/erp';
 import { reviewLeaveRequestAction } from '@/actions/erp/leave-requests';
+import { batchUpdateEarnedLeaveAction } from '@/actions/erp/earned-leave';
 import { toast } from 'react-hot-toast';
 import Modal from '@/components/ui/Modal';
+import LeaveCalendar from './LeaveCalendar';
 
 interface LeaveManagementTableProps {
   requests: LeaveRequestWithEmployee[];
@@ -25,6 +27,7 @@ const getLeaveTypeLabel = (type: string) => {
     unpaid: 'Unpaid',
     maternity: 'Maternity',
     paternity: 'Paternity',
+    wfh: 'Work From Home',
     other: 'Other',
     // Legacy support
     annual: 'Casual', // Migrated from annual
@@ -47,7 +50,9 @@ export default function LeaveManagementTable({
   const [selectedRequest, setSelectedRequest] =
     useState<LeaveRequestWithEmployee | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [processing, setProcessing] = useState(false);
+  const [isAccruing, setIsAccruing] = useState(false);
 
   const filteredRequests = requests.filter(
     (req) => filterStatus === 'all' || req.status === filterStatus,
@@ -79,6 +84,27 @@ export default function LeaveManagementTable({
     }
   };
 
+  const handleAccrueEarnedLeaves = async () => {
+    if (
+      !confirm(
+        'Are you sure you want to run the monthly Earned Leave auto-accrual calculation? This will calculate and allocate earned leaves for all active employees based on their accumulated Overtime hours.'
+      )
+    ) {
+      return;
+    }
+
+    setIsAccruing(true);
+    const result = await batchUpdateEarnedLeaveAction();
+    setIsAccruing(false);
+
+    if (result.success) {
+      toast.success(result.message || 'Earned leaves updated successfully!');
+      window.location.reload();
+    } else {
+      toast.error(result.error || 'Failed to update earned leaves.');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const badges = {
       pending: 'bg-yellow-500/20 text-yellow-500',
@@ -92,122 +118,175 @@ export default function LeaveManagementTable({
 
   return (
     <>
-      <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg'>
-        {/* Header with Filters */}
-        <div className='p-6 border-b border-gray-800'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h2 className='text-xl font-bold text-white'>Leave Requests</h2>
-              <p className='text-sm text-gray-400 mt-1'>
-                Total: {filteredRequests.length}
-              </p>
-            </div>
-
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className='px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[var(--cyan)]'
-            >
-              <option value='all'>All Status</option>
-              <option value='pending'>Pending</option>
-              <option value='approved'>Approved</option>
-              <option value='rejected'>Rejected</option>
-              <option value='cancelled'>Cancelled</option>
-            </select>
-          </div>
+      {/* Control Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 select-none">
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-1.5 p-1 bg-dark-900 border border-gray-800 rounded-lg self-start">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              viewMode === 'list'
+                ? 'bg-cyan/10 text-cyan border border-cyan/25'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            List View
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-cyan/10 text-cyan border border-cyan/25'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Calendar View
+          </button>
         </div>
 
-        {/* Table */}
-        <div className='overflow-x-auto'>
-          <table className='w-full'>
-            <thead className='bg-gray-900/50'>
-              <tr>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
-                  Employee
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
-                  Leave Type
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
-                  Dates
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
-                  Days
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
-                  Status
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className='divide-y divide-gray-800'>
-              {filteredRequests.length === 0 ? (
+        {/* Accrual Action Button */}
+        <button
+          onClick={handleAccrueEarnedLeaves}
+          disabled={isAccruing}
+          className="px-4 py-2 bg-gradient-to-r from-cyan to-purple text-white rounded-lg text-xs font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2 self-start"
+        >
+          {isAccruing ? (
+            <>
+              <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Accruing Leaves...</span>
+            </>
+          ) : (
+            <>
+              <span>⚡</span>
+              <span>Run Earned Leave Accrual</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {viewMode === 'calendar' ? (
+        <LeaveCalendar requests={requests} />
+      ) : (
+        <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg'>
+          {/* Header with Filters */}
+          <div className='p-6 border-b border-gray-800'>
+            <div className='flex items-center justify-between'>
+              <div>
+                <h2 className='text-xl font-bold text-white'>Leave Requests</h2>
+                <p className='text-sm text-gray-400 mt-1'>
+                  Total: {filteredRequests.length}
+                </p>
+              </div>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className='px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[var(--cyan)]'
+              >
+                <option value='all'>All Status</option>
+                <option value='pending'>Pending</option>
+                <option value='approved'>Approved</option>
+                <option value='rejected'>Rejected</option>
+                <option value='cancelled'>Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className='overflow-x-auto'>
+            <table className='w-full'>
+              <thead className='bg-gray-900/50'>
                 <tr>
-                  <td
-                    colSpan={6}
-                    className='px-6 py-8 text-center text-gray-400'
-                  >
-                    No leave requests found
-                  </td>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
+                    Employee
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
+                    Leave Type
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
+                    Dates
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
+                    Days
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
+                    Status
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase'>
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                filteredRequests.map((request) => (
-                  <tr key={request.id} className='hover:bg-gray-900/30'>
-                    <td className='px-6 py-4'>
-                      <div>
-                        <p className='font-medium text-white'>
-                          {request.employee_name}
-                        </p>
-                        <p className='text-sm text-gray-400'>
-                          {request.employee_id_display}
-                        </p>
-                        <p className='text-xs text-gray-500'>
-                          {request.employee_department}
-                        </p>
-                      </div>
-                    </td>
-                    <td className='px-6 py-4 text-gray-300'>
-                      {getLeaveTypeLabel(request.leave_type)}
-                    </td>
-                    <td className='px-6 py-4'>
-                      <div className='text-sm'>
-                        <p className='text-gray-300'>
-                          {formatDate(request.start_date)}
-                        </p>
-                        <p className='text-gray-500'>
-                          to {formatDate(request.end_date)}
-                        </p>
-                      </div>
-                    </td>
-                    <td className='px-6 py-4 text-gray-300'>
-                      {request.total_days}
-                    </td>
-                    <td className='px-6 py-4'>
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadge(
-                          request.status,
-                        )}`}
-                      >
-                        {request.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className='px-6 py-4'>
-                      <button
-                        onClick={() => setSelectedRequest(request)}
-                        className='text-sm text-[var(--cyan)] hover:underline'
-                      >
-                        View Details
-                      </button>
+              </thead>
+              <tbody className='divide-y divide-gray-800'>
+                {filteredRequests.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className='px-6 py-8 text-center text-gray-400'
+                    >
+                      No leave requests found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredRequests.map((request) => (
+                    <tr key={request.id} className='hover:bg-gray-900/30'>
+                      <td className='px-6 py-4'>
+                        <div>
+                          <p className='font-medium text-white'>
+                            {request.employee_name}
+                          </p>
+                          <p className='text-sm text-gray-400'>
+                            {request.employee_id_display}
+                          </p>
+                          <p className='text-xs text-gray-500'>
+                            {request.employee_department}
+                          </p>
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 text-gray-300'>
+                        {getLeaveTypeLabel(request.leave_type)}
+                      </td>
+                      <td className='px-6 py-4'>
+                        <div className='text-sm'>
+                          <p className='text-gray-300'>
+                            {formatDate(request.start_date)}
+                          </p>
+                          <p className='text-gray-500'>
+                            to {formatDate(request.end_date)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 text-gray-300'>
+                        {request.total_days}
+                      </td>
+                      <td className='px-6 py-4'>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadge(
+                            request.status,
+                          )}`}
+                        >
+                          {request.status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className='px-6 py-4'>
+                        <button
+                          onClick={() => setSelectedRequest(request)}
+                          className='text-sm text-[var(--cyan)] hover:underline'
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Review Modal */}
       {selectedRequest && (

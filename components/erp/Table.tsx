@@ -8,21 +8,21 @@ interface TableProps {
 
 export function Table({ headers, children, className = '' }: TableProps) {
   return (
-    <div className={`overflow-x-auto ${className}`}>
-      <table className='w-full border-collapse'>
+    <div className={`overflow-x-auto w-full rounded-lg scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent ${className}`}>
+      <table className='w-full border-collapse text-left'>
         <thead>
-          <tr className='border-b border-gray-700'>
+          <tr className='border-b border-gray-850 bg-gray-900/40 text-xs uppercase tracking-wider text-gray-400 select-none'>
             {headers.map((header, index) => (
               <th
                 key={index}
-                className='text-left px-4 py-3 text-sm font-semibold text-gray-300 uppercase tracking-wider'
+                className='px-5 py-4 font-semibold text-gray-300'
               >
                 {header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody className="divide-y divide-gray-850/50 bg-[#0c0c0e]/20">{children}</tbody>
       </table>
     </div>
   );
@@ -38,7 +38,7 @@ export function TableRow({ children, onClick, className = '' }: TableRowProps) {
   return (
     <tr
       onClick={onClick}
-      className={`border-b border-gray-800 hover:bg-dark-700 transition-colors ${
+      className={`hover:bg-gray-850/30 transition-all duration-200 ${
         onClick ? 'cursor-pointer' : ''
       } ${className}`}
     >
@@ -54,7 +54,7 @@ interface TableCellProps {
 
 export function TableCell({ children, className = '' }: TableCellProps) {
   return (
-    <td className={`px-4 py-3 text-sm text-gray-300 ${className}`}>
+    <td className={`px-5 py-4 text-sm text-gray-400 ${className}`}>
       {children}
     </td>
   );

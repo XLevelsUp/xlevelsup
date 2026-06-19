@@ -1,0 +1,223 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { m as motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+
+interface ERPSidebarProps {
+  userRole: string;
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
+}
+
+export default function ERPSidebar({
+  userRole,
+  isCollapsed,
+  setIsCollapsed,
+}: ERPSidebarProps) {
+  const pathname = usePathname();
+
+  const isActivePath = (href: string) => {
+    if (pathname === href) return true;
+    const pathSegs = pathname.split('/').filter(Boolean);
+    const hrefSegs = href.split('/').filter(Boolean);
+    if (hrefSegs.length > pathSegs.length) return false;
+    return hrefSegs.every((seg, i) => pathSegs[i] === seg);
+  };
+
+  const navItems = [
+    {
+      href: '/erp/dashboard',
+      label: 'Dashboard',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/employees',
+      label: 'Employees',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/attendance',
+      label: 'Attendance',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/time-tracking',
+      label: 'Time Tracking',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/attendance-change-requests',
+      label: 'Attendance Requests',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/leave-requests',
+      label: 'Leave Requests',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.07 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/payroll',
+      label: 'Payroll',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/expenses',
+      label: 'Expenses',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/erp/client-finances',
+      label: 'Client Finances',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <motion.aside
+      animate={{ width: isCollapsed ? 72 : 260 }}
+      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1.0] }}
+      className="hidden md:flex flex-col h-screen fixed left-0 top-0 bg-[#0c0c0e]/95 backdrop-blur-md border-r border-gray-800/80 z-40 text-gray-400 select-none overflow-hidden"
+    >
+      {/* Brand Section */}
+      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800/80">
+        <Link href="/erp/dashboard" className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan to-purple flex items-center justify-center font-bold text-white text-lg">
+            X
+          </div>
+          <AnimatePresence initial={false}>
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="font-bold text-lg text-white tracking-wider whitespace-nowrap bg-gradient-to-r from-cyan to-purple bg-clip-text text-transparent"
+              >
+                XLEVELSUP
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Link>
+        
+        {/* Toggle Button */}
+        {!isCollapsed && (
+          <button
+            onClick={() => setIsCollapsed(true)}
+            className="p-1 rounded-md hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Nav Items */}
+      <div className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+        {navItems.map((item) => {
+          const isActive = isActivePath(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
+                isActive
+                  ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                  : 'hover:bg-gray-800/40 hover:text-white border border-transparent'
+              }`}
+            >
+              <div className={`flex-shrink-0 transition-colors duration-200 ${isActive ? 'text-cyan' : 'text-gray-400 group-hover:text-cyan'}`}>
+                {item.icon}
+              </div>
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="font-medium text-sm whitespace-nowrap"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              
+              {/* Tooltip on Collapsed */}
+              {isCollapsed && (
+                <div className="absolute left-16 bg-gray-900 border border-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                  {item.label}
+                </div>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Collapse Trigger for Collapsed Sidebar */}
+      {isCollapsed && (
+        <div className="p-3 border-t border-gray-800/80 flex justify-center">
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="p-2 rounded-lg hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Role Tag Footer */}
+      {!isCollapsed && (
+        <div className="p-4 border-t border-gray-800/80 bg-gray-900/10">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-500 tracking-wider uppercase">
+              {userRole} Portal
+            </span>
+          </div>
+        </div>
+      )}
+    </motion.aside>
+  );
+}

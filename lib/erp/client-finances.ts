@@ -213,29 +213,33 @@ export async function getFinancialSummary(filters?: {
     const income = transactions.filter((t) => t.type === 'income');
     const expenses = transactions.filter((t) => t.type === 'expense');
 
-    const totalIncome = income
+    const completedIncome = income
       .filter((t) => t.payment_status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      
+    const advanceIncome = income
+      .filter((t) => t.payment_status === 'advance')
+      .reduce((sum, t) => sum + Number(t.advance_amount ?? 0), 0);
+      
+    const totalIncome = completedIncome + advanceIncome;
 
     const totalExpense = expenses
       .filter((t) => t.payment_status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-    const pendingIncome = income
+    const fullyPendingIncome = income
       .filter((t) => t.payment_status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const pendingExpense = expenses
-      .filter((t) => t.payment_status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const advanceIncome = income
-      .filter((t) => t.payment_status === 'advance')
-      .reduce((sum, t) => sum + (t.advance_amount ?? 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
     const pendingFromAdvance = income
       .filter((t) => t.payment_status === 'advance')
-      .reduce((sum, t) => sum + (t.pending_amount ?? 0), 0);
+      .reduce((sum, t) => sum + Number(t.pending_amount ?? 0), 0);
+
+    const pendingIncome = fullyPendingIncome + pendingFromAdvance;
+
+    const pendingExpense = expenses
+      .filter((t) => t.payment_status === 'pending')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
     return {
       totalIncome,

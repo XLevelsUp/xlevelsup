@@ -40,7 +40,7 @@ npm run init-erp
 This will create the default admin user:
 
 - **Email**: admin@xlevelsup.com
-- **Password**: admin123
+- **Password**: XLU-admin-9x8f-2a3b
 
 ### 4. Start Development Server
 

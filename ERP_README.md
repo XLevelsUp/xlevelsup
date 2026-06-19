@@ -96,7 +96,7 @@ A comprehensive internal ERP (Enterprise Resource Planning) system built for XLE
    - Navigate to: `http://localhost:3000/erp/login`
    - Default credentials:
      - Email: `admin@xlevelsup.com`
-     - Password: `admin123`
+     - Password: `XLU-admin-9x8f-2a3b`
 
 ## Project Structure
 

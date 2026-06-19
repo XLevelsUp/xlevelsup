@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS expenses (
 CREATE TABLE IF NOT EXISTS leave_requests (
     id SERIAL PRIMARY KEY,
     employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    leave_type VARCHAR(50) NOT NULL CHECK (leave_type IN ('sick', 'casual', 'floater', 'earned', 'unpaid', 'maternity', 'paternity', 'other')),
+    leave_type VARCHAR(50) NOT NULL CHECK (leave_type IN ('sick', 'casual', 'floater', 'earned', 'unpaid', 'maternity', 'paternity', 'other', 'wfh')),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     total_days NUMERIC(4,1) NOT NULL, -- Supports half-days (e.g., 2.5 days)

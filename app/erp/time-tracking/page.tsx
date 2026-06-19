@@ -5,7 +5,7 @@
 
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ERPNavbar from '@/components/erp/ERPNavbar';
+import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import {
   getAllEmployeesTimeStatus,
   getTimeTrackingStats,
@@ -37,9 +37,8 @@ export default async function TimeTrackingPage() {
   });
 
   return (
-    <div className='min-h-screen'>
-      <ERPNavbar userEmail={session.email} userRole={session.role} />
-      <main className='max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+    <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+      <main className='max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         {/* Header */}
         <div className='mb-8'>
           <div className='flex items-center justify-between'>
@@ -191,6 +190,6 @@ export default async function TimeTrackingPage() {
           </p>
         </div>
       </main>
-    </div>
+    </ERPLayoutWrapper>
   );
 }

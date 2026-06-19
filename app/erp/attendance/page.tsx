@@ -2,7 +2,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllEmployees } from '@/lib/erp/employees';
 import { getAllAttendance } from '@/lib/erp/attendance';
-import ERPNavbar from '@/components/erp/ERPNavbar';
+import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import AttendanceManager from '@/components/erp/AttendanceManager';
 import { getCurrentMonth } from '@/lib/erp/utils';
 
@@ -29,9 +29,8 @@ export default async function AttendancePage({
   });
 
   return (
-    <div className='min-h-screen'>
-      <ERPNavbar userEmail={session.email} userRole={session.role} />
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+    <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         <AttendanceManager
           employees={employees}
           attendance={attendance}
@@ -39,6 +38,6 @@ export default async function AttendancePage({
           initialEmployeeId={employeeId}
         />
       </main>
-    </div>
+    </ERPLayoutWrapper>
   );
 }

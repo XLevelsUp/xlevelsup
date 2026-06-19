@@ -57,6 +57,7 @@ export default function LeaveRequestList({
       unpaid: 'Unpaid Leave',
       maternity: 'Maternity Leave',
       paternity: 'Paternity Leave',
+      wfh: 'Work From Home',
       other: 'Other',
       // Legacy support
       annual: 'Casual Leave', // Migrated from annual

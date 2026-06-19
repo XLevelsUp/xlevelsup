@@ -24,13 +24,17 @@ export default function LeaveRequestForm({
     null,
   );
 
+  const [selectedLeaveType, setSelectedLeaveType] = useState<string>('');
+
   useEffect(() => {
     if (state?.success) {
       toast.success('Leave request submitted successfully!');
       // Reset form
       const form = document.querySelector('form') as HTMLFormElement;
       form?.reset();
-      setSelectedLeaveType(''); // Reset selected leave type
+      setTimeout(() => {
+        setSelectedLeaveType(''); // Reset selected leave type
+      }, 0);
     } else if (state?.error) {
       toast.error(state.error);
     }
@@ -38,8 +42,6 @@ export default function LeaveRequestForm({
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split('T')[0];
-
-  const [selectedLeaveType, setSelectedLeaveType] = useState<string>('');
 
   // Get balance for selected leave type
   const getLeaveBalance = (leaveType: string) => {
@@ -87,6 +89,7 @@ export default function LeaveRequestForm({
             <option value='unpaid'>Unpaid Leave</option>
             <option value='maternity'>Maternity Leave</option>
             <option value='paternity'>Paternity Leave</option>
+            <option value='wfh'>Work From Home</option>
           </select>
 
           {/* Show available balance for selected leave type */}
@@ -158,6 +161,12 @@ export default function LeaveRequestForm({
             selectedLeaveType === 'paternity') && (
             <p className='mt-2 text-xs text-gray-400'>
               💡 Subject to company policy and approval
+            </p>
+          )}
+
+          {selectedLeaveType === 'wfh' && (
+            <p className='mt-2 text-xs text-[var(--cyan)]'>
+              💡 Work From Home requests are limited to a maximum of 2 days per calendar month.
             </p>
           )}
         </div>

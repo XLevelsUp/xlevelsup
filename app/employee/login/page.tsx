@@ -198,16 +198,6 @@ function EmployeeLoginForm() {
                   : 'Login'}
             </Button>
           </form>
-
-          {/* Admin Login Link */}
-          <div className='mt-6 text-center'>
-            <a
-              href='/erp/login'
-              className='text-sm text-gray-400 hover:text-[var(--cyan)] transition-colors'
-            >
-              Admin Login →
-            </a>
-          </div>
         </div>
 
         {/* Footer */}

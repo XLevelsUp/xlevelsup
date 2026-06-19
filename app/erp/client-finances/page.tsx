@@ -5,7 +5,7 @@ import {
   getAllClients,
   getFinancialSummary,
 } from '@/lib/erp/client-finances';
-import ERPNavbar from '@/components/erp/ERPNavbar';
+import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import ClientFinanceManager from '@/components/erp/ClientFinanceManager';
 import { getCurrentMonth } from '@/lib/erp/utils';
 
@@ -44,9 +44,8 @@ export default async function ClientFinancesPage({
   const summary = await getFinancialSummary({ month });
 
   return (
-    <div className='min-h-screen'>
-      <ERPNavbar userEmail={session.email} userRole={session.role} />
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+    <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         <ClientFinanceManager
           transactions={transactions}
           clients={clients}
@@ -58,6 +57,6 @@ export default async function ClientFinancesPage({
           summary={summary}
         />
       </main>
-    </div>
+    </ERPLayoutWrapper>
   );
 }

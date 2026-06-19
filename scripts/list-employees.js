@@ -62,7 +62,7 @@ async function listEmployees() {
     console.log('\n💡 ADMIN LOGIN:');
     console.log('   • URL:      http://localhost:3000/erp/login');
     console.log('   • Email:    admin@xlevelsup.com');
-    console.log('   • Password: admin123 (change immediately!)');
+    console.log('   • Password: XLU-admin-9x8f-2a3b');
     console.log('\n');
   } catch (error) {
     console.error('❌ Error:', error.message);

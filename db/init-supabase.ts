@@ -34,7 +34,7 @@ export async function initializeDatabase() {
     }
 
     // Create default admin user
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const hashedPassword = await bcrypt.hash('XLU-admin-9x8f-2a3b', 10);
 
     const { error: insertError } = await supabase.from('users').insert({
       email: 'admin@xlevelsup.com',
@@ -48,7 +48,7 @@ export async function initializeDatabase() {
     }
 
     console.log(
-      '✅ Default admin user created: admin@xlevelsup.com / admin123',
+      '✅ Default admin user created: admin@xlevelsup.com / XLU-admin-9x8f-2a3b',
     );
     console.log('✅ Database initialized successfully');
   } catch (error) {

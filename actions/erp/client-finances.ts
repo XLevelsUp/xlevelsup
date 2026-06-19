@@ -198,3 +198,82 @@ export async function getAllClientsAction(): Promise<string[]> {
     return [];
   }
 }
+
+/**
+ * Record payment for a transaction (partial or full)
+ */
+export async function recordTransactionPaymentAction(
+  id: number,
+  newPaymentAmount: number,
+): Promise<ClientTransactionActionResult> {
+  try {
+    await requireRole(['admin', 'hr']);
+
+    if (isNaN(newPaymentAmount) || newPaymentAmount <= 0) {
+      return { success: false, error: 'Payment amount must be positive' };
+    }
+
+    const transaction = await getClientTransactionById(id);
+    if (!transaction) {
+      return { success: false, error: 'Transaction not found' };
+    }
+
+    const totalAmount = Number(transaction.amount || 0);
+    let updatedStatus: 'completed' | 'advance' = 'completed';
+    let newAdvanceAmount: number | null = null;
+    let newPendingAmount: number | null = null;
+
+    if (transaction.payment_status === 'pending') {
+      if (newPaymentAmount >= totalAmount) {
+        updatedStatus = 'completed';
+        newAdvanceAmount = null;
+        newPendingAmount = null;
+      } else {
+        updatedStatus = 'advance';
+        newAdvanceAmount = newPaymentAmount;
+        newPendingAmount = totalAmount - newPaymentAmount;
+      }
+    } else if (transaction.payment_status === 'advance') {
+      const currentAdvance = Number(transaction.advance_amount ?? 0);
+      const totalAdvance = currentAdvance + newPaymentAmount;
+
+      if (totalAdvance >= totalAmount) {
+        updatedStatus = 'completed';
+        newAdvanceAmount = null;
+        newPendingAmount = null;
+      } else {
+        updatedStatus = 'advance';
+        newAdvanceAmount = totalAdvance;
+        newPendingAmount = totalAmount - totalAdvance;
+      }
+    } else {
+      return { success: false, error: `Cannot record payment on a '${transaction.payment_status}' transaction` };
+    }
+
+    const rawData = {
+      transaction_date: transaction.transaction_date,
+      type: transaction.type,
+      amount: totalAmount,
+      client_name: transaction.client_name,
+      project_name: transaction.project_name,
+      category: transaction.category,
+      subcategory: transaction.subcategory,
+      payment_mode: transaction.payment_mode,
+      payment_status: updatedStatus,
+      reference_number: transaction.reference_number,
+      receipt_url: transaction.receipt_url,
+      description: transaction.description,
+      notes: transaction.notes,
+      advance_amount: newAdvanceAmount,
+      pending_amount: newPendingAmount,
+    };
+
+    const updated = await updateClientTransaction(id, rawData);
+
+    revalidatePath('/erp/client-finances');
+    return { success: true, transaction: updated };
+  } catch (error) {
+    console.error('Record payment error:', error);
+    return { success: false, error: 'Failed to record payment' };
+  }
+}

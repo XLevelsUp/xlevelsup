@@ -2,7 +2,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllExpenses, getAllExpenseCategories } from '@/lib/erp/expenses';
 import { getAllEmployees } from '@/lib/erp/employees';
-import ERPNavbar from '@/components/erp/ERPNavbar';
+import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import ExpenseManager from '@/components/erp/ExpenseManager';
 
 export default async function ExpensesPage({
@@ -32,9 +32,8 @@ export default async function ExpensesPage({
   const employees = await getAllEmployees({ status: 'active' });
 
   return (
-    <div className='min-h-screen'>
-      <ERPNavbar userEmail={session.email} userRole={session.role} />
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+    <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         <ExpenseManager
           expenses={expenses}
           categories={categories}
@@ -45,6 +44,6 @@ export default async function ExpensesPage({
           initialPaidBy={paidBy}
         />
       </main>
-    </div>
+    </ERPLayoutWrapper>
   );
 }

@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ERPNavbar from '@/components/erp/ERPNavbar';
+import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import { getDashboardStats } from '@/lib/erp/dashboard';
 import {
   getAllEmployeesTimeStatus,
@@ -21,9 +21,8 @@ export default async function DashboardPage() {
   const timeTrackingStats = await getTimeTrackingStats();
 
   return (
-    <div className='min-h-screen'>
-      <ERPNavbar userEmail={session.email} userRole={session.role} />
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+    <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         {/* Header */}
         <div className='mb-8'>
           <h1 className='text-3xl font-bold gradient-text'>ERP Dashboard</h1>
@@ -311,6 +310,6 @@ export default async function DashboardPage() {
           </p>
         </div>
       </main>
-    </div>
+    </ERPLayoutWrapper>
   );
 }

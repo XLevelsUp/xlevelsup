@@ -14,7 +14,7 @@ import type {
  * Calculate total days between two dates (inclusive, excludes weekends)
  * This is a simple calculation. You can enhance it to exclude holidays.
  */
-function calculateLeaveDays(startDate: string, endDate: string): number {
+export function calculateLeaveDays(startDate: string, endDate: string): number {
   const start = new Date(startDate);
   const end = new Date(endDate);
   let days = 0;
@@ -32,6 +32,58 @@ function calculateLeaveDays(startDate: string, endDate: string): number {
   }
 
   return days;
+}
+
+/**
+ * Get WFH days count for an employee in a specific month (excludes weekends)
+ */
+export async function getWfhDaysCountInMonth(
+  employeeId: number,
+  monthStr: string, // YYYY-MM
+  excludeRequestId?: number,
+): Promise<number> {
+  const startDate = `${monthStr}-01`;
+  const [year, month] = monthStr.split('-').map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+  let query = supabase
+    .from('leave_requests')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .eq('leave_type', 'wfh')
+    .in('status', ['approved', 'pending'])
+    .or(`start_date.gte.${startDate},end_date.gte.${startDate}`);
+
+  if (excludeRequestId) {
+    query = query.neq('id', excludeRequestId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  let totalWfhDays = 0;
+  const targetMonthStart = new Date(startDate);
+  const targetMonthEnd = new Date(endDate);
+
+  for (const req of data || []) {
+    const reqStart = new Date(req.start_date);
+    const reqEnd = new Date(req.end_date);
+
+    const overlapStart = reqStart < targetMonthStart ? targetMonthStart : reqStart;
+    const overlapEnd = reqEnd > targetMonthEnd ? targetMonthEnd : reqEnd;
+
+    if (overlapStart <= overlapEnd) {
+      for (let d = new Date(overlapStart); d <= overlapEnd; d.setDate(d.getDate() + 1)) {
+        const dayOfWeek = d.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          totalWfhDays++;
+        }
+      }
+    }
+  }
+
+  return totalWfhDays;
 }
 
 /**
@@ -212,8 +264,8 @@ export async function cancelLeaveRequest(
 
   if (error) throw error;
 
-  // If the leave was approved, restore the leave balance
-  if (wasApproved) {
+  // If the leave was approved, restore the leave balance (except for WFH)
+  if (wasApproved && existingRequest.leave_type !== 'wfh') {
     const year = new Date(existingRequest.start_date).getFullYear();
 
     // Get the current leave balance
@@ -289,8 +341,8 @@ export async function reviewLeaveRequest(
 
   if (error) throw error;
 
-  // If approved, deduct from leave balance
-  if (status === 'approved') {
+  // If approved, deduct from leave balance (except for WFH)
+  if (status === 'approved' && existingRequest.leave_type !== 'wfh') {
     const year = new Date(existingRequest.start_date).getFullYear();
 
     // First, get the current leave balance

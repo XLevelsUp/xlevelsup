@@ -99,6 +99,21 @@ export default function ExpenseManager({
     )
     .reduce((sum, e) => sum + e.amount, 0);
 
+  // Group expenses by category
+  const expensesByCategory = expenses.reduce((acc, exp) => {
+    acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Sort categories by amount descending
+  const sortedBreakdown = Object.entries(expensesByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, amt]) => ({
+      category: cat,
+      amount: amt,
+      percentage: totalAmount > 0 ? (amt / totalAmount) * 100 : 0,
+    }));
+
   return (
     <div>
       {/* Header */}
@@ -238,6 +253,91 @@ export default function ExpenseManager({
           <p className='text-2xl font-bold text-cyan mt-1'>{expenses.length}</p>
         </div>
       </div>
+
+      {/* Expense Category Breakdown Chart */}
+      {expenses.length > 0 && sortedBreakdown.length > 0 && (
+        <div className='glass p-6 rounded-lg mb-6 select-none'>
+          <h3 className='text-sm font-semibold text-white mb-4'>Expense Distribution by Category</h3>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-8 items-center'>
+            {/* Left side: Category Progress Bars */}
+            <div className='space-y-4'>
+              {sortedBreakdown.slice(0, 5).map((item, index) => {
+                const colors = [
+                  'bg-cyan',
+                  'bg-purple',
+                  'bg-blue-500',
+                  'bg-green-500',
+                  'bg-yellow-500',
+                ];
+                const color = colors[index % colors.length];
+                return (
+                  <div key={item.category}>
+                    <div className='flex justify-between items-center text-xs mb-1.5'>
+                      <span className='font-medium text-gray-300'>{item.category}</span>
+                      <span className='text-gray-400 font-semibold'>
+                        {formatCurrency(item.amount)} ({item.percentage.toFixed(0)}%)
+                      </span>
+                    </div>
+                    <div className='w-full h-2 bg-[#0c0c0e]/85 rounded-full overflow-hidden border border-gray-800/80'>
+                      <div
+                        className={`h-full ${color} transition-all duration-500`}
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right side: SVG Donut Chart */}
+            <div className='flex flex-col items-center justify-center'>
+              <div className='relative w-36 h-36 flex items-center justify-center'>
+                <svg className='w-full h-full transform -rotate-90' viewBox='0 0 36 36'>
+                  {/* Base Circle */}
+                  <circle cx='18' cy='18' r='15.915' fill='none' stroke='#111115' strokeWidth='4' />
+                  {/* Segments */}
+                  {(() => {
+                    let accumulatedPercent = 0;
+                    return sortedBreakdown.map((item, index) => {
+                      const strokeDasharray = `${item.percentage} ${100 - item.percentage}`;
+                      const strokeDashoffset = 100 - accumulatedPercent;
+                      accumulatedPercent += item.percentage;
+                      
+                      const colors = [
+                        '#00ffff', // cyan
+                        '#a855f7', // purple
+                        '#3b82f6', // blue
+                        '#22c55e', // green
+                        '#eab308', // yellow
+                      ];
+                      const strokeColor = colors[index % colors.length];
+
+                      return (
+                        <circle
+                          key={item.category}
+                          cx='18'
+                          cy='18'
+                          r='15.915'
+                          fill='none'
+                          stroke={strokeColor}
+                          strokeWidth='4'
+                          strokeDasharray={strokeDasharray}
+                          strokeDashoffset={strokeDashoffset}
+                          className="transition-all duration-500"
+                        />
+                      );
+                    });
+                  })()}
+                </svg>
+                <div className='absolute flex flex-col items-center justify-center'>
+                  <span className='text-lg font-bold text-white'>{formatCurrency(totalAmount).split('.')[0]}</span>
+                  <span className='text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1'>Total Spent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Expense Table */}
       <div className='glass rounded-lg overflow-hidden'>

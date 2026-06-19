@@ -48,13 +48,13 @@ export async function initializeDatabase(): Promise<void> {
     .get('admin@xlevelsup.com');
 
   if (!adminExists) {
-    const passwordHash = await hash('admin123', 10);
+    const passwordHash = await hash('XLU-admin-9x8f-2a3b', 10);
     db.prepare(
       'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
     ).run('admin@xlevelsup.com', passwordHash, 'admin');
 
     console.log(
-      '✅ Default admin user created: admin@xlevelsup.com / admin123',
+      '✅ Default admin user created: admin@xlevelsup.com / XLU-admin-9x8f-2a3b',
     );
   }
 

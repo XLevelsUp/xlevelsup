@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllEmployees, getAllDepartments } from '@/lib/erp/employees';
-import ERPNavbar from '@/components/erp/ERPNavbar';
+import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import EmployeeList from '@/components/erp/EmployeeList';
 
 export default async function EmployeesPage({
@@ -31,15 +31,14 @@ export default async function EmployeesPage({
   const departments = await getAllDepartments();
 
   return (
-    <div className='min-h-screen'>
-      <ERPNavbar userEmail={session.email} userRole={session.role} />
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+    <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         <EmployeeList
           employees={employees}
           departments={departments}
           initialFilters={filters}
         />
       </main>
-    </div>
+    </ERPLayoutWrapper>
   );
 }

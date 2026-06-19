@@ -157,15 +157,6 @@ export default function LoginPage() {
 
             <SubmitButton />
           </form>
-
-          <div className='mt-6 p-4 bg-dark-800 rounded-lg'>
-            <p className='text-sm text-gray-400 mb-2'>Default credentials:</p>
-            <p className='text-xs text-gray-500'>
-              Email: admin@xlevelsup.com
-              <br />
-              Password: admin123
-            </p>
-          </div>
         </div>
       </motion.div>
     </div>
