@@ -7,6 +7,7 @@
 import { useActionState, useEffect, useState } from 'react';
 import { createLeaveRequestAction } from '@/actions/erp/leave-requests';
 import Button from '@/components/ui/Button';
+import DatePicker from '@/components/ui/DatePicker';
 import { toast } from 'react-hot-toast';
 import type { LeaveBalance } from '@/types/erp';
 
@@ -25,6 +26,31 @@ export default function LeaveRequestForm({
   );
 
   const [selectedLeaveType, setSelectedLeaveType] = useState<string>('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
+
+  // Compute date boundaries
+  const tomorrow = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  })();
+
+  // Fetch public holidays for the current (and next) year so they are blocked in the DatePicker
+  useEffect(() => {
+    const year = new Date().getFullYear();
+    fetch(`/api/erp/holidays?year=${year}`)
+      .then((r) => r.json())
+      .then(({ holidays }) => {
+        if (Array.isArray(holidays)) {
+          setHolidayDates(new Set(holidays.map((h: { date: string }) => h.date)));
+        }
+      })
+      .catch(() => {
+        // Non-fatal: holidays just won't be blocked in the picker
+      });
+  }, []);
 
   useEffect(() => {
     if (state?.success) {
@@ -33,15 +59,15 @@ export default function LeaveRequestForm({
       const form = document.querySelector('form') as HTMLFormElement;
       form?.reset();
       setTimeout(() => {
-        setSelectedLeaveType(''); // Reset selected leave type
+        setSelectedLeaveType('');
+        setStartDate('');
+        setEndDate('');
       }, 0);
     } else if (state?.error) {
       toast.error(state.error);
     }
   }, [state]);
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0];
 
   // Get balance for selected leave type
   const getLeaveBalance = (leaveType: string) => {
@@ -173,40 +199,38 @@ export default function LeaveRequestForm({
 
         {/* Start Date */}
         <div>
-          <label
-            htmlFor='start_date'
-            className='block text-sm font-medium mb-2 text-gray-300'
-          >
-            Start Date <span className='text-red-500'>*</span>
-          </label>
-          <input
-            type='date'
-            id='start_date'
-            name='start_date'
+          <DatePicker
+            label='Start Date'
             required
-            min={today}
-            disabled={isPending}
-            className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
+            value={startDate}
+            onChange={(date) => {
+              setStartDate(date);
+              // If end date is before new start date, reset it
+              if (endDate && date > endDate) setEndDate('');
+            }}
+            minDate={tomorrow}
+            placeholder='Select start date'
+            disableWeekends
+            disabledDates={holidayDates}
           />
+          {/* Hidden field for form submission */}
+          <input type='hidden' name='start_date' value={startDate} />
         </div>
 
         {/* End Date */}
         <div>
-          <label
-            htmlFor='end_date'
-            className='block text-sm font-medium mb-2 text-gray-300'
-          >
-            End Date <span className='text-red-500'>*</span>
-          </label>
-          <input
-            type='date'
-            id='end_date'
-            name='end_date'
+          <DatePicker
+            label='End Date'
             required
-            min={today}
-            disabled={isPending}
-            className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
+            value={endDate}
+            onChange={setEndDate}
+            minDate={startDate || tomorrow}
+            placeholder='Select end date'
+            disableWeekends
+            disabledDates={holidayDates}
           />
+          {/* Hidden field for form submission */}
+          <input type='hidden' name='end_date' value={endDate} />
         </div>
 
         {/* Reason */}

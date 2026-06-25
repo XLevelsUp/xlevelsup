@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import type { AttendanceWithChangeRequest, TimeLog } from '@/types/erp';
+import { formatDuration } from '@/lib/erp/utils';
 
 interface AttendanceRecordsTableProps {
   records: AttendanceWithChangeRequest[];
@@ -436,8 +437,8 @@ export default function AttendanceRecordsTable({
                         </div>
                         <div className='text-left sm:text-right border-t sm:border-t-0 border-gray-800/40 pt-2 sm:pt-0'>
                           <div className='text-gray-500 font-medium'>Duration</div>
-                          <div className='font-mono font-bold text-white text-sm'>
-                            {session.total_hours ? `${session.total_hours.toFixed(2)} hrs` : 'Ongoing'}
+                           <div className='font-mono font-bold text-white text-sm'>
+                            {session.total_hours ? formatDuration(session.total_hours, true) : 'Ongoing'}
                           </div>
                           {session.notes && (
                             <p className='text-gray-400 italic mt-1 max-w-[200px] sm:max-w-xs truncate'>
@@ -681,7 +682,7 @@ export default function AttendanceRecordsTable({
                                       <div className='text-left sm:text-right border-t sm:border-t-0 border-gray-800/40 pt-2 sm:pt-0'>
                                         <div className='text-gray-500 font-medium'>Duration</div>
                                         <div className='font-mono font-bold text-white text-sm'>
-                                          {session.total_hours ? `${session.total_hours.toFixed(2)} hrs` : 'Ongoing'}
+                                          {session.total_hours ? formatDuration(session.total_hours, true) : 'Ongoing'}
                                         </div>
                                         {session.notes && (
                                           <p className='text-gray-400 italic mt-1 max-w-[200px] sm:max-w-xs truncate'>

@@ -21,6 +21,8 @@ function EmployeeLoginForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [isCapturingLocation, setIsCapturingLocation] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   // Check for password change success message
   useEffect(() => {
@@ -90,8 +92,18 @@ function EmployeeLoginForm() {
       setIsCapturingLocation(false);
     }
 
-    // Submit the form
-    const formData = new FormData(formRef.current);
+    // Submit the form - build FormData from controlled state so values survive re-renders
+    const formData = new FormData();
+    formData.set('email', email);
+    formData.set('password', password);
+    // Copy any hidden inputs (location fields) from the form element
+    if (formRef.current) {
+      new FormData(formRef.current).forEach((value, key) => {
+        if (key !== 'email' && key !== 'password') {
+          formData.set(key, value);
+        }
+      });
+    }
     formAction(formData);
   };
 
@@ -108,7 +120,7 @@ function EmployeeLoginForm() {
 
         {/* Login Form */}
         <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 shadow-xl'>
-          <form action={formAction} className='space-y-4'>
+          <form ref={formRef} onSubmit={handleSubmit} className='space-y-4'>
             {/* Email */}
             <div>
               <label
@@ -124,6 +136,8 @@ function EmployeeLoginForm() {
                 required
                 placeholder='you@example.com'
                 disabled={isPending}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white placeholder-gray-500'
               />
             </div>
@@ -144,6 +158,8 @@ function EmployeeLoginForm() {
                   required
                   placeholder='••••••••'
                   disabled={isPending}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className='w-full pl-4 pr-10 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white placeholder-gray-500'
                 />
                 <button

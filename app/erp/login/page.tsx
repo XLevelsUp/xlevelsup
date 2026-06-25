@@ -60,6 +60,17 @@ export default function LoginPage() {
   );
 
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Handle form submission with controlled state so values survive re-renders
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.set('email', email);
+    formData.set('password', password);
+    formAction(formData);
+  };
 
   // Handle successful login
   useEffect(() => {
@@ -105,7 +116,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form action={formAction} className='space-y-6'>
+          <form onSubmit={handleSubmit} className='space-y-6'>
             <div>
               <label htmlFor='email' className='block text-sm font-medium mb-2'>
                 Email Address
@@ -115,6 +126,8 @@ export default function LoginPage() {
                 id='email'
                 name='email'
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className='w-full px-4 py-3 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
                 placeholder='admin@xlevelsup.com'
               />
@@ -133,6 +146,8 @@ export default function LoginPage() {
                   id='password'
                   name='password'
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className='w-full pl-4 pr-10 py-3 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
                   placeholder='Enter your password'
                 />

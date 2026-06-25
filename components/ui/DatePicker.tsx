@@ -16,6 +16,9 @@ interface DatePickerProps {
   required?: boolean;
   placeholder?: string;
   helperText?: string;
+  disableWeekends?: boolean;
+  /** Specific dates to block (YYYY-MM-DD). Pass holiday dates here. */
+  disabledDates?: Set<string> | string[];
 }
 
 export default function DatePicker({
@@ -27,6 +30,8 @@ export default function DatePicker({
   required = false,
   placeholder = 'Select a date',
   helperText,
+  disableWeekends = false,
+  disabledDates,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [displayDate, setDisplayDate] = useState(new Date());
@@ -75,6 +80,18 @@ export default function DatePicker({
     const dateString = date.toISOString().split('T')[0];
     if (minDate && dateString < minDate) return true;
     if (maxDate && dateString > maxDate) return true;
+    if (disableWeekends) {
+      const day = date.getDay(); // 0 = Sunday, 6 = Saturday
+      if (day === 0 || day === 6) return true;
+    }
+    // Check explicit disabled dates (e.g., public holidays)
+    if (disabledDates) {
+      const dateSet =
+        disabledDates instanceof Set
+          ? disabledDates
+          : new Set(disabledDates);
+      if (dateSet.has(dateString)) return true;
+    }
     return false;
   };
 

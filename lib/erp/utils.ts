@@ -3,12 +3,17 @@
  */
 
 /**
- * Get total working days in a month (excluding weekends)
- * @param year - Year (e.g., 2026)
- * @param month - Month (1-12)
- * @returns Number of working days (Monday-Friday)
+ * Get total working days in a month (excluding weekends and optionally public holidays).
+ * @param year       - Year (e.g., 2026)
+ * @param month      - Month (1-12)
+ * @param holidaySet - Optional set of YYYY-MM-DD holiday dates to also exclude
+ * @returns Number of working days
  */
-export function getWorkingDaysInMonth(year: number, month: number): number {
+export function getWorkingDaysInMonth(
+  year: number,
+  month: number,
+  holidaySet?: Set<string>,
+): number {
   const daysInMonth = new Date(year, month, 0).getDate();
   let workingDays = 0;
 
@@ -16,9 +21,11 @@ export function getWorkingDaysInMonth(year: number, month: number): number {
     const date = new Date(year, month - 1, day);
     const dayOfWeek = date.getDay();
     // 0 = Sunday, 6 = Saturday
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      workingDays++;
-    }
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+    // Skip public holidays
+    const dateStr = date.toISOString().split('T')[0];
+    if (holidaySet && holidaySet.has(dateStr)) continue;
+    workingDays++;
   }
 
   return workingDays;
@@ -137,3 +144,32 @@ export function getMonthDateRange(monthString: string): {
     endDate: formatDate(endDate),
   };
 }
+
+/**
+ * Format decimal hours into a readable string showing hours and/or minutes.
+ * If less than 1 hour, shows only minutes (e.g., "45m" or "45 mins").
+ * Otherwise, shows hours and minutes (e.g., "8h 30m" or "8 hrs 30 mins").
+ *
+ * @param hours - The duration in decimal hours (e.g., 8.5)
+ * @param short - Whether to use compact format (e.g., "8h 30m" vs "8 hrs 30 mins")
+ */
+export function formatDuration(hours: number, short = true): string {
+  if (hours <= 0 || isNaN(hours)) {
+    return short ? '0m' : '0 mins';
+  }
+
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+
+  if (short) {
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  } else {
+    if (h === 0) return `${m} min${m !== 1 ? 's' : ''}`;
+    if (m === 0) return `${h} hr${h !== 1 ? 's' : ''}`;
+    return `${h} hr${h !== 1 ? 's' : ''} ${m} min${m !== 1 ? 's' : ''}`;
+  }
+}
+

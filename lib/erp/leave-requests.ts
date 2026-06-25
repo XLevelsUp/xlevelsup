@@ -9,12 +9,21 @@ import type {
   LeaveRequestFormData,
   LeaveBalance,
 } from '@/types/erp';
+import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
 
 /**
- * Calculate total days between two dates (inclusive, excludes weekends)
- * This is a simple calculation. You can enhance it to exclude holidays.
+ * Calculate total working days between two dates (inclusive).
+ * Excludes weekends (Sat/Sun) and, optionally, a set of public holiday date strings.
+ *
+ * @param startDate   - YYYY-MM-DD start date
+ * @param endDate     - YYYY-MM-DD end date
+ * @param holidaySet  - Optional Set of YYYY-MM-DD holiday dates to also exclude
  */
-export function calculateLeaveDays(startDate: string, endDate: string): number {
+export function calculateLeaveDays(
+  startDate: string,
+  endDate: string,
+  holidaySet?: Set<string>,
+): number {
   const start = new Date(startDate);
   const end = new Date(endDate);
   let days = 0;
@@ -26,12 +35,26 @@ export function calculateLeaveDays(startDate: string, endDate: string): number {
   ) {
     const dayOfWeek = date.getDay();
     // Skip weekends (0 = Sunday, 6 = Saturday)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      days++;
-    }
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+    // Skip public holidays
+    const dateStr = date.toISOString().split('T')[0];
+    if (holidaySet && holidaySet.has(dateStr)) continue;
+    days++;
   }
 
   return days;
+}
+
+/**
+ * Async variant of calculateLeaveDays that fetches public holidays from the
+ * database automatically. Use this in server actions / API routes.
+ */
+export async function calculateLeaveDaysWithHolidays(
+  startDate: string,
+  endDate: string,
+): Promise<number> {
+  const holidaySet = await getHolidayDateSetInRange(startDate, endDate);
+  return calculateLeaveDays(startDate, endDate, holidaySet);
 }
 
 /**

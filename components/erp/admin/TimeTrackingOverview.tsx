@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import type { EmployeeTimeStatus } from '@/lib/erp/time-tracking-admin';
+import { formatDuration } from '@/lib/erp/utils';
 
 interface TimeTrackingOverviewProps {
   employees: EmployeeTimeStatus[];
@@ -210,11 +211,11 @@ export default function TimeTrackingOverview({
                       <div
                         className={`text-sm font-semibold ${getHoursColor(emp.total_hours_today)}`}
                       >
-                        {emp.total_hours_today.toFixed(2)} hrs
+                        {formatDuration(emp.total_hours_today, true)}
                       </div>
                       {emp.total_hours_today < 9 && (
                         <div className='text-xs text-gray-500'>
-                          Pending: {(9 - emp.total_hours_today).toFixed(2)} hrs
+                          Pending: {formatDuration(9 - emp.total_hours_today, true)}
                         </div>
                       )}
                     </td>
@@ -258,10 +259,10 @@ export default function TimeTrackingOverview({
             <span className='text-gray-400'>
               Total Hours Today:{' '}
               <span className='text-white font-semibold'>
-                {sortedEmployees
-                  .reduce((sum, e) => sum + e.total_hours_today, 0)
-                  .toFixed(2)}{' '}
-                hrs
+                {formatDuration(
+                  sortedEmployees.reduce((sum, e) => sum + e.total_hours_today, 0),
+                  true
+                )}
               </span>
             </span>
           </div>

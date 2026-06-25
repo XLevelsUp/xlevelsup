@@ -13,6 +13,7 @@ import {
 import TimeTrackingOverview from '@/components/erp/admin/TimeTrackingOverview';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { formatDuration } from '@/lib/erp/utils';
 
 export const metadata: Metadata = {
   title: 'Time Tracking Dashboard | XLEVELSUP ERP',
@@ -110,10 +111,10 @@ export default async function TimeTrackingPage() {
               Total Hours
             </div>
             <div className='text-3xl font-bold text-purple mb-1'>
-              {timeTrackingStats.total_hours_today.toFixed(0)}
+              {formatDuration(timeTrackingStats.total_hours_today, true)}
             </div>
             <div className='text-xs text-gray-500'>
-              Avg: {timeTrackingStats.average_hours.toFixed(2)} hrs/employee
+              Avg: {formatDuration(timeTrackingStats.average_hours, true)}/employee
             </div>
           </div>
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import type { Employee } from '@/types/erp';
-import { formatDisplayDate } from '@/lib/erp/utils';
+import { formatDisplayDate, formatDuration } from '@/lib/erp/utils';
 import Link from 'next/link';
 
 interface SessionsManagerProps {
@@ -225,7 +225,7 @@ export default function SessionsManager({
                           {group.sessions.length} session{group.sessions.length > 1 ? 's' : ''}
                         </td>
                         <td className='px-4 py-4 text-right text-sm text-cyan font-bold'>
-                          {group.totalHours.toFixed(2)} hrs
+                          {formatDuration(group.totalHours, true)}
                         </td>
                         <td className='px-4 py-4 text-center'>
                           {group.hasActiveSession ? (
@@ -298,7 +298,7 @@ export default function SessionsManager({
                                     <div className='text-right'>
                                       <div className='text-xs text-gray-500'>Duration</div>
                                       <div className='font-mono font-bold text-white text-base'>
-                                        {session.total_hours ? `${session.total_hours.toFixed(2)} hrs` : 'Ongoing'}
+                                        {session.total_hours ? formatDuration(session.total_hours, true) : 'Ongoing'}
                                       </div>
                                       {session.notes && (
                                         <p className='text-xs text-gray-400 italic max-w-xs truncate mt-1'>

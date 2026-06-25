@@ -17,6 +17,7 @@ import Modal from '@/components/ui/Modal';
 import { toast } from 'react-hot-toast';
 import type { TimeLogSummary } from '@/types/erp';
 import { getCurrentPosition } from '@/lib/utils/geolocation';
+import { formatDuration } from '@/lib/erp/utils';
 
 interface ClockInOutProps {
   employeeId: number;
@@ -287,7 +288,7 @@ export default function ClockInOut({
                 {isMounted ? formatTime(currentTime) : '00:00:00'}
               </div>
               <p className='text-xs text-gray-500 mt-1'>
-                {isMounted ? formatHours(currentTime) : '0.00'} hours
+                {isMounted ? formatDuration(currentTime / 3600, false) : '0 mins'}
               </p>
             </div>
           )}
@@ -298,11 +299,11 @@ export default function ClockInOut({
               <div>
                 <p className='text-xs text-gray-400 mb-1'>Total Today</p>
                 <p className='text-2xl font-bold text-white'>
-                  {isMounted ? totalHours.toFixed(2) : '0.00'} hrs
+                  {isMounted ? formatDuration(totalHours, false) : '0 mins'}
                 </p>
                 {isMounted && isLessThan9Hours && (
                   <p className='text-xs text-yellow-400 mt-1'>
-                    ⚠️ Pending: {(9 - totalHours).toFixed(2)} hrs
+                    ⚠️ Pending: {formatDuration(9 - totalHours, false)}
                   </p>
                 )}
                 {isMounted && !isLessThan9Hours && (
@@ -314,7 +315,7 @@ export default function ClockInOut({
               <div className='text-right'>
                 <div className='text-xs text-gray-500'>Required</div>
                 <div className='text-lg font-semibold text-gray-400'>
-                  9.00 hrs
+                  9 hours
                 </div>
               </div>
             </div>
@@ -336,7 +337,7 @@ export default function ClockInOut({
                   <div className='flex justify-between text-gray-400'>
                     <span>Session {index + 1}</span>
                     <span className='text-white font-semibold'>
-                      {session.total_hours?.toFixed(2) || '0.00'} hrs
+                      {session.total_hours ? formatDuration(session.total_hours, true) : '0m'}
                     </span>
                   </div>
                   {isMounted && (
@@ -387,18 +388,18 @@ export default function ClockInOut({
           <p className='text-gray-300'>
             You have only worked{' '}
             <strong className='text-yellow-400'>
-              {totalHours.toFixed(2)} hours
+              {formatDuration(totalHours, false)}
             </strong>{' '}
             today.
           </p>
           <p className='text-gray-300'>
             Required working hours:{' '}
-            <strong className='text-white'>9.00 hours</strong>
+            <strong className='text-white'>9 hours</strong>
           </p>
           <p className='text-gray-300'>
             Pending hours:{' '}
             <strong className='text-red-400'>
-              {(9 - totalHours).toFixed(2)} hours
+              {formatDuration(9 - totalHours, false)}
             </strong>
           </p>
 

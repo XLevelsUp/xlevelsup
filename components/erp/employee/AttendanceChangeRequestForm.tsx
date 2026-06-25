@@ -95,7 +95,7 @@ export default function AttendanceChangeRequestForm({
         label='Date'
         value={selectedDate}
         onChange={setSelectedDate}
-        maxDate={new Date().toISOString().split('T')[0]}
+        maxDate={(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })()}
         required
         placeholder='Select the date for attendance change'
         helperText='Select the date for attendance change'

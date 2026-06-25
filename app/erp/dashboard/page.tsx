@@ -7,7 +7,7 @@ import {
   getTimeTrackingStats,
 } from '@/lib/erp/time-tracking-admin';
 import TimeTrackingOverview from '@/components/erp/admin/TimeTrackingOverview';
-import { formatCurrency } from '@/lib/erp/utils';
+import { formatCurrency, formatDuration } from '@/lib/erp/utils';
 import Link from 'next/link';
 
 export default async function DashboardPage() {
@@ -160,7 +160,7 @@ export default async function DashboardPage() {
             <div className='glass p-4 rounded-lg border-l-4 border-yellow-500'>
               <div className='text-xs text-gray-400 mb-1'>Average Hours</div>
               <div className='text-2xl font-bold text-yellow-400'>
-                {timeTrackingStats.average_hours.toFixed(2)}
+                {formatDuration(timeTrackingStats.average_hours, true)}
               </div>
               <div className='text-xs text-gray-500 mt-1'>
                 per employee today

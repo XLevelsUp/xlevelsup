@@ -131,12 +131,9 @@ export default function ERPLayoutWrapper({
 
       {/* Main Screen Layout Container */}
       <div
-        className="flex-1 flex flex-col min-h-screen transition-all duration-300"
-        style={{
-          paddingLeft: typeof window !== 'undefined' && window.innerWidth >= 768 
-            ? (isCollapsed ? '72px' : '260px') 
-            : '0px'
-        }}
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
+          isCollapsed ? 'md:pl-[72px]' : 'md:pl-[260px]'
+        }`}
       >
         {/* Top Header */}
         <ERPHeader

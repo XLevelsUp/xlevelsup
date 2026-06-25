@@ -13,6 +13,7 @@ import {
   cancelLeaveRequest,
   reviewLeaveRequest,
   calculateLeaveDays,
+  calculateLeaveDaysWithHolidays,
   getWfhDaysCountInMonth,
 } from '@/lib/erp/leave-requests';
 
@@ -68,11 +69,11 @@ export async function createLeaveRequestAction(
       };
     }
 
-    const requestedDays = calculateLeaveDays(validated.start_date, validated.end_date);
+    const requestedDays = await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
     if (requestedDays === 0) {
       return {
         success: false,
-        error: 'The requested period must contain at least one working day (weekends are excluded).',
+        error: 'The requested period must contain at least one working day (weekends and public holidays are excluded).',
       };
     }
 
@@ -140,11 +141,11 @@ export async function updateLeaveRequestAction(
       };
     }
 
-    const requestedDays = calculateLeaveDays(validated.start_date, validated.end_date);
+    const requestedDays = await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
     if (requestedDays === 0) {
       return {
         success: false,
-        error: 'The requested period must contain at least one working day (weekends are excluded).',
+        error: 'The requested period must contain at least one working day (weekends and public holidays are excluded).',
       };
     }
 
