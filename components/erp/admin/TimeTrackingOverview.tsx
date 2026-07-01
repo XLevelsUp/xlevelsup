@@ -17,7 +17,7 @@ export default function TimeTrackingOverview({
   employees,
 }: TimeTrackingOverviewProps) {
   const [filter, setFilter] = useState<
-    'all' | 'working' | 'completed' | 'not_started'
+    'all' | 'working' | 'completed' | 'not_started' | 'on_leave'
   >('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -29,6 +29,7 @@ export default function TimeTrackingOverview({
       (filter === 'completed' &&
         !emp.is_clocked_in &&
         emp.total_hours_today >= 9) ||
+      (filter === 'on_leave' && emp.status === 'on_leave') ||
       (filter === 'not_started' && emp.status === 'not_started');
 
     const matchesSearch =
@@ -39,10 +40,17 @@ export default function TimeTrackingOverview({
     return matchesFilter && matchesSearch;
   });
 
-  // Sort by status priority (working first, then by hours)
+  // Sort: working first, then completed, then on_leave, then not_started, within each group by hours
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
-    if (a.is_clocked_in && !b.is_clocked_in) return -1;
-    if (!a.is_clocked_in && b.is_clocked_in) return 1;
+    const priority = (e: EmployeeTimeStatus) => {
+      if (e.is_clocked_in) return 0;
+      if (e.status === 'completed') return 1;
+      if (e.status === 'on_leave') return 2;
+      return 3;
+    };
+    const pa = priority(a);
+    const pb = priority(b);
+    if (pa !== pb) return pa - pb;
     return b.total_hours_today - a.total_hours_today;
   });
 
@@ -57,6 +65,17 @@ export default function TimeTrackingOverview({
       return (
         <span className='px-2 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400'>
           ✅ Completed
+        </span>
+      );
+    } else if (emp.status === 'on_leave') {
+      const leaveLabel = emp.leave_type
+        ? emp.leave_type
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+        : 'Leave';
+      return (
+        <span className='px-2 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400'>
+          🏖️ On {leaveLabel}
         </span>
       );
     } else if (emp.total_hours_today > 0) {
@@ -143,6 +162,17 @@ export default function TimeTrackingOverview({
           >
             Not Started (
             {employees.filter((e) => e.status === 'not_started').length})
+          </button>
+          <button
+            onClick={() => setFilter('on_leave')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filter === 'on_leave'
+                ? 'bg-orange-500 text-black'
+                : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
+            }`}
+          >
+            On Leave (
+            {employees.filter((e) => e.status === 'on_leave').length})
           </button>
         </div>
       </div>

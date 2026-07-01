@@ -11,9 +11,11 @@ export interface EmployeeTimeStatus {
   name: string;
   department: string;
   is_clocked_in: boolean;
+  is_on_leave: boolean;
+  leave_type?: string | null;
   clock_in_time?: string | null;
   total_hours_today: number;
-  status: 'working' | 'completed' | 'not_started';
+  status: 'working' | 'completed' | 'not_started' | 'on_leave';
   completed_sessions: number;
 }
 
@@ -22,6 +24,7 @@ export interface TimeTrackingStats {
   currently_working: number;
   completed_day: number;
   not_started: number;
+  on_leave: number;
   total_hours_today: number;
   average_hours: number;
 }
@@ -53,6 +56,22 @@ export async function getAllEmployeesTimeStatus(): Promise<
     .eq('date', today);
 
   if (logError) throw logError;
+
+  // Get approved leave requests that cover today
+  const { data: leaveRequests, error: leaveError } = await supabase
+    .from('leave_requests')
+    .select('employee_id, leave_type, start_date, end_date')
+    .eq('status', 'approved')
+    .lte('start_date', today)
+    .gte('end_date', today);
+
+  if (leaveError) throw leaveError;
+
+  // Build a map of employee_id -> leave_type for quick lookup
+  const leaveMap = new Map<number, string>();
+  for (const lr of leaveRequests || []) {
+    leaveMap.set(lr.employee_id, lr.leave_type);
+  }
 
   // Map employees with their time log status
   const employeeStatuses: EmployeeTimeStatus[] = employees.map((emp) => {
@@ -90,13 +109,17 @@ export async function getAllEmployeesTimeStatus(): Promise<
     }
 
     const totalHours = completedHours + currentSessionHours;
+    const onLeave = leaveMap.has(emp.id);
+    const leaveType = leaveMap.get(emp.id) ?? null;
 
-    // Determine status
-    let status: 'working' | 'completed' | 'not_started';
+    // Determine status — leave takes precedence only when employee hasn't clocked in
+    let status: 'working' | 'completed' | 'not_started' | 'on_leave';
     if (activeLog) {
       status = 'working';
     } else if (completedLogs.length > 0) {
-      status = totalHours >= 9 ? 'completed' : 'completed';
+      status = 'completed';
+    } else if (onLeave) {
+      status = 'on_leave';
     } else {
       status = 'not_started';
     }
@@ -107,6 +130,8 @@ export async function getAllEmployeesTimeStatus(): Promise<
       name: emp.name,
       department: emp.department,
       is_clocked_in: !!activeLog,
+      is_on_leave: onLeave,
+      leave_type: leaveType,
       clock_in_time: activeLog?.clock_in_time || null,
       total_hours_today: parseFloat(totalHours.toFixed(2)),
       status,
@@ -132,6 +157,9 @@ export async function getTimeTrackingStats(): Promise<TimeTrackingStats> {
   const notStarted = employeeStatuses.filter(
     (e) => e.status === 'not_started',
   ).length;
+  const onLeave = employeeStatuses.filter(
+    (e) => e.status === 'on_leave',
+  ).length;
 
   const totalHours = employeeStatuses.reduce(
     (sum, e) => sum + e.total_hours_today,
@@ -145,6 +173,7 @@ export async function getTimeTrackingStats(): Promise<TimeTrackingStats> {
     currently_working: currentlyWorking,
     completed_day: completedDay,
     not_started: notStarted,
+    on_leave: onLeave,
     total_hours_today: parseFloat(totalHours.toFixed(2)),
     average_hours: parseFloat(averageHours.toFixed(2)),
   };

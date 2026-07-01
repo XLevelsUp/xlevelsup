@@ -123,6 +123,13 @@ export default function Navbar() {
                             About
                         </Link>
 
+                        <Link
+                            href="/team"
+                            className="text-gray-300 hover:text-white transition-colors duration-200"
+                        >
+                            Team
+                        </Link>
+
                         <Button
                             onClick={scrollToContact}
                             variant="secondary"
@@ -234,6 +241,14 @@ export default function Navbar() {
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
                                 About
+                            </Link>
+
+                            <Link
+                                href="/team"
+                                className="block text-gray-300 hover:text-white transition-colors duration-200"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Team
                             </Link>
 
                             <Button

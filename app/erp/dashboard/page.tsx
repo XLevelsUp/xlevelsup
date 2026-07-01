@@ -131,7 +131,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Time Tracking Stats Cards */}
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6'>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6'>
             <div className='glass p-4 rounded-lg border-l-4 border-green-500'>
               <div className='text-xs text-gray-400 mb-1'>
                 Currently Working
@@ -140,11 +140,13 @@ export default async function DashboardPage() {
                 {timeTrackingStats.currently_working}
               </div>
               <div className='text-xs text-gray-500 mt-1'>
-                {(
-                  (timeTrackingStats.currently_working /
-                    timeTrackingStats.total_employees) *
-                  100
-                ).toFixed(0)}
+                {
+                  (
+                    (timeTrackingStats.currently_working /
+                      timeTrackingStats.total_employees) *
+                    100
+                  ).toFixed(0)
+                }
                 % of team
               </div>
             </div>
@@ -164,6 +166,16 @@ export default async function DashboardPage() {
               </div>
               <div className='text-xs text-gray-500 mt-1'>
                 per employee today
+              </div>
+            </div>
+
+            <div className='glass p-4 rounded-lg border-l-4 border-orange-500'>
+              <div className='text-xs text-gray-400 mb-1'>On Leave</div>
+              <div className='text-2xl font-bold text-orange-400'>
+                {timeTrackingStats.on_leave}
+              </div>
+              <div className='text-xs text-gray-500 mt-1'>
+                approved leave today
               </div>
             </div>
 
