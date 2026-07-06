@@ -6,7 +6,8 @@ import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import FinanceForm from './FinanceForm';
-import type { FinancialLedgerEntry, Employee } from '@/types/erp';
+import CompanyAccountManager from './CompanyAccountManager';
+import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import {
@@ -31,6 +32,9 @@ interface FinanceManagerProps {
   summary: FinanceSummary;
   employees: Employee[];
   categories: string[];
+  accounts: CompanyAccount[];
+  accountTransactions: FinancialLedgerEntry[];
+  clients: Client[];
   userRole: string;
   userId: number;
 }
@@ -40,6 +44,9 @@ export default function FinanceManager({
   summary,
   employees,
   categories,
+  accounts,
+  accountTransactions,
+  clients = [],
   userRole,
   userId,
 }: FinanceManagerProps) {
@@ -48,13 +55,14 @@ export default function FinanceManager({
   const currentTab = searchParams.get('tab') || 'overview';
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [modalType, setModalType] = useState<'income' | 'expense' | 'investment' | 'reimbursement'>('expense');
+  const [modalType, setModalType] = useState<'income' | 'expense' | 'investment'>('expense');
 
   // Ledger Filter states
   const [filterType, setFilterType] = useState(searchParams.get('type') || '');
   const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || '');
   const [filterMonth, setFilterMonth] = useState(searchParams.get('month') || '');
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || '');
+  const [filterPayee, setFilterPayee] = useState(searchParams.get('payee') || '');
 
   // Apply filters to URL query params
   const handleApplyFilters = () => {
@@ -64,6 +72,7 @@ export default function FinanceManager({
     if (filterCategory) params.set('category', filterCategory);
     if (filterMonth) params.set('month', filterMonth);
     if (filterStatus) params.set('status', filterStatus);
+    if (filterPayee) params.set('payee', filterPayee);
     router.push(`/erp/finances?${params.toString()}`);
   };
 
@@ -72,6 +81,7 @@ export default function FinanceManager({
     setFilterCategory('');
     setFilterMonth('');
     setFilterStatus('');
+    setFilterPayee('');
     router.push(`/erp/finances?tab=${currentTab}`);
   };
 
@@ -125,17 +135,15 @@ export default function FinanceManager({
     }));
 
   // Define tab navigation elements
-  const tabs =
-    userRole === 'employee'
-      ? [{ id: 'ledger', name: 'My Reimbursements' }]
-      : [
-          { id: 'overview', name: 'Overview' },
-          { id: 'ledger', name: 'General Ledger' },
-          { id: 'income', name: 'Client Income' },
-          { id: 'expenses', name: 'Expenses' },
-          { id: 'investments', name: 'Capital Inflow' },
-          { id: 'reports', name: 'Analytics' },
-        ];
+  const tabs = [
+    { id: 'overview', name: 'Overview' },
+    { id: 'ledger', name: 'General Ledger' },
+    { id: 'income', name: 'Client Income' },
+    { id: 'expenses', name: 'Expenses' },
+    { id: 'investments', name: 'Capital Inflow' },
+    { id: 'accounts', name: 'Company Accounts' },
+    { id: 'reports', name: 'Analytics' },
+  ];
 
   return (
     <div>
@@ -161,9 +169,6 @@ export default function FinanceManager({
               </Button>
             </>
           )}
-          <Button variant='secondary' onClick={() => handleOpenAddModal('reimbursement')} className='whitespace-nowrap'>
-            + Request Reimbursement
-          </Button>
         </div>
       </div>
 
@@ -212,13 +217,6 @@ export default function FinanceManager({
                 <div className='h-full bg-cyan w-[80%]' />
               </div>
             </div>
-            <div className='glass p-5 rounded-lg'>
-              <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Pending Reimbursements</p>
-              <p className='text-2xl font-bold text-yellow-400 mt-1.5'>{formatCurrency(summary.pendingReimbursements)}</p>
-              <div className='h-1 w-full bg-yellow-500/10 rounded-full overflow-hidden mt-3'>
-                <div className='h-full bg-yellow-500 w-[20%]' />
-              </div>
-            </div>
           </div>
 
           {/* Secondary stats cards */}
@@ -261,7 +259,7 @@ export default function FinanceManager({
         <div className='space-y-6'>
           {/* Advanced Filter Panel */}
           <div className='glass p-4 rounded-lg'>
-            <div className='grid grid-cols-1 md:grid-cols-5 gap-3 items-end'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end'>
               {currentTab === 'ledger' && (
                 <div>
                   <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Type</label>
@@ -275,7 +273,6 @@ export default function FinanceManager({
                     <option value='expense'>Expense</option>
                     <option value='investment'>Investment</option>
                     <option value='payroll'>Payroll</option>
-                    <option value='reimbursement'>Reimbursement</option>
                   </select>
                 </div>
               )}
@@ -319,7 +316,17 @@ export default function FinanceManager({
                   </select>
                 </div>
               )}
-              <div className='flex gap-2 md:col-span-1'>
+              <div>
+                <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Payee / Vendor</label>
+                <input
+                  type='text'
+                  placeholder='Search payee...'
+                  value={filterPayee}
+                  onChange={(e) => setFilterPayee(e.target.value)}
+                  className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan placeholder-gray-500'
+                />
+              </div>
+              <div className='flex gap-2 lg:col-span-1'>
                 <Button variant='primary' onClick={handleApplyFilters} className='w-full text-xs py-2!'>
                   Filter
                 </Button>
@@ -393,30 +400,17 @@ export default function FinanceManager({
                     </TableCell>
                     <TableCell className='text-xs text-gray-400'>{entry.payment_mode || 'N/A'}</TableCell>
                     <TableCell>
-                      {userRole !== 'employee' && entry.transaction_type === 'reimbursement' ? (
-                        <select
-                          value={entry.approval_status || 'pending'}
-                          onChange={(e) => handleApproval(entry.id, e.target.value as any)}
-                          className='px-2 py-0.5 rounded text-xs bg-dark-800 border border-gray-700 text-white font-medium focus:outline-none focus:border-cyan'
-                        >
-                          <option value='pending'>Pending</option>
-                          <option value='approved'>Approved</option>
-                          <option value='rejected'>Rejected</option>
-                          <option value='paid'>Paid</option>
-                        </select>
-                      ) : (
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            entry.approval_status === 'approved' || entry.payment_status === 'completed'
-                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                              : entry.approval_status === 'rejected'
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                          }`}
-                        >
-                          {entry.approval_status || entry.payment_status || 'completed'}
-                        </span>
-                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          entry.approval_status === 'approved' || entry.payment_status === 'completed'
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : entry.approval_status === 'rejected'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        }`}
+                      >
+                        {entry.approval_status || entry.payment_status || 'completed'}
+                      </span>
                     </TableCell>
                     <TableCell className='font-bold text-white whitespace-nowrap'>{formatCurrency(entry.amount)}</TableCell>
                     <TableCell>
@@ -437,6 +431,17 @@ export default function FinanceManager({
             )}
           </div>
         </div>
+      )}
+
+      {/* Company Accounts Tab */}
+      {currentTab === 'accounts' && userRole !== 'employee' && (
+        <CompanyAccountManager
+          accounts={accounts}
+          transactions={accountTransactions}
+          employees={employees}
+          clients={clients}
+          userRole={userRole}
+        />
       )}
 
       {/* Analytics/Reports Tab */}
@@ -531,11 +536,12 @@ export default function FinanceManager({
         </div>
       )}
 
-      {/* Dynamic Pop-up Forms Modal */}
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={`Add ${modalType}`}>
         <FinanceForm
           type={modalType}
           employees={employees}
+          accounts={accounts}
+          clients={clients}
           userRole={userRole}
           onSuccess={() => {
             setShowAddModal(false);

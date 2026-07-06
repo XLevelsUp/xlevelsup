@@ -42,6 +42,7 @@ const ledgerEntrySchema = z.object({
   description: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   approval_status: z.enum(['pending', 'approved', 'rejected', 'paid']).nullable().optional(),
+  account_id: z.number().nullable().optional(),
 });
 
 export interface FinanceActionResult {
@@ -132,6 +133,7 @@ export async function createLedgerEntryAction(
       description: (formData.get('description') as string) || null,
       notes: (formData.get('notes') as string) || null,
       approval_status: (formData.get('approval_status') as any) || 'approved',
+      account_id: formData.get('account_id') ? parseInt(formData.get('account_id') as string, 10) : null,
     };
 
     // Role restrictions
@@ -196,6 +198,7 @@ export async function updateLedgerEntryAction(
       description: (formData.get('description') as string) || null,
       notes: (formData.get('notes') as string) || null,
       approval_status: (formData.get('approval_status') as any) || 'approved',
+      account_id: formData.get('account_id') ? parseInt(formData.get('account_id') as string, 10) : null,
     };
 
     const validatedData = ledgerEntrySchema.parse(rawData);

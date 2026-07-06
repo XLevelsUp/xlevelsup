@@ -40,6 +40,8 @@ export async function getLedgerEntries(
     dateTo?: string;
     client?: string;
     employeeId?: number;
+    payee?: string;
+    accountId?: number;
   },
 ): Promise<FinancialLedgerEntry[]> {
   try {
@@ -85,6 +87,13 @@ export async function getLedgerEntries(
     if (filters?.employeeId) {
       query = query.eq('employee_id', filters.employeeId);
     }
+    if (filters?.payee) {
+      query = query.or(`payee_name.ilike.%${filters.payee}%,vendor_name.ilike.%${filters.payee}%`);
+    }
+    if (filters?.accountId) {
+      query = query.eq('account_id', filters.accountId);
+    }
+
 
     if (filters?.month) {
       const startDate = `${filters.month}-01`;

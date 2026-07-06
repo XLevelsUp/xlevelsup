@@ -96,15 +96,7 @@ export default function ERPLayoutWrapper({
     },
   ];
 
-  const mobileFinanceItems =
-    userRole === 'employee'
-      ? [
-          {
-            href: '/erp/finances?tab=ledger',
-            label: 'My Reimbursements',
-          },
-        ]
-      : [
+  const mobileFinanceItems = userRole === 'employee' ? [] : [
           {
             href: '/erp/finances?tab=overview',
             label: 'Overview',

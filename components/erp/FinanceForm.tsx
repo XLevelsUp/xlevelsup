@@ -1,11 +1,11 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useEffect, useActionState } from 'react';
+import { useEffect, useActionState, useState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { createLedgerEntryAction } from '@/actions/erp/finance';
-import type { Employee } from '@/types/erp';
+import type { Employee, CompanyAccount, Client } from '@/types/erp';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -23,8 +23,11 @@ function SubmitButton() {
 }
 
 interface FinanceFormProps {
-  type: 'income' | 'expense' | 'investment' | 'reimbursement';
+  type: 'income' | 'expense' | 'investment';
   employees: Employee[];
+  accounts?: CompanyAccount[];
+  clients?: Client[];
+  defaultAccountId?: number | null;
   userRole?: string;
   onSuccess?: () => void;
 }
@@ -32,10 +35,16 @@ interface FinanceFormProps {
 export default function FinanceForm({
   type,
   employees,
+  accounts = [],
+  clients = [],
+  defaultAccountId,
   userRole = 'admin',
   onSuccess,
 }: FinanceFormProps) {
   const today = new Date().toISOString().split('T')[0];
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [amount, setAmount] = useState('');
+
 
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
@@ -44,12 +53,21 @@ export default function FinanceForm({
       formData.set('direction', isInflow ? 'inflow' : 'outflow');
       formData.set('transaction_type', type);
       
+      // Expense validation: either payee_name (Paid By) or account_id (Paid From Account) must be provided
+      if (type === 'expense') {
+        const payeeName = formData.get('payee_name');
+        const accountId = formData.get('account_id');
+        if (!payeeName && !accountId) {
+          return { success: false, error: "Either 'Paid By' or 'Paid From Account' is mandatory for expenses." };
+        }
+      }
+
       // Default statuses depending on type
       if (!formData.get('payment_status')) {
-        formData.set('payment_status', type === 'reimbursement' ? 'pending' : 'completed');
+        formData.set('payment_status', 'completed');
       }
       if (!formData.get('approval_status')) {
-        formData.set('approval_status', type === 'reimbursement' ? 'pending' : 'approved');
+        formData.set('approval_status', 'approved');
       }
 
       return await createLedgerEntryAction(formData);
@@ -89,6 +107,7 @@ export default function FinanceForm({
         ];
       case 'expense':
         return [
+          'Salary',
           'Office Rent',
           'Utilities',
           'Internet',
@@ -110,15 +129,6 @@ export default function FinanceForm({
           'Partner Capital',
           'External Funding',
           'Business Reserve',
-        ];
-      case 'reimbursement':
-        return [
-          'Travel Reimbursement',
-          'Client Entertainment',
-          'Office Supplies',
-          'Hardware/Equipment',
-          'Software Tools',
-          'Other Reimbursement',
         ];
       default:
         return ['Miscellaneous'];
@@ -153,6 +163,8 @@ export default function FinanceForm({
             id='category'
             name='category'
             required
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           >
             <option value=''>Select Category</option>
@@ -163,6 +175,37 @@ export default function FinanceForm({
             ))}
           </select>
         </div>
+
+        {/* Processed For dropdown (only for Salary expenses) */}
+        {type === 'expense' && selectedCategory === 'Salary' && (
+          <div>
+            <label htmlFor='employee_id' className='block text-sm font-medium mb-2'>
+              Processed For *
+            </label>
+            <select
+              id='employee_id'
+              name='employee_id'
+              required
+              onChange={(e) => {
+                const empId = parseInt(e.target.value, 10);
+                if (!isNaN(empId)) {
+                  const selectedEmp = employees.find((emp) => emp.id === empId);
+                  if (selectedEmp && selectedEmp.monthly_salary) {
+                    setAmount(selectedEmp.monthly_salary.toString());
+                  }
+                }
+              }}
+              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+            >
+              <option value=''>Select Employee</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.employee_id})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Amount Field */}
         <div>
@@ -176,6 +219,8 @@ export default function FinanceForm({
             required
             min='0.01'
             step='0.01'
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
             placeholder='1000.00'
             className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
           />
@@ -193,9 +238,17 @@ export default function FinanceForm({
                 id='client_name'
                 name='client_name'
                 required
-                placeholder='Google Inc'
+                list='clients-datalist'
+                placeholder='Start typing or select client...'
                 className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
               />
+              <datalist id='clients-datalist'>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.client_id}
+                  </option>
+                ))}
+              </datalist>
             </div>
             <div>
               <label htmlFor='project_name' className='block text-sm font-medium mb-2'>
@@ -217,14 +270,47 @@ export default function FinanceForm({
             <label htmlFor='payer_name' className='block text-sm font-medium mb-2'>
               Investor / Source *
             </label>
-            <input
-              type='text'
+            <select
               id='payer_name'
               name='payer_name'
               required
-              placeholder='Founder / Investment Partner'
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
+            >
+              <option value=''>— Select Investor / Source —</option>
+
+              {/* Directors & Stakeholder Accounts */}
+              {accounts.filter((a) => a.account_type === 'director' || a.account_type === 'stakeholder').length > 0 && (
+                <optgroup label='Directors & Stakeholders'>
+                  {accounts
+                    .filter((a) => a.account_type === 'director' || a.account_type === 'stakeholder')
+                    .map((acc) => (
+                      <option key={`acc-${acc.id}`} value={acc.name}>
+                        {acc.name}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+
+              {/* Employees */}
+              {employees.length > 0 && (
+                <optgroup label='Employees'>
+                  {employees.map((emp) => (
+                    <option key={`emp-${emp.id}`} value={emp.name}>
+                      {emp.name} — {emp.role} ({emp.employee_id})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+
+              {/* Other / External */}
+              <optgroup label='Other'>
+                <option value='External Investor'>External Investor</option>
+                <option value='Angel Investor'>Angel Investor</option>
+                <option value='Venture Capital'>Venture Capital</option>
+                <option value='Bank Loan'>Bank Loan</option>
+                <option value='Client Advance'>Client Advance</option>
+              </optgroup>
+            </select>
           </div>
         )}
 
@@ -232,21 +318,19 @@ export default function FinanceForm({
           <>
             <div>
               <label htmlFor='payee_name' className='block text-sm font-medium mb-2'>
-                Paid By *
+                Paid By
               </label>
               <select
                 id='payee_name'
                 name='payee_name'
-                required
                 className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
               >
-                <option value=''>Select Recipient</option>
+                <option value=''>— Select Employee (either this or Account required) —</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.name}>
                     {emp.name} ({emp.employee_id})
                   </option>
                 ))}
-                <option value='Company'>Company</option>
               </select>
             </div>
             <div>
@@ -264,21 +348,45 @@ export default function FinanceForm({
           </>
         )}
 
-        {type === 'reimbursement' && userRole !== 'employee' && (
+        {/* Account selector — expense outflow: money leaves this account */}
+        {type === 'expense' && accounts.length > 0 && (
           <div>
-            <label htmlFor='employee_id' className='block text-sm font-medium mb-2'>
-              Employee *
+            <label htmlFor='account_id' className='block text-sm font-medium mb-2'>
+              Paid From Account
             </label>
             <select
-              id='employee_id'
-              name='employee_id'
-              required
+              id='account_id'
+              name='account_id'
+              defaultValue={defaultAccountId ?? ''}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
-              <option value=''>Select Employee</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} ({emp.employee_id})
+              <option value=''>— No Account (either this or Paid By required) —</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Account selector — investment inflow: money is received INTO this account */}
+        {type === 'investment' && accounts.length > 0 && (
+          <div>
+            <label htmlFor='account_id' className='block text-sm font-medium mb-2'>
+              Received Into Account *
+            </label>
+            <select
+              id='account_id'
+              name='account_id'
+              required
+              defaultValue={defaultAccountId ?? ''}
+              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+            >
+              <option value=''>— Select Destination Account —</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name}
                 </option>
               ))}
             </select>
@@ -340,7 +448,7 @@ export default function FinanceForm({
         </div>
 
         {/* Status filters */}
-        {type !== 'reimbursement' && (
+        {(
           <div>
             <label htmlFor='payment_status' className='block text-sm font-medium mb-2'>
               Payment Status

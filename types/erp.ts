@@ -422,6 +422,7 @@ export interface FinancialLedgerEntry {
   employee_id?: number | null;
   payroll_id?: number | null;
   expense_id?: number | null;
+  account_id?: number | null;
   
   payer_name?: string | null;
   payee_name?: string | null;
@@ -457,6 +458,7 @@ export interface LedgerFormData {
   employee_id?: number | null;
   payroll_id?: number | null;
   expense_id?: number | null;
+  account_id?: number | null;
   
   payer_name?: string | null;
   payee_name?: string | null;
@@ -586,3 +588,41 @@ export interface CareerChangeFormData {
   reason: string;
   notes?: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Company Account Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CompanyAccountType = 'general' | 'director' | 'stakeholder' | 'operations' | 'reserve';
+
+export interface CompanyAccount {
+  id: number;
+  name: string;
+  description?: string | null;
+  account_type: CompanyAccountType;
+  opening_balance: number;
+  is_active: boolean;
+  created_by?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyAccountFormData {
+  name: string;
+  description?: string | null;
+  account_type: CompanyAccountType;
+  opening_balance: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface Client {
+  id: number;
+  client_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
