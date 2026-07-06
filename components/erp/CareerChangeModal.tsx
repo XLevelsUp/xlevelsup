@@ -95,7 +95,10 @@ export default function CareerChangeModal({
   const [newEmploymentType, setNewEmploymentType] = useState('full-time');
   const [newDesignation, setNewDesignation] = useState('');
   const [newDepartment, setNewDepartment] = useState(employee.department || '');
-  const [newSalaryType, setNewSalaryType] = useState(employee.salary_type || 'monthly');
+  const [newSalaryType, setNewSalaryType] = useState<'monthly' | 'hourly' | 'contract'>(
+    (employee.salary_type as 'monthly' | 'hourly' | 'contract') || 'monthly',
+  );
+
   const [newSalary, setNewSalary] = useState<string>(
     employee.monthly_salary != null ? String(employee.monthly_salary) : '',
   );
@@ -345,7 +348,7 @@ export default function CareerChangeModal({
                     <div className="space-y-1.5">
                       <select
                         value={newSalaryType}
-                        onChange={(e) => setNewSalaryType(e.target.value)}
+                        onChange={(e) => setNewSalaryType(e.target.value as 'monthly' | 'hourly' | 'contract')}
                         className={inputClass}
                       >
                         {SALARY_TYPES.map((opt) => (

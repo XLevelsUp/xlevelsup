@@ -30,7 +30,7 @@ import type {
 
 const careerChangeSchema = z
   .object({
-    employee_id: z.number({ required_error: 'Employee ID is required' }),
+    employee_id: z.number().min(1, 'Employee ID is required'),
     change_type: z.enum([
       'intern_conversion',
       'promotion',
@@ -181,7 +181,7 @@ export async function createCareerChangeAction(
 
     const record = await insertEmployeeCareerHistory(
       validated as CareerChangeFormData,
-      session.id,
+      (session as any).id as number,
     );
 
     revalidatePath('/erp/employees');
@@ -206,7 +206,7 @@ export async function applyCareerChangeAction(
 ): Promise<CareerChangeActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
-    await applyCareerChangeById(historyId, session.id);
+    await applyCareerChangeById(historyId, (session as any).id as number);
     revalidatePath('/erp/employees');
     return { success: true };
   } catch (error) {
