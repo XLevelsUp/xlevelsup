@@ -271,6 +271,23 @@ export interface EmployeeSession {
 // Attendance Change Requests
 export type AttendanceChangeStatus = 'pending' | 'approved' | 'rejected';
 
+/**
+ * Type of regularisation request.
+ * - status_change: legacy — change attendance status (present/absent/leave etc.)
+ * - missed_clock_in: employee forgot to clock in (may have clocked out)
+ * - missed_clock_out: employee forgot to clock out (clocked in exists)
+ * - missed_both: employee forgot both clock-in and clock-out
+ * - clock_in_correction: employee clocked in at wrong time and wants correction
+ * - clock_out_correction: employee clocked out at wrong time and wants correction
+ */
+export type AttendanceRegularisationType =
+  | 'status_change'
+  | 'missed_clock_in'
+  | 'missed_clock_out'
+  | 'missed_both'
+  | 'clock_in_correction'
+  | 'clock_out_correction';
+
 export interface AttendanceChangeRequest {
   id: number;
   employee_id: number;
@@ -279,6 +296,7 @@ export interface AttendanceChangeRequest {
   current_status?: AttendanceStatus | null;
   requested_status: AttendanceStatus;
   leave_type?: string | null;
+  /** @deprecated Legacy HH:MM text column. New requests use requested_clock_out_time TIMESTAMPTZ. */
   clock_out_time?: string | null;
   reason: string;
   status: AttendanceChangeStatus;
@@ -287,6 +305,13 @@ export interface AttendanceChangeRequest {
   review_comments?: string | null;
   created_at: string;
   updated_at: string;
+  // Regularisation extension fields (added via migration)
+  request_type?: AttendanceRegularisationType | null;
+  current_clock_in_time?: string | null;
+  current_clock_out_time?: string | null;
+  requested_clock_in_time?: string | null;
+  requested_clock_out_time?: string | null;
+  employee_note?: string | null;
 }
 
 export interface AttendanceChangeRequestWithEmployee extends AttendanceChangeRequest {
@@ -298,6 +323,29 @@ export interface AttendanceChangeRequestWithEmployee extends AttendanceChangeReq
 export interface AttendanceWithChangeRequest extends Attendance {
   has_pending_request?: boolean;
   change_request_id?: number | null;
+}
+
+/** Human-readable labels for regularisation request types */
+export const REGULARISATION_TYPE_LABELS: Record<AttendanceRegularisationType, string> = {
+  status_change: 'Status Change',
+  missed_clock_in: 'Missed Clock-In',
+  missed_clock_out: 'Missed Clock-Out',
+  missed_both: 'Missed Both Clock-In & Clock-Out',
+  clock_in_correction: 'Clock-In Correction',
+  clock_out_correction: 'Clock-Out Correction',
+};
+
+/** Form data for creating a new attendance regularisation request */
+export interface AttendanceRegularisationFormData {
+  request_date: string;
+  request_type: AttendanceRegularisationType;
+  requested_clock_in_time?: string | null;   // ISO datetime string
+  requested_clock_out_time?: string | null;  // ISO datetime string
+  current_clock_in_time?: string | null;     // pre-filled from existing time log
+  current_clock_out_time?: string | null;    // pre-filled from existing time log
+  reason: string;
+  employee_note?: string | null;
+  attendance_id?: number | null;
 }
 
 // Time Logs (Clock In/Out) Types
@@ -344,4 +392,197 @@ export interface LoginLog {
   status: 'success' | 'failed';
   failure_reason?: string | null;
   created_at: string;
+}
+
+// Financial Ledger Types
+export type FinanceTransactionType =
+  | 'income'
+  | 'expense'
+  | 'investment'
+  | 'payroll'
+  | 'reimbursement'
+  | 'adjustment'
+  | 'refund'
+  | 'transfer';
+
+export type FinanceDirection = 'inflow' | 'outflow';
+
+export interface FinancialLedgerEntry {
+  id: number;
+  transaction_type: FinanceTransactionType;
+  direction: FinanceDirection;
+  category: string;
+  amount: number;
+  transaction_date: string;
+  payment_mode?: string | null;
+  payment_status?: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | null;
+  
+  client_name?: string | null;
+  project_name?: string | null;
+  employee_id?: number | null;
+  payroll_id?: number | null;
+  expense_id?: number | null;
+  
+  payer_name?: string | null;
+  payee_name?: string | null;
+  vendor_name?: string | null;
+  
+  invoice_number?: string | null;
+  reference_number?: string | null;
+  
+  description?: string | null;
+  notes?: string | null;
+  
+  approval_status?: 'pending' | 'approved' | 'rejected' | 'paid' | null;
+  approved_by?: number | null;
+  approved_at?: string | null;
+  
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LedgerFormData {
+  transaction_type: FinanceTransactionType;
+  direction: FinanceDirection;
+  category: string;
+  amount: number;
+  transaction_date: string;
+  payment_mode?: string | null;
+  payment_status?: string | null;
+  
+  client_name?: string | null;
+  project_name?: string | null;
+  employee_id?: number | null;
+  payroll_id?: number | null;
+  expense_id?: number | null;
+  
+  payer_name?: string | null;
+  payee_name?: string | null;
+  vendor_name?: string | null;
+  
+  invoice_number?: string | null;
+  reference_number?: string | null;
+  
+  description?: string | null;
+  notes?: string | null;
+  approval_status?: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Employee Career & Promotion Management Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The type of career change recorded in employee_career_history.
+ * - intern_conversion: Intern → any other employment type
+ * - promotion: Role/designation upgrade
+ * - designation_change: Title change without necessarily a salary change
+ * - department_change: Department transfer
+ * - salary_revision: Salary-only update
+ * - employment_type_change: Any employment type modification (non-intern)
+ */
+export type EmployeeCareerChangeType =
+  | 'intern_conversion'
+  | 'promotion'
+  | 'designation_change'
+  | 'department_change'
+  | 'salary_revision'
+  | 'employment_type_change';
+
+/**
+ * Workflow status of a career history record.
+ * - approved: Applied immediately (effective_date is today or in the past)
+ * - pending_effective: Stored for a future effective_date; not yet applied to employees table
+ * - applied: Was pending_effective, now applied to employees table
+ * - rejected: Rejected before application
+ * - cancelled: Cancelled before application
+ */
+export type EmployeeCareerChangeStatus =
+  | 'pending'
+  | 'approved'
+  | 'pending_effective'
+  | 'applied'
+  | 'rejected'
+  | 'cancelled';
+
+/** A single row from the employee_career_history table */
+export interface EmployeeCareerHistory {
+  id: number;
+  employee_id: number;
+
+  change_type: EmployeeCareerChangeType;
+
+  previous_employment_type?: string | null;
+  new_employment_type?: string | null;
+
+  /** Maps to employees.role (job title/designation) */
+  previous_designation?: string | null;
+  new_designation?: string | null;
+
+  previous_department?: string | null;
+  new_department?: string | null;
+
+  previous_salary_type?: string | null;
+  new_salary_type?: string | null;
+
+  previous_salary?: number | null;
+  new_salary?: number | null;
+
+  effective_date: string; // YYYY-MM-DD
+
+  reason?: string | null;
+  notes?: string | null;
+
+  status: EmployeeCareerChangeStatus;
+
+  requested_by?: number | null;
+  approved_by?: number | null;
+  approved_at?: string | null;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Career history enriched with employee and reviewer names for display */
+export interface EmployeeCareerHistoryWithNames extends EmployeeCareerHistory {
+  employee_name: string;
+  employee_display_id: string;
+  requester_name?: string | null;
+  approver_name?: string | null;
+}
+
+/** Human-readable labels for each career change type */
+export const CAREER_CHANGE_TYPE_LABELS: Record<EmployeeCareerChangeType, string> = {
+  intern_conversion: 'Intern Conversion',
+  promotion: 'Promotion',
+  designation_change: 'Designation Change',
+  department_change: 'Department Transfer',
+  salary_revision: 'Salary Revision',
+  employment_type_change: 'Employment Type Change',
+};
+
+/** Form data payload for creating a career change record */
+export interface CareerChangeFormData {
+  employee_id: number;
+  change_type: EmployeeCareerChangeType;
+
+  // Current (snapshot) values — pre-filled from employee record
+  current_employment_type?: string;
+  current_designation?: string;
+  current_department?: string;
+  current_salary_type?: string;
+  current_salary?: number | null;
+
+  // New requested values
+  new_employment_type?: string;
+  new_designation?: string;
+  new_department?: string;
+  new_salary_type?: string;
+  new_salary?: number | null;
+
+  effective_date: string;
+  reason: string;
+  notes?: string;
 }

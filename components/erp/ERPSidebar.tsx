@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
@@ -18,6 +18,9 @@ export default function ERPSidebar({
   setIsCollapsed,
 }: ERPSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isFinancesActive = pathname?.startsWith('/erp/finances');
+  const [isFinancesOpen, setIsFinancesOpen] = useState(isFinancesActive);
 
   const isActivePath = (href: string) => {
     if (pathname === href) return true;
@@ -91,25 +94,87 @@ export default function ERPSidebar({
         </svg>
       ),
     },
-    {
-      href: '/erp/expenses',
-      label: 'Expenses',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-        </svg>
-      ),
-    },
-    {
-      href: '/erp/client-finances',
-      label: 'Client Finances',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
   ];
+
+  // Helper for sub-tab checks
+  const isActiveSubtab = (href: string) => {
+    const url = new URL(href, 'http://localhost');
+    if (pathname !== url.pathname) return false;
+    const tabParam = url.searchParams.get('tab');
+    const activeTab = searchParams.get('tab') || 'overview';
+    return activeTab === tabParam;
+  };
+
+  // Finance sub-items
+  const financeItems =
+    userRole === 'employee'
+      ? [
+          {
+            href: '/erp/finances?tab=ledger',
+            label: 'My Reimbursements',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            ),
+          },
+        ]
+      : [
+          {
+            href: '/erp/finances?tab=overview',
+            label: 'Overview',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+              </svg>
+            ),
+          },
+          {
+            href: '/erp/finances?tab=ledger',
+            label: 'General Ledger',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            ),
+          },
+          {
+            href: '/erp/finances?tab=income',
+            label: 'Client Income',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1" />
+              </svg>
+            ),
+          },
+          {
+            href: '/erp/finances?tab=expenses',
+            label: 'Expenses',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            ),
+          },
+          {
+            href: '/erp/finances?tab=investments',
+            label: 'Capital Inflow',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+            ),
+          },
+          {
+            href: '/erp/finances?tab=reports',
+            label: 'Analytics',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2" />
+              </svg>
+            ),
+          },
+        ];
 
   return (
     <motion.aside
@@ -191,6 +256,105 @@ export default function ERPSidebar({
             </Link>
           );
         })}
+
+        {/* Finances Group */}
+        <div>
+          <button
+            onClick={() => !isCollapsed && setIsFinancesOpen(!isFinancesOpen)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
+              isFinancesActive
+                ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                : 'hover:bg-gray-800/40 hover:text-white border border-transparent text-gray-400'
+            }`}
+          >
+            {/* Wallet icon */}
+            <div className={`flex-shrink-0 transition-colors duration-200 ${isFinancesActive ? 'text-cyan' : 'text-gray-400 group-hover:text-cyan'}`}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <AnimatePresence initial={false}>
+              {!isCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="font-medium text-sm whitespace-nowrap flex-1 text-left"
+                >
+                  Finances
+                </motion.span>
+              )}
+            </AnimatePresence>
+            {!isCollapsed && (
+              <svg
+                className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isFinancesOpen ? 'rotate-180' : ''} ${isFinancesActive ? 'text-cyan' : 'text-gray-500'}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+            {/* Tooltip on Collapsed */}
+            {isCollapsed && (
+              <div className="absolute left-16 bg-gray-900 border border-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                Finances
+              </div>
+            )}
+          </button>
+
+          {/* Sub-items */}
+          <AnimatePresence initial={false}>
+            {(isFinancesOpen || isCollapsed) && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className={`mt-1 space-y-1 ${!isCollapsed ? 'pl-4 border-l border-gray-800/80 ml-4' : ''}`}>
+                  {financeItems.map((item) => {
+                    const isActive = isActiveSubtab(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative ${
+                          isActive
+                            ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                            : 'hover:bg-gray-800/40 hover:text-white border border-transparent'
+                        }`}
+                      >
+                        <div className={`flex-shrink-0 transition-colors duration-200 ${isActive ? 'text-cyan' : 'text-gray-400 group-hover:text-cyan'}`}>
+                          {item.icon}
+                        </div>
+                        <AnimatePresence initial={false}>
+                          {!isCollapsed && (
+                            <motion.span
+                              initial={{ opacity: 0, width: 0 }}
+                              animate={{ opacity: 1, width: 'auto' }}
+                              exit={{ opacity: 0, width: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="font-medium text-sm whitespace-nowrap"
+                            >
+                              {item.label}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                        {/* Tooltip on Collapsed */}
+                        {isCollapsed && (
+                          <div className="absolute left-16 bg-gray-900 border border-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Collapse Trigger for Collapsed Sidebar */}

@@ -36,8 +36,7 @@ export default function ERPNavbar({ userEmail, userRole }: ERPNavbarProps) {
       icon: '📝',
     },
     { href: '/erp/payroll', label: 'Payroll', icon: '💰' },
-    { href: '/erp/expenses', label: 'Expenses', icon: '💳' },
-    { href: '/erp/client-finances', label: 'Client Finances', icon: '💼' },
+    { href: '/erp/finances', label: 'Finances', icon: '💳' },
     { href: '/erp/leave-requests', label: 'Leave', icon: '🏖️' },
   ];
 

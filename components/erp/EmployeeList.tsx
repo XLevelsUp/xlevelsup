@@ -7,10 +7,13 @@ import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmployeeForm from './EmployeeForm';
-import type { Employee } from '@/types/erp';
+import CareerChangeModal from './CareerChangeModal';
+import EmployeeCareerHistoryComponent from './EmployeeCareerHistory';
+import type { Employee, EmployeeCareerHistory, EmployeeCareerChangeType } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteEmployeeAction } from '@/actions/erp/employees';
+import { getEmployeeCareerHistoryAction } from '@/actions/erp/employee-career';
 
 interface EmployeeListProps {
   employees: Employee[];
@@ -31,16 +34,18 @@ export default function EmployeeList({
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
-    null,
-  );
+  const [showCareerModal, setShowCareerModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [careerChangeType, setCareerChangeType] = useState<EmployeeCareerChangeType | undefined>();
+  const [careerHistory, setCareerHistory] = useState<EmployeeCareerHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value || undefined };
     setFilters(newFilters);
 
-    // Build query string
     const params = new URLSearchParams();
     if (newFilters.status) params.set('status', newFilters.status);
     if (newFilters.department) params.set('department', newFilters.department);
@@ -57,9 +62,7 @@ export default function EmployeeList({
   };
 
   const handleDelete = async (employee: Employee) => {
-    if (!confirm(`Are you sure you want to delete ${employee.name}?`)) {
-      return;
-    }
+    if (!confirm(`Are you sure you want to delete ${employee.name}?`)) return;
 
     const result = await deleteEmployeeAction(employee.id);
     if (result.success) {
@@ -67,6 +70,27 @@ export default function EmployeeList({
       router.refresh();
     } else {
       toast.error(result.error || 'Failed to delete employee');
+    }
+  };
+
+  const handleCareerChange = (employee: Employee, changeType?: EmployeeCareerChangeType) => {
+    setSelectedEmployee(employee);
+    setCareerChangeType(changeType);
+    setShowCareerModal(true);
+  };
+
+  const handleViewHistory = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowHistoryModal(true);
+    setLoadingHistory(true);
+    try {
+      const history = await getEmployeeCareerHistoryAction(employee.id);
+      setCareerHistory(history);
+    } catch {
+      toast.error('Failed to load career history');
+      setCareerHistory([]);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -79,7 +103,7 @@ export default function EmployeeList({
             Employee Management
           </h1>
           <p className='text-gray-400 mt-2'>
-            Manage employee records and information
+            Manage employee records, promotions, and career history
           </p>
         </div>
         <Button
@@ -93,7 +117,7 @@ export default function EmployeeList({
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+        <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
           <div>
             <label className='block text-sm font-medium mb-2'>Search</label>
             <input
@@ -169,7 +193,6 @@ export default function EmployeeList({
             headers={[
               'ID',
               'Name',
-              'Email',
               'Department',
               'Role',
               'Employment',
@@ -178,69 +201,117 @@ export default function EmployeeList({
               'Actions',
             ]}
           >
-            {employees.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell>{employee.employee_id}</TableCell>
-                <TableCell>
-                  <div className='font-medium text-white'>{employee.name}</div>
-                  <div className='text-xs text-gray-500'>
-                    Joined: {formatDisplayDate(employee.joining_date)}
-                  </div>
-                </TableCell>
-                <TableCell>{employee.email}</TableCell>
-                <TableCell>{employee.department}</TableCell>
-                <TableCell>{employee.role}</TableCell>
-                <TableCell>
-                  <div className='text-sm text-white capitalize'>
-                    {employee.employment_type?.replace('-', ' ') || 'Full-Time'}
-                  </div>
-                  {employee.end_date && (
+            {employees.map((employee) => {
+              const isIntern = employee.employment_type === 'intern';
+              const isActive = employee.status === 'active';
+              return (
+                <TableRow key={employee.id}>
+                  <TableCell>{employee.employee_id}</TableCell>
+                  <TableCell>
+                    <div className='font-medium text-white'>{employee.name}</div>
                     <div className='text-xs text-gray-500'>
-                      Until {formatDisplayDate(employee.end_date)}
+                      {employee.email}
                     </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className='font-medium text-white'>
-                    {employee.monthly_salary !== null &&
-                    employee.monthly_salary !== undefined
-                      ? formatCurrency(employee.monthly_salary)
-                      : 'Unpaid'}
-                  </div>
-                  <div className='text-xs text-gray-500 capitalize'>
-                    {employee.salary_type}
-                    {employee.hourly_rate && ` · ₹${employee.hourly_rate}/hr`}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      employee.status === 'active'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {employee.status}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className='flex gap-2'>
-                    <button
-                      onClick={() => handleEdit(employee)}
-                      className='text-cyan hover:text-purple transition-colors text-sm'
+                    <div className='text-xs text-gray-600'>
+                      Joined: {formatDisplayDate(employee.joining_date)}
+                    </div>
+                  </TableCell>
+                  <TableCell>{employee.department}</TableCell>
+                  <TableCell>{employee.role}</TableCell>
+                  <TableCell>
+                    <div className='flex items-center gap-1.5'>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                        isIntern
+                          ? 'bg-yellow-500/20 text-yellow-400'
+                          : 'bg-blue-500/20 text-blue-300'
+                      }`}>
+                        {employee.employment_type?.replace('-', ' ') || 'Full-Time'}
+                      </span>
+                    </div>
+                    {employee.end_date && (
+                      <div className='text-xs text-gray-500 mt-0.5'>
+                        Until {formatDisplayDate(employee.end_date)}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className='font-medium text-white'>
+                      {employee.monthly_salary !== null &&
+                      employee.monthly_salary !== undefined
+                        ? formatCurrency(employee.monthly_salary)
+                        : 'Unpaid'}
+                    </div>
+                    <div className='text-xs text-gray-500 capitalize'>
+                      {employee.salary_type}
+                      {employee.hourly_rate && ` · ₹${employee.hourly_rate}/hr`}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        employee.status === 'active'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
                     >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(employee)}
-                      className='text-red-400 hover:text-red-300 transition-colors text-sm'
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      {employee.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className='flex flex-col gap-1.5'>
+                      {/* Top row: core actions */}
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => handleEdit(employee)}
+                          className='text-cyan-400 hover:text-cyan-300 transition-colors text-xs font-medium'
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(employee)}
+                          className='text-red-400 hover:text-red-300 transition-colors text-xs'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                      {/* Bottom row: career actions */}
+                      <div className='flex gap-1.5 flex-wrap'>
+                        {isIntern && isActive && (
+                          <button
+                            onClick={() => handleCareerChange(employee, 'intern_conversion')}
+                            className='text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors font-medium whitespace-nowrap'
+                          >
+                            Convert
+                          </button>
+                        )}
+                        {!isIntern && isActive && (
+                          <button
+                            onClick={() => handleCareerChange(employee, 'promotion')}
+                            className='text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors font-medium'
+                          >
+                            Promote
+                          </button>
+                        )}
+                        {isActive && (
+                          <button
+                            onClick={() => handleCareerChange(employee, 'salary_revision')}
+                            className='text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors font-medium whitespace-nowrap'
+                          >
+                            Salary
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleViewHistory(employee)}
+                          className='text-xs px-2 py-0.5 rounded bg-gray-700/60 text-gray-400 hover:bg-gray-700 transition-colors font-medium'
+                        >
+                          History
+                        </button>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </Table>
         )}
       </div>
@@ -279,6 +350,97 @@ export default function EmployeeList({
             }}
             departments={departments}
           />
+        )}
+      </Modal>
+
+      {/* Career Change Modal */}
+      {selectedEmployee && (
+        <CareerChangeModal
+          isOpen={showCareerModal}
+          onClose={() => {
+            setShowCareerModal(false);
+            setSelectedEmployee(null);
+            setCareerChangeType(undefined);
+          }}
+          employee={selectedEmployee}
+          defaultChangeType={careerChangeType}
+          departments={departments}
+          onSuccess={() => {
+            setShowCareerModal(false);
+            setSelectedEmployee(null);
+            setCareerChangeType(undefined);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Career History Modal */}
+      <Modal
+        isOpen={showHistoryModal}
+        onClose={() => {
+          setShowHistoryModal(false);
+          setSelectedEmployee(null);
+          setCareerHistory([]);
+        }}
+        title={`Career History — ${selectedEmployee?.name || ''}`}
+      >
+        {loadingHistory ? (
+          <div className='text-center py-10'>
+            <div className='w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-3' />
+            <p className='text-gray-400 text-sm'>Loading history…</p>
+          </div>
+        ) : (
+          <div className='max-h-[70vh] overflow-y-auto pr-1'>
+            {/* Quick action inside history modal */}
+            {selectedEmployee && (
+              <div className='flex gap-2 mb-5 flex-wrap'>
+                {selectedEmployee.employment_type === 'intern' && (
+                  <button
+                    onClick={() => {
+                      setShowHistoryModal(false);
+                      handleCareerChange(selectedEmployee, 'intern_conversion');
+                    }}
+                    className='text-xs px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors font-medium border border-yellow-500/30'
+                  >
+                    🎓 Convert Intern
+                  </button>
+                )}
+                {selectedEmployee.employment_type !== 'intern' && selectedEmployee.status === 'active' && (
+                  <button
+                    onClick={() => {
+                      setShowHistoryModal(false);
+                      handleCareerChange(selectedEmployee, 'promotion');
+                    }}
+                    className='text-xs px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors font-medium border border-green-500/30'
+                  >
+                    🚀 Promote
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowHistoryModal(false);
+                    handleCareerChange(selectedEmployee, 'salary_revision');
+                  }}
+                  className='text-xs px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors font-medium border border-cyan-500/30'
+                >
+                  💰 Revise Salary
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHistoryModal(false);
+                    handleCareerChange(selectedEmployee, 'department_change');
+                  }}
+                  className='text-xs px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors font-medium border border-purple-500/30'
+                >
+                  🏢 Change Dept
+                </button>
+              </div>
+            )}
+            <EmployeeCareerHistoryComponent
+              history={careerHistory}
+              employeeName={selectedEmployee?.name || ''}
+            />
+          </div>
         )}
       </Modal>
     </div>

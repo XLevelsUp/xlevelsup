@@ -5,7 +5,7 @@ import ERPSidebar from './ERPSidebar';
 import ERPHeader from './ERPHeader';
 import QuickActionFAB from './QuickActionFAB';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { m as motion, AnimatePresence } from 'framer-motion';
 
 interface ERPLayoutWrapperProps {
@@ -21,7 +21,9 @@ export default function ERPLayoutWrapper({
 }: ERPLayoutWrapperProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileFinancesOpen, setIsMobileFinancesOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // Close mobile menu on page change
   useEffect(() => {
@@ -92,25 +94,42 @@ export default function ERPLayoutWrapper({
         </svg>
       ),
     },
-    {
-      href: '/erp/expenses',
-      label: 'Expenses',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-        </svg>
-      ),
-    },
-    {
-      href: '/erp/client-finances',
-      label: 'Client Finances',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
   ];
+
+  const mobileFinanceItems =
+    userRole === 'employee'
+      ? [
+          {
+            href: '/erp/finances?tab=ledger',
+            label: 'My Reimbursements',
+          },
+        ]
+      : [
+          {
+            href: '/erp/finances?tab=overview',
+            label: 'Overview',
+          },
+          {
+            href: '/erp/finances?tab=ledger',
+            label: 'General Ledger',
+          },
+          {
+            href: '/erp/finances?tab=income',
+            label: 'Client Income',
+          },
+          {
+            href: '/erp/finances?tab=expenses',
+            label: 'Expenses',
+          },
+          {
+            href: '/erp/finances?tab=investments',
+            label: 'Capital Inflow',
+          },
+          {
+            href: '/erp/finances?tab=reports',
+            label: 'Analytics',
+          },
+        ];
 
   const isActivePath = (href: string) => {
     if (pathname === href) return true;
@@ -213,6 +232,63 @@ export default function ERPLayoutWrapper({
                     </Link>
                   );
                 })}
+
+                {/* Finances Group (mobile) */}
+                <div>
+                  <button
+                    onClick={() => setIsMobileFinancesOpen(!isMobileFinancesOpen)}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 ${
+                      pathname?.startsWith('/erp/finances')
+                        ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                        : 'hover:bg-gray-800/40 text-gray-300'
+                    }`}
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="font-medium text-sm flex-1 text-left">Finances</span>
+                    <svg
+                      className={`w-4 h-4 transition-transform duration-200 ${isMobileFinancesOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <AnimatePresence>
+                    {isMobileFinancesOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pl-4 border-l border-gray-800/80 ml-4 mt-1 space-y-1">
+                          {mobileFinanceItems.map((item) => {
+                            const url = new URL(item.href, 'http://localhost');
+                            const tabParam = url.searchParams.get('tab');
+                            const activeTab = searchParams.get('tab') || 'overview';
+                            const isActive = pathname === url.pathname && activeTab === tabParam;
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                                    : 'hover:bg-gray-800/40 text-gray-300'
+                                }`}
+                              >
+                                <span className="font-medium text-sm">{item.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               {/* Footer */}

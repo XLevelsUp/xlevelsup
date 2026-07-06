@@ -211,3 +211,50 @@ CREATE POLICY "Enable all operations for authenticated users" ON leave_requests 
 CREATE POLICY "Enable all operations for authenticated users" ON leave_balances FOR ALL USING (true);
 CREATE POLICY "Enable all operations for authenticated users" ON attendance_change_requests FOR ALL USING (true);
 CREATE POLICY "Enable all operations for authenticated users" ON time_logs FOR ALL USING (true);
+
+-- Financial Ledger table
+CREATE TABLE IF NOT EXISTS financial_ledger (
+    id SERIAL PRIMARY KEY,
+    transaction_type VARCHAR(50) NOT NULL CHECK (transaction_type IN ('income', 'expense', 'investment', 'payroll', 'reimbursement', 'adjustment', 'refund', 'transfer')),
+    direction VARCHAR(10) NOT NULL CHECK (direction IN ('inflow', 'outflow')),
+    category VARCHAR(100) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+    transaction_date DATE NOT NULL,
+    payment_mode VARCHAR(50),
+    payment_status VARCHAR(20) DEFAULT 'completed' CHECK (payment_status IN ('pending', 'completed', 'failed', 'cancelled', 'refunded')),
+    
+    client_name VARCHAR(255),
+    project_name VARCHAR(255),
+    employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+    payroll_id INTEGER REFERENCES payroll(id) ON DELETE SET NULL,
+    expense_id INTEGER REFERENCES expenses(id) ON DELETE SET NULL,
+    
+    payer_name VARCHAR(255),
+    payee_name VARCHAR(255),
+    vendor_name VARCHAR(255),
+    
+    invoice_number VARCHAR(100),
+    reference_number VARCHAR(100),
+    
+    description TEXT,
+    notes TEXT,
+    
+    approval_status VARCHAR(20) DEFAULT 'approved' CHECK (approval_status IN ('pending', 'approved', 'rejected', 'paid')),
+    approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP,
+    
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_financial_ledger_date ON financial_ledger(transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_financial_ledger_type ON financial_ledger(transaction_type);
+CREATE INDEX IF NOT EXISTS idx_financial_ledger_direction ON financial_ledger(direction);
+CREATE INDEX IF NOT EXISTS idx_financial_ledger_category ON financial_ledger(category);
+CREATE INDEX IF NOT EXISTS idx_financial_ledger_status ON financial_ledger(payment_status);
+
+ALTER TABLE financial_ledger ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all operations for authenticated users" ON financial_ledger FOR ALL USING (true);
+

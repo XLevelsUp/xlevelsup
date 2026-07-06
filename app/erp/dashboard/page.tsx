@@ -94,7 +94,7 @@ export default async function DashboardPage() {
 
           {/* Monthly Expenses */}
           <Link
-            href='/erp/expenses'
+            href='/erp/finances?tab=expenses'
             className='glass p-6 rounded-lg hover:border-cyan transition-all'
           >
             <div className='flex items-center justify-between mb-4'>
@@ -221,7 +221,7 @@ export default async function DashboardPage() {
               {stats.pending_expenses_count} expenses awaiting approval
             </div>
             <Link
-              href='/erp/expenses?status=pending'
+              href='/erp/finances?tab=ledger&status=pending'
               className='text-cyan text-sm hover:text-purple transition-colors mt-3 inline-block'
             >
               Review Pending →
