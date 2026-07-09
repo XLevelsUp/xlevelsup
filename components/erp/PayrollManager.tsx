@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import { DeleteIcon } from './ActionIcons';
+import MonthPicker from './MonthPicker';
 import type { PayrollWithEmployee } from '@/types/erp';
 import { formatCurrency, getMonthName } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -30,11 +32,13 @@ export default function PayrollManager({
   const [month, setMonth] = useState(initialMonth);
   const [status, setStatus] = useState(initialStatus || '');
   const [generating, setGenerating] = useState(false);
+  const [generateMonth, setGenerateMonth] = useState(initialMonth);
 
-  const handleFilterChange = () => {
+  const applyFilters = (overrides?: Partial<{ month: string; status: string }>) => {
+    const next = { month, status, ...overrides };
     const params = new URLSearchParams();
-    params.set('month', month);
-    if (status) params.set('status', status);
+    params.set('month', next.month);
+    if (next.status) params.set('status', next.status);
 
     router.push(`/erp/payroll?${params.toString()}`);
   };
@@ -102,7 +106,10 @@ export default function PayrollManager({
         </div>
         <Button
           variant='primary'
-          onClick={() => setShowGenerateModal(true)}
+          onClick={() => {
+            setGenerateMonth(month);
+            setShowGenerateModal(true);
+          }}
           className='whitespace-nowrap'
         >
           Generate Payroll
@@ -111,21 +118,26 @@ export default function PayrollManager({
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
             <label className='block text-sm font-medium mb-2'>Month</label>
-            <input
-              type='month'
+            <MonthPicker
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              onChange={(next) => {
+                setMonth(next);
+                applyFilters({ month: next });
+              }}
+              required
             />
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Status</label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                applyFilters({ status: e.target.value });
+              }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
               <option value=''>All Statuses</option>
@@ -133,15 +145,6 @@ export default function PayrollManager({
               <option value='approved'>Approved</option>
               <option value='paid'>Paid</option>
             </select>
-          </div>
-          <div className='flex items-end'>
-            <Button
-              variant='secondary'
-              onClick={handleFilterChange}
-              className='w-full'
-            >
-              Apply Filters
-            </Button>
           </div>
         </div>
       </div>
@@ -245,9 +248,11 @@ export default function PayrollManager({
                 <TableCell>
                   <button
                     onClick={() => handleDelete(record.id)}
-                    className='text-red-400 hover:text-red-300 transition-colors text-sm'
+                    title='Delete'
+                    aria-label='Delete'
+                    className='text-red-400 hover:text-red-300 transition-colors'
                   >
-                    Delete
+                    <DeleteIcon />
                   </button>
                 </TableCell>
               </TableRow>
@@ -269,13 +274,7 @@ export default function PayrollManager({
           </p>
           <div>
             <label className='block text-sm font-medium mb-2'>Month *</label>
-            <input
-              type='month'
-              name='month'
-              required
-              defaultValue={month}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
+            <MonthPicker value={generateMonth} onChange={setGenerateMonth} name='month' required />
           </div>
           <Button
             type='submit'

@@ -6,6 +6,8 @@ import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ExpenseForm from './ExpenseForm';
+import { DeleteIcon } from './ActionIcons';
+import MonthPicker from './MonthPicker';
 import type { Expense, Employee } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -41,15 +43,22 @@ export default function ExpenseManager({
   const [category, setCategory] = useState(initialCategory || '');
   const [paidBy, setPaidBy] = useState(initialPaidBy || '');
 
-  const handleFilterChange = () => {
+  // Accepts overrides so a field's onChange can push its new value
+  // immediately without waiting for the (async) state update to land.
+  const applyFilters = (overrides?: Partial<{
+    month: string;
+    status: string;
+    category: string;
+    paidBy: string;
+  }>) => {
+    const next = { month, status, category, paidBy, ...overrides };
     const params = new URLSearchParams();
-    // Only add month to URL if explicitly selected
-    if (month) params.set('month', month);
-    if (status) params.set('status', status);
-    if (category) params.set('category', category);
-    if (paidBy) params.set('paidBy', paidBy);
+    if (next.month) params.set('month', next.month);
+    if (next.status) params.set('status', next.status);
+    if (next.category) params.set('category', next.category);
+    if (next.paidBy) params.set('paidBy', next.paidBy);
 
-    router.push(`/erp/expenses?${params.toString()}`);
+    router.push(`/erp/expenses${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
   const handleStatusChange = async (id: number, newStatus: any) => {
@@ -135,7 +144,7 @@ export default function ExpenseManager({
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-5 gap-4'>
+        <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
           {/* Month — ✕ overlaid inside the input */}
           <div>
             <label className='block text-sm font-medium mb-2'>
@@ -144,38 +153,22 @@ export default function ExpenseManager({
                 <span className='ml-2 text-xs font-normal text-gray-500'>(All)</span>
               )}
             </label>
-            <div className='relative'>
-              <input
-                type='month'
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-              />
-              {month && (
-                <button
-                  type='button'
-                  title='Clear — show all months'
-                  onClick={() => {
-                    setMonth('');
-                    // Immediately navigate without month param so API reloads all data
-                    const params = new URLSearchParams();
-                    if (status) params.set('status', status);
-                    if (category) params.set('category', category);
-                    if (paidBy) params.set('paidBy', paidBy);
-                    router.push(`/erp/expenses${params.toString() ? `?${params.toString()}` : ''}`);
-                  }}
-                  className='absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-600 hover:bg-gray-500 text-white text-xs transition-colors'
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <MonthPicker
+              value={month}
+              onChange={(next) => {
+                setMonth(next);
+                applyFilters({ month: next });
+              }}
+            />
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Status</label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                applyFilters({ status: e.target.value });
+              }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
               <option value=''>All Statuses</option>
@@ -189,7 +182,10 @@ export default function ExpenseManager({
             <label className='block text-sm font-medium mb-2'>Category</label>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                applyFilters({ category: e.target.value });
+              }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
               <option value=''>All Categories</option>
@@ -204,7 +200,10 @@ export default function ExpenseManager({
             <label className='block text-sm font-medium mb-2'>Paid By</label>
             <select
               value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
+              onChange={(e) => {
+                setPaidBy(e.target.value);
+                applyFilters({ paidBy: e.target.value });
+              }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
               <option value=''>All Employees</option>
@@ -215,15 +214,6 @@ export default function ExpenseManager({
               ))}
               <option value='Company'>Company</option>
             </select>
-          </div>
-          <div className='flex items-end'>
-            <Button
-              variant='secondary'
-              onClick={handleFilterChange}
-              className='w-full'
-            >
-              Apply Filters
-            </Button>
           </div>
         </div>
       </div>
@@ -417,9 +407,11 @@ export default function ExpenseManager({
                 <TableCell>
                   <button
                     onClick={() => handleDelete(expense.id)}
-                    className='text-red-400 hover:text-red-300 transition-colors text-sm'
+                    title='Delete'
+                    aria-label='Delete'
+                    className='text-red-400 hover:text-red-300 transition-colors'
                   >
-                    Delete
+                    <DeleteIcon />
                   </button>
                 </TableCell>
               </TableRow>

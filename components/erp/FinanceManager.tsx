@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import FinanceForm from './FinanceForm';
 import CompanyAccountManager from './CompanyAccountManager';
+import { DeleteIcon } from './ActionIcons';
+import MonthPicker from './MonthPicker';
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -64,15 +66,31 @@ export default function FinanceManager({
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || '');
   const [filterPayee, setFilterPayee] = useState(searchParams.get('payee') || '');
 
-  // Apply filters to URL query params
-  const handleApplyFilters = () => {
+  // Apply filters to URL query params — accepts overrides so a field's
+  // onChange can push its new value immediately without waiting for
+  // the (async) state update to land.
+  const applyFilters = (overrides?: Partial<{
+    type: string;
+    category: string;
+    month: string;
+    status: string;
+    payee: string;
+  }>) => {
+    const next = {
+      type: filterType,
+      category: filterCategory,
+      month: filterMonth,
+      status: filterStatus,
+      payee: filterPayee,
+      ...overrides,
+    };
     const params = new URLSearchParams();
     params.set('tab', currentTab);
-    if (filterType) params.set('type', filterType);
-    if (filterCategory) params.set('category', filterCategory);
-    if (filterMonth) params.set('month', filterMonth);
-    if (filterStatus) params.set('status', filterStatus);
-    if (filterPayee) params.set('payee', filterPayee);
+    if (next.type) params.set('type', next.type);
+    if (next.category) params.set('category', next.category);
+    if (next.month) params.set('month', next.month);
+    if (next.status) params.set('status', next.status);
+    if (next.payee) params.set('payee', next.payee);
     router.push(`/erp/finances?${params.toString()}`);
   };
 
@@ -84,6 +102,16 @@ export default function FinanceManager({
     setFilterPayee('');
     router.push(`/erp/finances?tab=${currentTab}`);
   };
+
+  // Debounce the free-text payee filter so it applies automatically
+  // without pushing a new URL on every keystroke.
+  useEffect(() => {
+    const currentPayee = searchParams.get('payee') || '';
+    if (filterPayee === currentPayee) return;
+    const timer = setTimeout(() => applyFilters({ payee: filterPayee }), 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterPayee]);
 
   const handleTabChange = (tab: string) => {
     const params = new URLSearchParams();
@@ -265,7 +293,10 @@ export default function FinanceManager({
                   <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Type</label>
                   <select
                     value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
+                    onChange={(e) => {
+                      setFilterType(e.target.value);
+                      applyFilters({ type: e.target.value });
+                    }}
                     className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
                   >
                     <option value=''>All Types</option>
@@ -280,7 +311,10 @@ export default function FinanceManager({
                 <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Category</label>
                 <select
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
+                  onChange={(e) => {
+                    setFilterCategory(e.target.value);
+                    applyFilters({ category: e.target.value });
+                  }}
                   className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
                 >
                   <option value=''>All Categories</option>
@@ -293,11 +327,12 @@ export default function FinanceManager({
               </div>
               <div>
                 <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Month</label>
-                <input
-                  type='month'
+                <MonthPicker
                   value={filterMonth}
-                  onChange={(e) => setFilterMonth(e.target.value)}
-                  className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+                  onChange={(next) => {
+                    setFilterMonth(next);
+                    applyFilters({ month: next });
+                  }}
                 />
               </div>
               {currentTab !== 'income' && (
@@ -305,7 +340,10 @@ export default function FinanceManager({
                   <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Status</label>
                   <select
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
+                    onChange={(e) => {
+                      setFilterStatus(e.target.value);
+                      applyFilters({ status: e.target.value });
+                    }}
                     className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
                   >
                     <option value=''>All Statuses</option>
@@ -327,11 +365,8 @@ export default function FinanceManager({
                 />
               </div>
               <div className='flex gap-2 lg:col-span-1'>
-                <Button variant='primary' onClick={handleApplyFilters} className='w-full text-xs py-2!'>
-                  Filter
-                </Button>
                 <Button variant='secondary' onClick={handleClearFilters} className='w-full text-xs py-2!'>
-                  Clear
+                  Clear Filters
                 </Button>
               </div>
             </div>
@@ -418,9 +453,11 @@ export default function FinanceManager({
                         {userRole === 'admin' && (
                           <button
                             onClick={() => handleDelete(entry.id)}
-                            className='text-red-400 hover:text-red-300 transition-colors text-xs font-semibold'
+                            title='Delete'
+                            aria-label='Delete'
+                            className='text-red-400 hover:text-red-300 transition-colors'
                           >
-                            Delete
+                            <DeleteIcon />
                           </button>
                         )}
                       </div>

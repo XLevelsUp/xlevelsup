@@ -622,7 +622,37 @@ export interface Client {
   id: number;
   client_id: string;
   name: string;
+  phone: string | null;
+  email: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+  gstin: string | null;
+  notes: string | null;
+  services_offered: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ClientFormData {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  gstin?: string | null;
+  notes?: string | null;
+  services_offered?: string | null;
+}
+
+export interface ClientFinancialSummary {
+  totalIncome: number;
+  pendingIncome: number;
+  lastTransactionDate: string | null;
 }
 

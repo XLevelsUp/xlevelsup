@@ -6,6 +6,7 @@ import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import FinanceForm from './FinanceForm';
+import MonthPicker from './MonthPicker';
 import type { CompanyAccount, FinancialLedgerEntry, Employee, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -246,20 +247,9 @@ export default function CompanyAccountManager({
             </div>
             <div className='flex items-center gap-2'>
               <label className='text-xs text-gray-400 font-medium'>Month:</label>
-              <input
-                type='month'
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className='px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
-              />
-              {filterMonth && (
-                <button
-                  onClick={() => setFilterMonth('')}
-                  className='text-xs text-gray-400 hover:text-white transition-colors'
-                >
-                  Clear
-                </button>
-              )}
+              <div className='w-40'>
+                <MonthPicker value={filterMonth} onChange={setFilterMonth} />
+              </div>
             </div>
           </div>
 

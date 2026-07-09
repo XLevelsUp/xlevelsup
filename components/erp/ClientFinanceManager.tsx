@@ -6,6 +6,8 @@ import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ClientFinanceForm from './ClientFinanceForm';
+import { EditIcon, DeleteIcon } from './ActionIcons';
+import MonthPicker from './MonthPicker';
 import type { ClientTransaction } from '@/types/finance';
 import {
   formatCurrency,
@@ -156,12 +158,7 @@ export default function ClientFinanceManager({
         <div className='grid grid-cols-1 md:grid-cols-6 gap-4'>
           <div>
             <label className='block text-sm font-medium mb-2'>Month</label>
-            <input
-              type='month'
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
+            <MonthPicker value={month} onChange={setMonth} />
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Type</label>
@@ -490,15 +487,19 @@ export default function ClientFinanceManager({
                         setEditingTransaction(transaction);
                         setShowEditModal(true);
                       }}
-                      className='text-purple hover:text-purple/80 transition-colors text-xs font-semibold bg-purple/10 px-2.5 py-1 rounded border border-purple/20 hover:border-purple/30'
+                      title='Edit'
+                      aria-label='Edit'
+                      className='text-purple hover:text-purple/80 transition-colors bg-purple/10 p-1.5 rounded border border-purple/20 hover:border-purple/30'
                     >
-                      Edit
+                      <EditIcon className='w-3.5 h-3.5' />
                     </button>
                     <button
                       onClick={() => handleDelete(transaction.id)}
-                      className='text-red-400 hover:text-red-300 transition-colors text-xs font-semibold bg-red-500/10 px-2.5 py-1 rounded border border-red-500/20 hover:border-red-500/30'
+                      title='Delete'
+                      aria-label='Delete'
+                      className='text-red-400 hover:text-red-300 transition-colors bg-red-500/10 p-1.5 rounded border border-red-500/20 hover:border-red-500/30'
                     >
-                      Delete
+                      <DeleteIcon className='w-3.5 h-3.5' />
                     </button>
                   </div>
                 </TableCell>

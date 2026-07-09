@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
+import MonthPicker from './MonthPicker';
 import type { Employee } from '@/types/erp';
 import { formatDisplayDate, formatDuration } from '@/lib/erp/utils';
 import Link from 'next/link';
@@ -29,10 +30,11 @@ export default function SessionsManager({
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
-  const handleFilterChange = () => {
+  const applyFilters = (overrides?: Partial<{ month: string; employeeId: number | undefined }>) => {
+    const next = { month, employeeId, ...overrides };
     const params = new URLSearchParams();
-    params.set('month', month);
-    if (employeeId) params.set('employee_id', employeeId.toString());
+    params.set('month', next.month);
+    if (next.employeeId) params.set('employee_id', next.employeeId.toString());
 
     router.push(`/erp/attendance/sessions?${params.toString()}`);
   };
@@ -128,25 +130,26 @@ export default function SessionsManager({
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg'>
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
             <label className='block text-sm font-medium mb-2'>Month</label>
-            <input
-              type='month'
+            <MonthPicker
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              onChange={(next) => {
+                setMonth(next);
+                applyFilters({ month: next });
+              }}
             />
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Employee</label>
             <select
               value={employeeId || ''}
-              onChange={(e) =>
-                setEmployeeId(
-                  e.target.value ? parseInt(e.target.value) : undefined,
-                )
-              }
+              onChange={(e) => {
+                const next = e.target.value ? parseInt(e.target.value) : undefined;
+                setEmployeeId(next);
+                applyFilters({ employeeId: next });
+              }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
               <option value=''>All Employees</option>
@@ -166,15 +169,6 @@ export default function SessionsManager({
               onChange={(e) => setSearchQuery(e.target.value)}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             />
-          </div>
-          <div className='flex items-end'>
-            <Button
-              variant='primary'
-              onClick={handleFilterChange}
-              className='w-full'
-            >
-              Fetch Data
-            </Button>
           </div>
         </div>
       </div>

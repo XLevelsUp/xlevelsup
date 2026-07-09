@@ -9,6 +9,7 @@ import Modal from '@/components/ui/Modal';
 import EmployeeForm from './EmployeeForm';
 import CareerChangeModal from './CareerChangeModal';
 import EmployeeCareerHistoryComponent from './EmployeeCareerHistory';
+import { EditIcon, DeleteIcon } from './ActionIcons';
 import type { Employee, EmployeeCareerHistory, EmployeeCareerChangeType } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -263,15 +264,19 @@ export default function EmployeeList({
                       <div className='flex gap-2'>
                         <button
                           onClick={() => handleEdit(employee)}
-                          className='text-cyan-400 hover:text-cyan-300 transition-colors text-xs font-medium'
+                          title='Edit'
+                          aria-label='Edit'
+                          className='text-cyan-400 hover:text-cyan-300 transition-colors'
                         >
-                          Edit
+                          <EditIcon className='w-3.5 h-3.5' />
                         </button>
                         <button
                           onClick={() => handleDelete(employee)}
-                          className='text-red-400 hover:text-red-300 transition-colors text-xs'
+                          title='Delete'
+                          aria-label='Delete'
+                          className='text-red-400 hover:text-red-300 transition-colors'
                         >
-                          Delete
+                          <DeleteIcon className='w-3.5 h-3.5' />
                         </button>
                       </div>
                       {/* Bottom row: career actions */}
