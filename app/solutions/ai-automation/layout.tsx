@@ -3,6 +3,9 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
     title: 'Custom AI Automation Systems & Operational Intelligence Workflows | XLEVELSUP',
     description: 'Replace high-overhead manual tasks with deterministic AI multi-agent systems and custom Python workflows. Scalable operational intelligence engineered for ROI.',
+    alternates: {
+        canonical: '/solutions/ai-automation',
+    },
     keywords: [
         'Custom AI Agent Workflows',
         'Operational Intelligence Software',

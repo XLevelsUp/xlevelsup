@@ -2,6 +2,7 @@
 
 import { m as motion } from 'framer-motion';
 import Link from 'next/link';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 const solutions = [
     {
@@ -113,7 +114,9 @@ export default function Services() {
                             >
                                 {/* Icon + Tag */}
                                 <div className="flex items-center gap-4 mb-6">
-                                    <div className="text-4xl">{s.icon}</div>
+                                    <div className={`text-4xl ${tagColor}`}>
+                                        <EmojiIcon emoji={s.icon} className="w-10 h-10" />
+                                    </div>
                                     <span className={`text-xs font-bold uppercase tracking-widest ${tagColor} bg-white/5 px-3 py-1 rounded-full border border-current/20`}>
                                         {s.tag}
                                     </span>

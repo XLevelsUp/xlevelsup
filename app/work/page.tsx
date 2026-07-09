@@ -20,6 +20,7 @@ export default function WorkPage() {
       ],
       gradient: 'from-cyan/20 to-purple/20',
       link: 'https://pratyagrasilks.com',
+      logo: 'https://www.google.com/s2/favicons?domain=pratyagrasilks.com&sz=128',
     },
     {
       id: 2,
@@ -34,6 +35,7 @@ export default function WorkPage() {
       ],
       gradient: 'from-purple/20 to-pink/20',
       link: 'https://www.wanderingkite.in',
+      logo: 'https://www.google.com/s2/favicons?domain=wanderingkite.in&sz=128',
     },
     {
       id: 3,
@@ -44,6 +46,7 @@ export default function WorkPage() {
       metrics: ['4x Organic Traffic Growth', '60% Longer Session Duration', '3x More Enquiries via Web'],
       gradient: 'from-blue/20 to-cyan/20',
       link: 'https://www.nihaajewels.com',
+      logo: 'https://www.google.com/s2/favicons?domain=nihaajewels.com&sz=128',
     },
     {
       id: 4,
@@ -58,6 +61,7 @@ export default function WorkPage() {
       ],
       gradient: 'from-green/20 to-cyan/20',
       link: 'https://www.alusea.in',
+      logo: 'https://www.google.com/s2/favicons?domain=alusea.in&sz=128',
     },
     {
       id: 5,
@@ -67,6 +71,7 @@ export default function WorkPage() {
       metrics: ['85% Improvement in Brand Perception', '40% Drop in Bounce Rate', '2x More Booking Inquiries'],
       gradient: 'from-cyan/20 to-green/20',
       link: 'https://tagmytaxi.ae',
+      logo: '/clients/tagmytaxi.webp',
     },
     {
       id: 6,
@@ -76,6 +81,7 @@ export default function WorkPage() {
       metrics: ['5x Product Discoverability', '65% Increase in Add-to-Cart Rate', '3.2x Revenue in First Quarter'],
       gradient: 'from-pink/20 to-purple/20',
       link: 'https://www.kandangisarees.com',
+      logo: 'https://www.google.com/s2/favicons?domain=kandangisarees.com&sz=128',
     },
     {
       id: 7,
@@ -85,6 +91,7 @@ export default function WorkPage() {
       metrics: ['70% Reduction in Manual Tasks', '50% Faster Onboarding', '98% User Retention at 3 Months'],
       gradient: 'from-purple/20 to-blue/20',
       link: 'https://www.wanderingkite.in/studiospace',
+      logo: 'https://www.google.com/s2/favicons?domain=wanderingkite.in&sz=128',
     },
     {
       id: 8,
@@ -94,6 +101,7 @@ export default function WorkPage() {
       metrics: ['3.5x Growth in Daily Active Users', '55% More Consultation Bookings', '80% Positive User Feedback Score'],
       gradient: 'from-cyan/20 to-blue/20',
       link: 'https://astrosara.in',
+      logo: 'https://www.google.com/s2/favicons?domain=astrosara.in&sz=128',
     },
   ];
 
@@ -156,11 +164,30 @@ export default function WorkPage() {
 
               {/* Content */}
               <div className='relative z-10'>
-                {/* Tag */}
-                <div className='inline-block px-4 py-1 rounded-full glass mb-4'>
-                  <span className='text-sm gradient-text font-semibold'>
-                    {project.tag}
-                  </span>
+                {/* Logo + Tag */}
+                <div className='flex items-center justify-between mb-4'>
+                  {project.logo && (
+                    <a
+                      href={project.link}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      aria-label={`Visit ${project.name} website`}
+                      className='flex items-center justify-center h-12 rounded-xl glass px-3 py-2 hover:border-cyan transition-colors duration-200'
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={project.logo}
+                        alt={`${project.name} logo`}
+                        loading='lazy'
+                        className='h-full w-auto max-w-[140px] object-contain rounded-md'
+                      />
+                    </a>
+                  )}
+                  <div className='inline-block px-4 py-1 rounded-full glass'>
+                    <span className='text-sm gradient-text font-semibold'>
+                      {project.tag}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Project Name */}

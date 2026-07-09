@@ -3,6 +3,9 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
     title: 'Technical SEO & Programmatic Search Engineering | XLEVELSUP',
     description: 'XLEVELSUP engineers programmatic SEO systems and technical search infrastructure to capture organic traffic at scale. Built for businesses that want compounding, defensible search visibility.',
+    alternates: {
+        canonical: '/solutions/search-engineering',
+    },
     keywords: [
         'SEO Agency Coimbatore',
         'Technical SEO Company India',

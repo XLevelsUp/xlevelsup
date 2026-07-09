@@ -1,6 +1,7 @@
 'use client';
 
 import { m as motion } from 'framer-motion';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 export default function SystemDiagram() {
     const steps = [
@@ -28,7 +29,9 @@ export default function SystemDiagram() {
                             transition={{ duration: 0.5, delay: index * 0.2 }}
                         >
                             <div className="glass p-6 rounded-xl hover:border-cyan transition-all duration-300 min-w-[200px]">
-                                <div className="text-4xl mb-3 text-center">{step.icon}</div>
+                                <div className="text-4xl mb-3 text-cyan flex justify-center">
+                                    <EmojiIcon emoji={step.icon} className="w-10 h-10" />
+                                </div>
                                 <h4 className="font-bold text-center mb-2 gradient-text">{step.name}</h4>
                                 <p className="text-xs text-gray-400 text-center">{step.description}</p>
                             </div>

@@ -10,6 +10,9 @@ export const metadata: Metadata = {
         'Tech Startup Jobs',
         'Remote Engineering Jobs',
     ],
+    alternates: {
+        canonical: '/careers',
+    },
 };
 
 export default function CareersLayout({

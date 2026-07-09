@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     'Marketing Engineers India',
     'Growth Strategy Team',
   ],
+  alternates: {
+    canonical: '/team',
+  },
   openGraph: {
     title: 'Meet the Team | XLEVELSUP',
     description:

@@ -189,9 +189,9 @@ export default function Footer() {
                         {/* Local SEO Address */}
                         <div className="text-gray-400 text-sm">
                             <p className="font-semibold text-white mb-1">Location</p>
-                            <p>2nd Floor, NO 178, A Ramachandra Road,</p>
-                            <p>RS Puram, Coimbatore - 641002,</p>
-                            <p> Tamil Nadu, India</p>
+                            <p>2nd floor, 178, A, Ramachandra Rd,</p>
+                            <p>R.S. Puram, Coimbatore - 641002</p>
+                            <p>Tamil Nadu, India</p>
                         </div>
                     </div>
                 </div>

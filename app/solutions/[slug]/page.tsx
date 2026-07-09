@@ -3,6 +3,7 @@
 import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import LighthouseScore from '@/components/solutions/LighthouseScore';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 export default function MarketingArchitecturePage() {
     const techStack = [
@@ -38,7 +39,7 @@ export default function MarketingArchitecturePage() {
                 >
                     <div className="inline-block mb-6">
                         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-cyan to-purple flex items-center justify-center text-4xl">
-                            ⚡
+                            <EmojiIcon emoji="⚡" className="w-10 h-10 text-white" />
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6">
@@ -103,7 +104,9 @@ export default function MarketingArchitecturePage() {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 whileHover={{ y: -10 }}
                             >
-                                <div className="text-5xl mb-4 text-center">{tech.icon}</div>
+                                <div className="text-5xl mb-4 text-cyan flex justify-center">
+                                    <EmojiIcon emoji={tech.icon} className="w-12 h-12" />
+                                </div>
                                 <h3 className="text-xl font-bold mb-2 text-center">{tech.name}</h3>
                                 <p className="text-cyan text-sm mb-4 text-center">{tech.description}</p>
                                 <ul className="space-y-2">

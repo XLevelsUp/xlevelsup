@@ -3,6 +3,7 @@
 import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import SystemDiagram from '@/components/solutions/SystemDiagram';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 
 
@@ -40,7 +41,7 @@ export default function GrowthSystemsPage() {
                 >
                     <div className="inline-block mb-6">
                         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-purple to-pink-500 flex items-center justify-center text-4xl">
-                            📈
+                            <EmojiIcon emoji="📈" className="w-10 h-10 text-white" />
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6">
@@ -66,15 +67,21 @@ export default function GrowthSystemsPage() {
                         </h2>
                         <div className="grid md:grid-cols-3 gap-6">
                             <div className="text-center">
-                                <div className="text-3xl mb-2">🚫</div>
+                                <div className="text-3xl mb-2 text-red-400 flex justify-center">
+                                    <EmojiIcon emoji="🚫" className="w-8 h-8" />
+                                </div>
                                 <p className="text-gray-400 text-sm">iOS 14.5+ blocks 60% of tracking pixels</p>
                             </div>
                             <div className="text-center">
-                                <div className="text-3xl mb-2">📉</div>
+                                <div className="text-3xl mb-2 text-red-400 flex justify-center">
+                                    <EmojiIcon emoji="📉" className="w-8 h-8" />
+                                </div>
                                 <p className="text-gray-400 text-sm">Ad platforms make bad decisions with incomplete data</p>
                             </div>
                             <div className="text-center">
-                                <div className="text-3xl mb-2">💸</div>
+                                <div className="text-3xl mb-2 text-red-400 flex justify-center">
+                                    <EmojiIcon emoji="💸" className="w-8 h-8" />
+                                </div>
                                 <p className="text-gray-400 text-sm">You waste budget on campaigns that don't convert</p>
                             </div>
                         </div>
@@ -114,7 +121,9 @@ export default function GrowthSystemsPage() {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 whileHover={{ y: -10 }}
                             >
-                                <div className="text-5xl mb-4 text-center">{feature.icon}</div>
+                                <div className="text-5xl mb-4 text-purple flex justify-center">
+                                    <EmojiIcon emoji={feature.icon} className="w-12 h-12" />
+                                </div>
                                 <h3 className="text-xl font-bold mb-3 text-center">{feature.title}</h3>
                                 <p className="text-gray-400 text-sm mb-4 text-center">{feature.description}</p>
                                 <ul className="space-y-2">

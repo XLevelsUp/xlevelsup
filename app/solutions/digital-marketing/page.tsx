@@ -2,6 +2,7 @@
 
 import { m as motion } from 'framer-motion';
 import Link from 'next/link';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 
 
@@ -68,7 +69,7 @@ export default function DigitalMarketingPage() {
                 >
                     <div className="inline-block mb-6">
                         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-cyan to-purple flex items-center justify-center text-4xl">
-                            📲
+                            <EmojiIcon emoji="📲" className="w-10 h-10 text-white" />
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
@@ -127,7 +128,9 @@ export default function DigitalMarketingPage() {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 whileHover={{ y: -10 }}
                             >
-                                <div className="text-5xl mb-4">{step.icon}</div>
+                                <div className={`text-5xl mb-4 ${step.accent}`}>
+                                    <EmojiIcon emoji={step.icon} className="w-12 h-12" />
+                                </div>
                                 <h3 className="text-xl font-bold mb-2">{step.title}</h3>
                                 <p className={`text-sm mb-3 ${step.accent}`}>{step.label}</p>
                                 <p className="text-gray-400 text-sm leading-relaxed">
@@ -160,7 +163,9 @@ export default function DigitalMarketingPage() {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 whileHover={{ y: -10 }}
                             >
-                                <div className="text-4xl mb-3">{tool.icon}</div>
+                                <div className="text-4xl mb-3 text-cyan">
+                                    <EmojiIcon emoji={tool.icon} className="w-10 h-10" />
+                                </div>
                                 <p className="text-sm font-semibold text-gray-300">{tool.name}</p>
                             </motion.div>
                         ))}

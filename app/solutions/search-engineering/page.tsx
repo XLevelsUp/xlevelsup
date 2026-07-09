@@ -4,6 +4,7 @@ import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import ComparisonTable from '@/components/solutions/ComparisonTable';
 import ExponentialGraph from '@/components/solutions/ExponentialGraph';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 
 
@@ -20,7 +21,7 @@ export default function SearchEngineeringPage() {
                 >
                     <div className="inline-block mb-6">
                         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-blue-500 to-cyan flex items-center justify-center text-4xl">
-                            🔍
+                            <EmojiIcon emoji="🔍" className="w-10 h-10 text-white" />
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6">
@@ -119,7 +120,9 @@ export default function SearchEngineeringPage() {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                             >
                                 <div className="flex items-start gap-4">
-                                    <div className="text-4xl">{item.icon}</div>
+                                    <div className="text-4xl text-cyan">
+                                        <EmojiIcon emoji={item.icon} className="w-10 h-10" />
+                                    </div>
                                     <div className="flex-1">
                                         <div className="text-sm text-cyan font-mono mb-2">{item.step}</div>
                                         <h3 className="text-xl font-bold mb-3">{item.title}</h3>
