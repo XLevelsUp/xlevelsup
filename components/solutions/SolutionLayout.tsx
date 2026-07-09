@@ -3,6 +3,7 @@
 import { m as motion } from 'framer-motion';
 import Link from 'next/link';
 import type { Solution } from '@/config/solutions.config';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 interface SolutionLayoutProps {
     solution: Solution;
@@ -119,7 +120,9 @@ export default function SolutionLayout({ solution }: SolutionLayoutProps) {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 whileHover={{ y: -5 }}
                             >
-                                <div className="text-4xl mb-4">{benefit.icon}</div>
+                                <div className="text-4xl mb-4 text-cyan">
+                                    <EmojiIcon emoji={benefit.icon} className="w-10 h-10" />
+                                </div>
                                 <h3 className="text-xl font-bold mb-2">{benefit.title}</h3>
                                 <p className="text-gray-400">{benefit.description}</p>
                             </motion.div>

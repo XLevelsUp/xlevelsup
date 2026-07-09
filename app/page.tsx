@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   title: 'Digital Marketing, Web Design & AI Automation Agency India | XLEVELSUP',
   description:
     'XLEVELSUP is your end-to-end growth partner in India. We design logos, build websites & eCommerce stores, run Meta & Google Ads, manage social media, develop ERP apps, and automate workflows with AI.',
+  alternates: {
+    canonical: '/',
+  },
   keywords: [
     'Logo Design Company India',
     'Brand Identity Design',

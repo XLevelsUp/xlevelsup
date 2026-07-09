@@ -315,8 +315,8 @@ export default function PrivacyPolicyPage() {
                         </p>
                         <div className="glass rounded-xl p-6 mt-2 space-y-1">
                             <p className="text-white font-semibold">XLEVELSUP — Privacy Office</p>
-                            <p className="text-gray-400 text-sm">NO 178, 3rd Floor A Ramachandra Road,</p>
-                            <p className="text-gray-400 text-sm">RS Puram, Coimbatore &mdash; 641002, Tamil Nadu, India</p>
+                            <p className="text-gray-400 text-sm">2nd floor, 178, A, Ramachandra Rd,</p>
+                            <p className="text-gray-400 text-sm">R.S. Puram, Coimbatore &mdash; 641002, Tamil Nadu, India</p>
                             <a
                                 href="mailto:hello@xlevelsup.com"
                                 className="text-cyan hover:underline transition-colors duration-200 text-sm block pt-1"

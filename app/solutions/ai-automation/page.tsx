@@ -2,6 +2,7 @@
 
 import { m as motion } from 'framer-motion';
 import Link from 'next/link';
+import EmojiIcon from '@/components/ui/EmojiIcon';
 
 
 
@@ -50,7 +51,7 @@ export default function AIAutomationPage() {
                 >
                     <div className="inline-block mb-6">
                         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-orange-500 to-pink-500 flex items-center justify-center text-4xl">
-                            🤖
+                            <EmojiIcon emoji="🤖" className="w-10 h-10 text-white" />
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6">
@@ -79,15 +80,21 @@ export default function AIAutomationPage() {
                         </h2>
                         <div className="grid md:grid-cols-3 gap-6">
                             <div className="text-center">
-                                <div className="text-3xl mb-2">⏰</div>
+                                <div className="text-3xl mb-2 text-red-400 flex justify-center">
+                                    <EmojiIcon emoji="⏰" className="w-8 h-8" />
+                                </div>
                                 <p className="text-gray-400 text-sm">Your team wastes hours on data entry and repetitive tasks</p>
                             </div>
                             <div className="text-center">
-                                <div className="text-3xl mb-2">💸</div>
+                                <div className="text-3xl mb-2 text-red-400 flex justify-center">
+                                    <EmojiIcon emoji="💸" className="w-8 h-8" />
+                                </div>
                                 <p className="text-gray-400 text-sm">Hiring more people increases costs faster than revenue</p>
                             </div>
                             <div className="text-center">
-                                <div className="text-3xl mb-2">🐌</div>
+                                <div className="text-3xl mb-2 text-red-400 flex justify-center">
+                                    <EmojiIcon emoji="🐌" className="w-8 h-8" />
+                                </div>
                                 <p className="text-gray-400 text-sm">Manual processes create bottlenecks that slow growth</p>
                             </div>
                         </div>
@@ -116,7 +123,9 @@ export default function AIAutomationPage() {
                                 transition={{ duration: 0.3, delay: index * 0.1 }}
                                 whileHover={{ scale: 1.05 }}
                             >
-                                <span className="text-2xl">{tech.icon}</span>
+                                <span className="text-2xl text-orange-500 flex items-center justify-center">
+                                    <EmojiIcon emoji={tech.icon} className="w-6 h-6" />
+                                </span>
                                 <span className="text-gray-300 font-medium">{tech.name}</span>
                             </motion.div>
                         ))}
@@ -145,7 +154,9 @@ export default function AIAutomationPage() {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 whileHover={{ y: -5 }}
                             >
-                                <div className="text-4xl mb-4">{useCase.icon}</div>
+                                <div className="text-4xl mb-4 text-orange-500">
+                                    <EmojiIcon emoji={useCase.icon} className="w-10 h-10" />
+                                </div>
                                 <h3 className="text-xl font-bold mb-3">{useCase.title}</h3>
                                 <p className="text-gray-400 text-sm">{useCase.description}</p>
                             </motion.div>

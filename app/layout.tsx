@@ -141,8 +141,10 @@ export default function RootLayout({
                 '@type': 'Place',
                 address: {
                   '@type': 'PostalAddress',
+                  streetAddress: '2nd floor, 178, A, Ramachandra Rd, R.S. Puram',
                   addressLocality: 'Coimbatore',
                   addressRegion: 'Tamil Nadu',
+                  postalCode: '641002',
                   addressCountry: 'IN',
                 },
               },
@@ -180,9 +182,10 @@ export default function RootLayout({
                 'End-to-end growth partner in Coimbatore. We design logos, build marketing and eCommerce websites, run Meta & Google Ads, manage social media, develop ERP apps, and automate workflows with AI.',
               address: {
                 '@type': 'PostalAddress',
+                streetAddress: '2nd floor, 178, A, Ramachandra Rd, R.S. Puram',
                 addressLocality: 'Coimbatore',
                 addressRegion: 'Tamil Nadu',
-                postalCode: '641001',
+                postalCode: '641002',
                 addressCountry: 'IN',
               },
               geo: {
