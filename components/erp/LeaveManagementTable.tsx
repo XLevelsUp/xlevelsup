@@ -254,9 +254,15 @@ export default function LeaveManagementTable({
                           <p className='text-gray-300'>
                             {formatDate(request.start_date)}
                           </p>
-                          <p className='text-gray-500'>
-                            to {formatDate(request.end_date)}
-                          </p>
+                          {request.is_half_day ? (
+                            <p className='text-cyan-400 text-xs'>
+                              Half Day ({request.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})
+                            </p>
+                          ) : (
+                            <p className='text-gray-500'>
+                              to {formatDate(request.end_date)}
+                            </p>
+                          )}
                         </div>
                       </td>
                       <td className='px-6 py-4 text-gray-300'>
@@ -365,8 +371,11 @@ function ReviewModal({
             <div>
               <span className='text-gray-400'>Duration:</span>
               <span className='text-white ml-2'>
-                {formatDate(request.start_date)} to{' '}
-                {formatDate(request.end_date)}
+                {request.is_half_day
+                  ? `${formatDate(request.start_date)} (Half Day — ${
+                      request.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'
+                    })`
+                  : `${formatDate(request.start_date)} to ${formatDate(request.end_date)}`}
               </span>
             </div>
             <div>

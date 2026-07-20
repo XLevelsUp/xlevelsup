@@ -7,11 +7,11 @@ import {
   createOrderItems,
   deleteOrder,
   linkOrderTransaction,
-} from '@/lib/erp/pos';
+} from '@/lib/erp/billing';
 import { insertLedgerEntry } from '@/lib/erp/finance';
-import { computeGstBreakdown, round2Amount } from '@/lib/pos-tax';
+import { computeGstBreakdown, round2Amount } from '@/lib/billing-tax';
 import { revalidatePath } from 'next/cache';
-import type { ProcessServiceInvoiceResult, ReceiptLineItem } from '@/types/pos';
+import type { ProcessServiceInvoiceResult, ReceiptLineItem } from '@/types/billing';
 
 const lineItemSchema = z.object({
   description: z.string().trim().min(1, 'Description is required'),
@@ -71,7 +71,7 @@ export async function processServiceInvoice(
       throw innerError;
     }
 
-    revalidatePath('/erp/pos');
+    revalidatePath('/erp/billing');
 
     // Soft-fail finance sync — the invoice has already been committed
     // (and may already be printed), so a ledger-sync failure here should

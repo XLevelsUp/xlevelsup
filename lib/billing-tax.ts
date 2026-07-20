@@ -4,7 +4,7 @@
  * client components.
  */
 
-import type { GstBreakdown } from '@/types/pos';
+import type { GstBreakdown } from '@/types/billing';
 
 /** Flat GST rate applied to all services: 9% CGST + 9% SGST */
 export const GST_RATE = 0.18;

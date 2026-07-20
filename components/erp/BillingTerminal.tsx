@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { processServiceInvoice } from '@/actions/erp/pos';
-import { computeGstBreakdown, round2Amount, CGST_RATE_LABEL, SGST_RATE_LABEL } from '@/lib/pos-tax';
+import { processServiceInvoice } from '@/actions/erp/billing';
+import { computeGstBreakdown, round2Amount, CGST_RATE_LABEL, SGST_RATE_LABEL } from '@/lib/billing-tax';
 import { formatCurrency } from '@/lib/erp/utils';
-import PosReceipt from './PosReceipt';
-import type { InvoiceLineItem, PaymentMethod, ReceiptData } from '@/types/pos';
+import InvoiceReceipt from './InvoiceReceipt';
+import type { InvoiceLineItem, PaymentMethod, ReceiptData } from '@/types/billing';
 
-interface PosTerminalProps {
+interface BillingTerminalProps {
   knownClients: string[];
 }
 
@@ -16,7 +16,7 @@ const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'UPI', 'CARD'];
 const PRINT_MOUNT_DELAY_MS = 300;
 const EMPTY_LINE: InvoiceLineItem = { description: '', quantity: 1, rate: 0 };
 
-export default function PosTerminal({ knownClients }: PosTerminalProps) {
+export default function BillingTerminal({ knownClients }: BillingTerminalProps) {
   const [clientName, setClientName] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<InvoiceLineItem[]>([{ ...EMPTY_LINE }]);
@@ -243,7 +243,7 @@ export default function PosTerminal({ knownClients }: PosTerminalProps) {
         </div>
       </div>
 
-      {receipt && <PosReceipt receipt={receipt} />}
+      {receipt && <InvoiceReceipt receipt={receipt} />}
     </div>
   );
 }

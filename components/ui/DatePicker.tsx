@@ -7,6 +7,25 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+/**
+ * Format a Date as a local YYYY-MM-DD string. Never use `toISOString()` for
+ * this — it converts to UTC first, which silently shifts the date by a day
+ * in any timezone ahead of UTC (e.g. IST) when the Date represents local
+ * midnight.
+ */
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Parse a YYYY-MM-DD string as a local-midnight Date (avoids the UTC-parse offset that `new Date(str)` applies to date-only strings). */
+function parseLocalDateString(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 interface DatePickerProps {
   value?: string; // YYYY-MM-DD format
   onChange: (date: string) => void;
@@ -36,7 +55,7 @@ export default function DatePicker({
   const [isOpen, setIsOpen] = useState(false);
   const [displayDate, setDisplayDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(
-    value ? new Date(value) : null,
+    value ? parseLocalDateString(value) : null,
   );
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -71,13 +90,13 @@ export default function DatePicker({
 
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toLocalDateString(date);
     onChange(dateString);
     setIsOpen(false);
   };
 
   const isDateDisabled = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toLocalDateString(date);
     if (minDate && dateString < minDate) return true;
     if (maxDate && dateString > maxDate) return true;
     if (disableWeekends) {

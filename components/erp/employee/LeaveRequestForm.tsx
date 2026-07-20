@@ -29,12 +29,19 @@ export default function LeaveRequestForm({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
+  const [isHalfDay, setIsHalfDay] = useState(false);
+  const [halfDayPeriod, setHalfDayPeriod] = useState<'' | 'first_half' | 'second_half'>('');
 
-  // Compute date boundaries
+  // Compute date boundaries. Uses local getters, not toISOString() — the
+  // latter converts to UTC first, which rolls back to the previous day in
+  // any timezone ahead of UTC (e.g. IST) during the early-morning hours.
   const tomorrow = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   })();
 
   // Fetch public holidays for the current (and next) year so they are blocked in the DatePicker
@@ -62,6 +69,8 @@ export default function LeaveRequestForm({
         setSelectedLeaveType('');
         setStartDate('');
         setEndDate('');
+        setIsHalfDay(false);
+        setHalfDayPeriod('');
       }, 0);
     } else if (state?.error) {
       toast.error(state.error);
@@ -205,8 +214,12 @@ export default function LeaveRequestForm({
             value={startDate}
             onChange={(date) => {
               setStartDate(date);
-              // If end date is before new start date, reset it
-              if (endDate && date > endDate) setEndDate('');
+              if (isHalfDay) {
+                setEndDate(date);
+              } else if (endDate && date > endDate) {
+                // If end date is before new start date, reset it
+                setEndDate('');
+              }
             }}
             minDate={tomorrow}
             placeholder='Select start date'
@@ -217,21 +230,74 @@ export default function LeaveRequestForm({
           <input type='hidden' name='start_date' value={startDate} />
         </div>
 
-        {/* End Date */}
-        <div>
-          <DatePicker
-            label='End Date'
-            required
-            value={endDate}
-            onChange={setEndDate}
-            minDate={startDate || tomorrow}
-            placeholder='Select end date'
-            disableWeekends
-            disabledDates={holidayDates}
-          />
-          {/* Hidden field for form submission */}
-          <input type='hidden' name='end_date' value={endDate} />
-        </div>
+        {/* Half-day toggle — only meaningful once a start date is picked */}
+        {startDate && (
+          <div className='flex items-center gap-2'>
+            <input
+              type='checkbox'
+              id='is_half_day'
+              checked={isHalfDay}
+              disabled={isPending}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsHalfDay(checked);
+                if (checked) {
+                  setEndDate(startDate);
+                } else {
+                  setHalfDayPeriod('');
+                }
+              }}
+              className='w-4 h-4 rounded border-gray-700 bg-[#0a0a0a] text-[var(--cyan)] focus:ring-[var(--cyan)]'
+            />
+            <label htmlFor='is_half_day' className='text-sm text-gray-300'>
+              This is a half-day leave
+            </label>
+          </div>
+        )}
+        <input type='hidden' name='is_half_day' value={isHalfDay ? 'true' : 'false'} />
+
+        {isHalfDay ? (
+          <div>
+            <label
+              htmlFor='half_day_period'
+              className='block text-sm font-medium mb-2 text-gray-300'
+            >
+              Which half? <span className='text-red-500'>*</span>
+            </label>
+            <select
+              id='half_day_period'
+              name='half_day_period'
+              required
+              disabled={isPending}
+              value={halfDayPeriod}
+              onChange={(e) => setHalfDayPeriod(e.target.value as 'first_half' | 'second_half')}
+              className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
+            >
+              <option value=''>Select half</option>
+              <option value='first_half'>First Half (Morning)</option>
+              <option value='second_half'>Second Half (Afternoon)</option>
+            </select>
+            <input type='hidden' name='end_date' value={startDate} />
+            <p className='mt-2 text-xs text-gray-500'>
+              💡 Half-day leave counts as 0.5 day against your balance.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <DatePicker
+              label='End Date'
+              required
+              value={endDate}
+              onChange={setEndDate}
+              minDate={startDate || tomorrow}
+              placeholder='Select end date'
+              disableWeekends
+              disabledDates={holidayDates}
+            />
+            {/* Hidden field for form submission */}
+            <input type='hidden' name='end_date' value={endDate} />
+          </div>
+        )}
 
         {/* Reason */}
         <div>

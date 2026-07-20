@@ -33,6 +33,8 @@ const leaveRequestSchema = z.object({
   start_date: z.string().min(1, 'Start date is required'),
   end_date: z.string().min(1, 'End date is required'),
   reason: z.string().min(10, 'Reason must be at least 10 characters'),
+  is_half_day: z.boolean().optional().default(false),
+  half_day_period: z.enum(['first_half', 'second_half']).nullable().optional(),
 });
 
 const reviewSchema = z.object({
@@ -54,6 +56,8 @@ export async function createLeaveRequestAction(
       start_date: formData.get('start_date') as string,
       end_date: formData.get('end_date') as string,
       reason: formData.get('reason') as string,
+      is_half_day: formData.get('is_half_day') === 'true',
+      half_day_period: (formData.get('half_day_period') as 'first_half' | 'second_half' | null) || null,
     };
 
     // Validate
@@ -69,11 +73,30 @@ export async function createLeaveRequestAction(
       };
     }
 
-    const requestedDays = await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
+    if (validated.is_half_day) {
+      if (validated.start_date !== validated.end_date) {
+        return {
+          success: false,
+          error: 'Half-day leave must be for a single day.',
+        };
+      }
+      if (!validated.half_day_period) {
+        return {
+          success: false,
+          error: 'Please select which half of the day (first half or second half).',
+        };
+      }
+    }
+
+    const requestedDays = validated.is_half_day
+      ? (await calculateLeaveDaysWithHolidays(validated.start_date, validated.start_date)) > 0 ? 0.5 : 0
+      : await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
     if (requestedDays === 0) {
       return {
         success: false,
-        error: 'The requested period must contain at least one working day (weekends and public holidays are excluded).',
+        error: validated.is_half_day
+          ? 'The selected day is a weekend or public holiday.'
+          : 'The requested period must contain at least one working day (weekends and public holidays are excluded).',
       };
     }
 
@@ -126,6 +149,8 @@ export async function updateLeaveRequestAction(
       start_date: formData.get('start_date') as string,
       end_date: formData.get('end_date') as string,
       reason: formData.get('reason') as string,
+      is_half_day: formData.get('is_half_day') === 'true',
+      half_day_period: (formData.get('half_day_period') as 'first_half' | 'second_half' | null) || null,
     };
 
     // Validate
@@ -141,11 +166,30 @@ export async function updateLeaveRequestAction(
       };
     }
 
-    const requestedDays = await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
+    if (validated.is_half_day) {
+      if (validated.start_date !== validated.end_date) {
+        return {
+          success: false,
+          error: 'Half-day leave must be for a single day.',
+        };
+      }
+      if (!validated.half_day_period) {
+        return {
+          success: false,
+          error: 'Please select which half of the day (first half or second half).',
+        };
+      }
+    }
+
+    const requestedDays = validated.is_half_day
+      ? (await calculateLeaveDaysWithHolidays(validated.start_date, validated.start_date)) > 0 ? 0.5 : 0
+      : await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
     if (requestedDays === 0) {
       return {
         success: false,
-        error: 'The requested period must contain at least one working day (weekends and public holidays are excluded).',
+        error: validated.is_half_day
+          ? 'The selected day is a weekend or public holiday.'
+          : 'The requested period must contain at least one working day (weekends and public holidays are excluded).',
       };
     }
 

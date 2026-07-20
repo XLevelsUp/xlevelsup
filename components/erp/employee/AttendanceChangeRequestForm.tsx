@@ -5,10 +5,14 @@
  */
 
 import { useActionState, useEffect, useState } from 'react';
-import { createAttendanceChangeRequestAction } from '@/actions/erp/attendance-change-requests';
+import {
+  createAttendanceChangeRequestAction,
+  createAttendanceRegularisationRequestAction,
+} from '@/actions/erp/attendance-change-requests';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import { toast } from 'react-hot-toast';
+import type { AttendanceRegularisationType } from '@/types/erp';
 
 interface AttendanceChangeRequestFormProps {
   employeeId: number;
@@ -23,7 +27,7 @@ export default function AttendanceChangeRequestForm({
 }: AttendanceChangeRequestFormProps) {
   const [requestedStatus, setRequestedStatus] = useState(initialIsMissed ? 'present' : '');
   const [selectedDate, setSelectedDate] = useState(initialDate || '');
-  const [showClockOutTime, setShowClockOutTime] = useState(initialIsMissed || false);
+  const [clockInTime, setClockInTime] = useState('');
   const [clockOutTime, setClockOutTime] = useState('');
 
   // Handle updates to props
@@ -33,7 +37,6 @@ export default function AttendanceChangeRequestForm({
     }
     if (initialIsMissed) {
       setRequestedStatus('present');
-      setShowClockOutTime(true);
     }
   }, [initialDate, initialIsMissed]);
 
@@ -43,17 +46,36 @@ export default function AttendanceChangeRequestForm({
       return { success: false, error: 'Please select a date' };
     }
 
-    // Add the selected date to form data
     formData.set('request_date', selectedDate);
 
-    // Validate and set clock_out_time
-    if (showClockOutTime) {
-      if (!clockOutTime) {
-        return { success: false, error: 'Please specify the clock-out time' };
+    const hasClockIn = requestedStatus === 'present' && !!clockInTime;
+    const hasClockOut = requestedStatus === 'present' && !!clockOutTime;
+
+    if (hasClockIn || hasClockOut) {
+      // Clock times were provided — route through the regularisation
+      // pipeline instead of the plain status-change one, since that's the
+      // path that already knows how to create a new attendance record (and
+      // time log) for the day when none exists yet.
+      const requestType: AttendanceRegularisationType =
+        hasClockIn && hasClockOut
+          ? 'missed_both'
+          : hasClockIn
+            ? 'missed_clock_in'
+            : 'missed_clock_out';
+
+      formData.set('request_type', requestType);
+      if (hasClockIn) {
+        formData.set('requested_clock_in_time', new Date(clockInTime).toISOString());
       }
-      formData.set('clock_out_time', clockOutTime);
-    } else {
-      formData.delete('clock_out_time');
+      if (hasClockOut) {
+        formData.set('requested_clock_out_time', new Date(clockOutTime).toISOString());
+      }
+
+      return await createAttendanceRegularisationRequestAction(
+        employeeId,
+        prevState,
+        formData,
+      );
     }
 
     return await createAttendanceChangeRequestAction(
@@ -76,8 +98,8 @@ export default function AttendanceChangeRequestForm({
         form.reset();
         setRequestedStatus('');
         setSelectedDate('');
+        setClockInTime('');
         setClockOutTime('');
-        setShowClockOutTime(false);
       }
       // Reload page to show updated data
       setTimeout(() => {
@@ -95,7 +117,16 @@ export default function AttendanceChangeRequestForm({
         label='Date'
         value={selectedDate}
         onChange={setSelectedDate}
-        maxDate={(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })()}
+        maxDate={(() => {
+          // Local getters, not toISOString() — the latter converts to UTC
+          // first, which shifts the date by a day in timezones ahead of UTC (e.g. IST).
+          const d = new Date();
+          d.setDate(d.getDate() - 1);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })()}
         required
         placeholder='Select the date for attendance change'
         helperText='Select the date for attendance change'
@@ -164,50 +195,53 @@ export default function AttendanceChangeRequestForm({
         </div>
       )}
 
-      {/* Option to specify clock-out time */}
-      {requestedStatus === 'present' && (
-        <div className='flex items-center gap-2 py-1'>
-          <input
-            type='checkbox'
-            id='specify_clock_out'
-            checked={showClockOutTime}
-            onChange={(e) => {
-              setShowClockOutTime(e.target.checked);
-              if (!e.target.checked) setClockOutTime('');
-            }}
-            className='w-4 h-4 rounded border-gray-700 bg-[#0a0a0a] text-[var(--cyan)] focus:ring-[var(--cyan)]'
-          />
-          <label
-            htmlFor='specify_clock_out'
-            className='text-sm text-gray-300 select-none cursor-pointer'
-          >
-            Specify Clock-Out Time (For Missed Clock-Out)
-          </label>
-        </div>
-      )}
+      {/* Clock-In / Clock-Out Time — optional, for missed or incorrect punches on this day.
+          Providing either (or both) will also create the day's attendance/time-log
+          record on approval if one doesn't already exist. */}
+      {requestedStatus === 'present' && selectedDate && (
+        <>
+          <div>
+            <label
+              htmlFor='requested_clock_in_time'
+              className='block text-sm font-medium mb-2'
+            >
+              Requested Clock-In Time{' '}
+              <span className='text-gray-500 text-xs font-normal'>(optional)</span>
+            </label>
+            <input
+              type='datetime-local'
+              id='requested_clock_in_time'
+              value={clockInTime}
+              onChange={(e) => setClockInTime(e.target.value)}
+              max={`${selectedDate}T23:59`}
+              className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white [color-scheme:dark]'
+            />
+            <p className='text-xs text-gray-500 mt-1'>
+              Fill this in if you missed clocking in, or need to correct the time, for this day
+            </p>
+          </div>
 
-      {/* Clock-Out Time Input */}
-      {requestedStatus === 'present' && showClockOutTime && (
-        <div>
-          <label
-            htmlFor='clock_out_time'
-            className='block text-sm font-medium mb-2'
-          >
-            Requested Clock-Out Time <span className='text-red-500'>*</span>
-          </label>
-          <input
-            type='time'
-            id='clock_out_time'
-            name='clock_out_time'
-            required={showClockOutTime}
-            value={clockOutTime}
-            onChange={(e) => setClockOutTime(e.target.value)}
-            className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
-          />
-          <p className='text-xs text-gray-500 mt-1'>
-            Enter the time you clocked out (e.g., 18:00)
-          </p>
-        </div>
+          <div>
+            <label
+              htmlFor='requested_clock_out_time'
+              className='block text-sm font-medium mb-2'
+            >
+              Requested Clock-Out Time{' '}
+              <span className='text-gray-500 text-xs font-normal'>(optional)</span>
+            </label>
+            <input
+              type='datetime-local'
+              id='requested_clock_out_time'
+              value={clockOutTime}
+              onChange={(e) => setClockOutTime(e.target.value)}
+              max={`${selectedDate}T23:59`}
+              className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white [color-scheme:dark]'
+            />
+            <p className='text-xs text-gray-500 mt-1'>
+              Fill this in if you missed clocking out, or need to correct the time, for this day
+            </p>
+          </div>
+        </>
       )}
 
       {/* Reason */}

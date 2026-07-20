@@ -114,11 +114,13 @@ export default function LeaveRequestList({
                   </span>
                 </div>
                 <p className='text-sm text-gray-400'>
-                  {formatDate(request.start_date)} -{' '}
-                  {formatDate(request.end_date)}
+                  {request.is_half_day
+                    ? formatDate(request.start_date)
+                    : `${formatDate(request.start_date)} - ${formatDate(request.end_date)}`}
                   <span className='ml-2 text-gray-500'>
-                    ({request.total_days} day
-                    {request.total_days !== 1 ? 's' : ''})
+                    {request.is_half_day
+                      ? `(Half Day — ${request.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
+                      : `(${request.total_days} day${request.total_days !== 1 ? 's' : ''})`}
                   </span>
                 </p>
               </div>

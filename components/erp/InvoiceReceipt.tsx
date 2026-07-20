@@ -1,26 +1,26 @@
 'use client';
 
 import { storeConfig } from '@/config/store.config';
-import { CGST_RATE_LABEL, SGST_RATE_LABEL } from '@/lib/pos-tax';
-import type { ReceiptData } from '@/types/pos';
+import { CGST_RATE_LABEL, SGST_RATE_LABEL } from '@/lib/billing-tax';
+import type { ReceiptData } from '@/types/billing';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
 });
 
-interface PosReceiptProps {
+interface InvoiceReceiptProps {
   receipt: ReceiptData;
   /** Renders inline (normal document flow) for batch printing instead of taking over the full page on its own. */
   forBulkPrint?: boolean;
 }
 
-export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceiptProps) {
+export default function InvoiceReceipt({ receipt, forBulkPrint = false }: InvoiceReceiptProps) {
   return (
-    <div className={`pos-receipt ${forBulkPrint ? 'pos-receipt--inline' : 'pos-receipt--single'}`}>
+    <div className={`invoice-receipt ${forBulkPrint ? 'invoice-receipt--inline' : 'invoice-receipt--single'}`}>
       <style>{`
         @media screen {
-          .pos-receipt {
+          .invoice-receipt {
             display: none;
           }
         }
@@ -40,16 +40,16 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
             visibility: hidden;
           }
 
-          .pos-receipt,
-          .pos-receipt * {
+          .invoice-receipt,
+          .invoice-receipt * {
             visibility: visible;
           }
 
-          .pos-receipt {
+          .invoice-receipt {
             display: block;
           }
 
-          .pos-receipt--single {
+          .invoice-receipt--single {
             position: fixed;
             top: 0;
             left: 0;
@@ -57,7 +57,7 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
           }
         }
 
-        .pos-receipt {
+        .invoice-receipt {
           width: 100%;
           max-width: 380px;
           margin: 0 auto;
@@ -67,7 +67,7 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
           font-size: 12px;
         }
 
-        .pos-receipt__header {
+        .invoice-receipt__header {
           text-align: center;
           background: #111827;
           color: #fff;
@@ -76,65 +76,60 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
           print-color-adjust: exact;
         }
 
-        .pos-receipt__store-name {
+        .invoice-receipt__store-name {
           font-size: 16px;
           font-weight: 700;
           letter-spacing: 0.05em;
         }
 
-        .pos-receipt__body {
+        .invoice-receipt__body {
           padding: 8px;
         }
 
-        .pos-receipt__meta-row {
+        .invoice-receipt__meta-row {
           display: flex;
           justify-content: space-between;
           margin: 2px 0;
         }
 
-        .pos-receipt table {
+        .invoice-receipt table {
           width: 100%;
           border-collapse: collapse;
           margin: 8px 0;
         }
 
-        .pos-receipt th,
-        .pos-receipt td {
+        .invoice-receipt th,
+        .invoice-receipt td {
           text-align: left;
           padding: 2px 4px;
           font-size: 11px;
           vertical-align: top;
         }
 
-        .pos-receipt th {
+        .invoice-receipt th {
           border-bottom: 1px solid #000;
         }
 
-        .pos-receipt td.pos-receipt__qty,
-        .pos-receipt th.pos-receipt__qty,
-        .pos-receipt td.pos-receipt__amount,
-        .pos-receipt th.pos-receipt__amount {
+        .invoice-receipt td.invoice-receipt__qty,
+        .invoice-receipt th.invoice-receipt__qty,
+        .invoice-receipt td.invoice-receipt__amount,
+        .invoice-receipt th.invoice-receipt__amount {
           text-align: right;
         }
 
-        .pos-receipt__sku {
-          font-size: 9px;
-          color: #555;
-        }
-
-        .pos-receipt__totals {
+        .invoice-receipt__totals {
           border-top: 1px dashed #000;
           padding-top: 6px;
           margin-top: 6px;
         }
 
-        .pos-receipt__totals-row {
+        .invoice-receipt__totals-row {
           display: flex;
           justify-content: space-between;
           padding: 2px 0;
         }
 
-        .pos-receipt__grand-total {
+        .invoice-receipt__grand-total {
           background: #e5e7eb;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -145,7 +140,7 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
           border-radius: 2px;
         }
 
-        .pos-receipt__footer {
+        .invoice-receipt__footer {
           text-align: center;
           margin-top: 10px;
           border-top: 2px dashed #000;
@@ -154,8 +149,8 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
         }
       `}</style>
 
-      <div className="pos-receipt__header">
-        <div className="pos-receipt__store-name">{storeConfig.name}</div>
+      <div className="invoice-receipt__header">
+        <div className="invoice-receipt__store-name">{storeConfig.name}</div>
         {storeConfig.addressLine1 && <div>{storeConfig.addressLine1}</div>}
         {storeConfig.addressLine2 && <div>{storeConfig.addressLine2}</div>}
         {storeConfig.cityStatePincode && <div>{storeConfig.cityStatePincode}</div>}
@@ -163,24 +158,24 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
         {storeConfig.phone && <div>Ph: {storeConfig.phone}</div>}
       </div>
 
-      <div className="pos-receipt__body">
-        <div className="pos-receipt__meta-row">
+      <div className="invoice-receipt__body">
+        <div className="invoice-receipt__meta-row">
           <span>Invoice No:</span>
           <strong>{receipt.invoiceNumber}</strong>
         </div>
-        <div className="pos-receipt__meta-row">
+        <div className="invoice-receipt__meta-row">
           <span>Order No:</span>
           <span>{receipt.orderNumber}</span>
         </div>
-        <div className="pos-receipt__meta-row">
+        <div className="invoice-receipt__meta-row">
           <span>Date:</span>
           <span>{new Date(receipt.createdAt).toLocaleString('en-IN')}</span>
         </div>
-        <div className="pos-receipt__meta-row">
+        <div className="invoice-receipt__meta-row">
           <span>Client:</span>
           <span>{receipt.clientName}</span>
         </div>
-        <div className="pos-receipt__meta-row">
+        <div className="invoice-receipt__meta-row">
           <span>Payment:</span>
           <span>{receipt.paymentMethod}</span>
         </div>
@@ -189,41 +184,41 @@ export default function PosReceipt({ receipt, forBulkPrint = false }: PosReceipt
           <thead>
             <tr>
               <th>Description</th>
-              <th className="pos-receipt__qty">Qty</th>
-              <th className="pos-receipt__amount">Amount</th>
+              <th className="invoice-receipt__qty">Qty</th>
+              <th className="invoice-receipt__amount">Amount</th>
             </tr>
           </thead>
           <tbody>
             {receipt.items.map((item, index) => (
               <tr key={index}>
                 <td>{item.description}</td>
-                <td className="pos-receipt__qty">{item.quantity}</td>
-                <td className="pos-receipt__amount">{currencyFormatter.format(item.lineTotal)}</td>
+                <td className="invoice-receipt__qty">{item.quantity}</td>
+                <td className="invoice-receipt__amount">{currencyFormatter.format(item.lineTotal)}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div className="pos-receipt__totals">
-          <div className="pos-receipt__totals-row">
+        <div className="invoice-receipt__totals">
+          <div className="invoice-receipt__totals-row">
             <span>Taxable Value</span>
             <span>{currencyFormatter.format(receipt.taxableValue)}</span>
           </div>
-          <div className="pos-receipt__totals-row">
+          <div className="invoice-receipt__totals-row">
             <span>CGST ({CGST_RATE_LABEL})</span>
             <span>{currencyFormatter.format(receipt.cgstAmount)}</span>
           </div>
-          <div className="pos-receipt__totals-row">
+          <div className="invoice-receipt__totals-row">
             <span>SGST ({SGST_RATE_LABEL})</span>
             <span>{currencyFormatter.format(receipt.sgstAmount)}</span>
           </div>
-          <div className="pos-receipt__totals-row pos-receipt__grand-total">
+          <div className="invoice-receipt__totals-row invoice-receipt__grand-total">
             <span>Grand Total</span>
             <span>{currencyFormatter.format(receipt.grandTotal)}</span>
           </div>
         </div>
 
-        <div className="pos-receipt__footer">Thank you for your purchase!</div>
+        <div className="invoice-receipt__footer">Thank you for your business!</div>
       </div>
     </div>
   );

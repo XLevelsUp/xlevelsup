@@ -173,10 +173,15 @@ export default function RegularisationRequestForm({
     }
   }, [state]);
 
+  // Uses local getters, not toISOString() — the latter converts to UTC
+  // first, which shifts the date by a day in timezones ahead of UTC (e.g. IST).
   const maxDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   })();
 
   return (

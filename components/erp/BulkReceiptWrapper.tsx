@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import PosReceipt from './PosReceipt';
-import type { ReceiptData } from '@/types/pos';
+import InvoiceReceipt from './InvoiceReceipt';
+import type { ReceiptData } from '@/types/billing';
 
 interface BulkReceiptWrapperProps {
   receipts: ReceiptData[];
@@ -24,31 +24,31 @@ export default function BulkReceiptWrapper({ receipts }: BulkReceiptWrapperProps
   if (!mounted || receipts.length === 0) return null;
 
   return createPortal(
-    <div className="pos-bulk-receipts">
+    <div className="bulk-invoice-receipts">
       <style>{`
         @media screen {
-          .pos-bulk-receipts {
+          .bulk-invoice-receipts {
             display: none;
           }
         }
 
         @media print {
-          .pos-bulk-receipts {
+          .bulk-invoice-receipts {
             display: block;
           }
 
-          .pos-bulk-receipt-page {
+          .bulk-invoice-receipt-page {
             page-break-after: always;
           }
 
-          .pos-bulk-receipt-page:last-child {
+          .bulk-invoice-receipt-page:last-child {
             page-break-after: avoid;
           }
         }
       `}</style>
       {receipts.map((receipt, index) => (
-        <div key={`${receipt.invoiceNumber}-${index}`} className="pos-bulk-receipt-page">
-          <PosReceipt receipt={receipt} forBulkPrint />
+        <div key={`${receipt.invoiceNumber}-${index}`} className="bulk-invoice-receipt-page">
+          <InvoiceReceipt receipt={receipt} forBulkPrint />
         </div>
       ))}
     </div>,

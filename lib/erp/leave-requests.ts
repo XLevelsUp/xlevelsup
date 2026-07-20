@@ -200,8 +200,11 @@ export async function createLeaveRequest(
   employeeId: number,
   data: LeaveRequestFormData,
 ): Promise<LeaveRequest> {
-  // Calculate total days
-  const totalDays = calculateLeaveDays(data.start_date, data.end_date);
+  // Half-day requests are always 0.5 day (for a single working day);
+  // otherwise count working days across the range as before.
+  const totalDays = data.is_half_day
+    ? calculateLeaveDays(data.start_date, data.start_date) > 0 ? 0.5 : 0
+    : calculateLeaveDays(data.start_date, data.end_date);
 
   const { data: leaveRequest, error } = await supabase
     .from('leave_requests')
@@ -211,6 +214,8 @@ export async function createLeaveRequest(
       start_date: data.start_date,
       end_date: data.end_date,
       total_days: totalDays,
+      is_half_day: !!data.is_half_day,
+      half_day_period: data.is_half_day ? data.half_day_period : null,
       reason: data.reason,
       status: 'pending',
     })
@@ -229,8 +234,11 @@ export async function updateLeaveRequest(
   employeeId: number,
   data: LeaveRequestFormData,
 ): Promise<LeaveRequest> {
-  // Calculate total days
-  const totalDays = calculateLeaveDays(data.start_date, data.end_date);
+  // Half-day requests are always 0.5 day (for a single working day);
+  // otherwise count working days across the range as before.
+  const totalDays = data.is_half_day
+    ? calculateLeaveDays(data.start_date, data.start_date) > 0 ? 0.5 : 0
+    : calculateLeaveDays(data.start_date, data.end_date);
 
   const { data: leaveRequest, error } = await supabase
     .from('leave_requests')
@@ -239,6 +247,8 @@ export async function updateLeaveRequest(
       start_date: data.start_date,
       end_date: data.end_date,
       total_days: totalDays,
+      is_half_day: !!data.is_half_day,
+      half_day_period: data.is_half_day ? data.half_day_period : null,
       reason: data.reason,
       updated_at: new Date().toISOString(),
     })

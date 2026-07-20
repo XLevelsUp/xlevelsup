@@ -4,9 +4,9 @@
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
 import { handleDatabaseError } from './error-handler';
-import type { Order, OrderItem, PaymentMethod } from '@/types/pos';
+import type { Order, OrderItem, PaymentMethod } from '@/types/billing';
 
-export { GST_RATE, computeGstBreakdown } from '@/lib/pos-tax';
+export { GST_RATE, computeGstBreakdown } from '@/lib/billing-tax';
 
 export async function createOrder(order: {
   client_name: string;

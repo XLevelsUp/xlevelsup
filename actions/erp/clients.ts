@@ -35,7 +35,7 @@ export interface ClientActionResult {
 function revalidateClientPages() {
   revalidatePath('/erp/clients');
   revalidatePath('/erp/finances');
-  revalidatePath('/erp/pos');
+  revalidatePath('/erp/billing');
 }
 
 function fieldFromFormData(formData: FormData, key: string): string | null {

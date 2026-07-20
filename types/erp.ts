@@ -210,6 +210,8 @@ export type LeaveType =
 
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
+export type HalfDayPeriod = 'first_half' | 'second_half';
+
 export interface LeaveRequest {
   id: number;
   employee_id: number;
@@ -217,6 +219,8 @@ export interface LeaveRequest {
   start_date: string;
   end_date: string;
   total_days: number;
+  is_half_day: boolean;
+  half_day_period?: HalfDayPeriod | null;
   reason: string;
   status: LeaveStatus;
   reviewed_by?: number | null;
@@ -250,6 +254,8 @@ export interface LeaveRequestFormData {
   start_date: string;
   end_date: string;
   reason: string;
+  is_half_day?: boolean;
+  half_day_period?: HalfDayPeriod | null;
 }
 
 export interface LeaveReviewData {

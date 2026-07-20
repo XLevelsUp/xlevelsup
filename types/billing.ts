@@ -53,7 +53,7 @@ export interface ProcessServiceInvoiceInput {
   notes?: string | null;
 }
 
-/** A receipt-ready line item, used by PosReceipt / BulkReceiptWrapper */
+/** A receipt-ready line item, used by InvoiceReceipt / BulkReceiptWrapper */
 export interface ReceiptLineItem {
   description: string;
   quantity: number;
