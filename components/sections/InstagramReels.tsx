@@ -123,7 +123,7 @@ export default function InstagramReels() {
           >
             <video
               ref={videoRef}
-              src={activeReel.mediaUrl}
+              src={`/api/instagram/reels/video/${activeReel.id}`}
               poster={activeReel.thumbnailUrl || undefined}
               className='w-full h-full object-cover'
               autoPlay
