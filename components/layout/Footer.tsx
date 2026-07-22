@@ -164,7 +164,7 @@ export default function Footer() {
                                 </svg>
                             </a>
                             <a
-                                href="https://www.facebook.com/xlevelsup"
+                                href="https://www.facebook.com/profile.php?id=61583746927121"
                                 className="w-10 h-10 rounded-full glass flex items-center justify-center hover:border-cyan transition-colors duration-200"
                                 aria-label="Facebook"
                                 target="_blank"

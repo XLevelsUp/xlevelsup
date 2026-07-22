@@ -152,7 +152,7 @@ export default function RootLayout({
                 'https://www.linkedin.com/company/xlevelsup',
                 'https://twitter.com/xlevelsup',
                 'https://www.instagram.com/xlevelsup',
-                'https://www.facebook.com/xlevelsup',
+                'https://www.facebook.com/profile.php?id=61583746927121',
               ],
               contactPoint: {
                 '@type': 'ContactPoint',
