@@ -10,7 +10,8 @@
     "init-erp": "tsx scripts/init-erp.ts",
     "create-employee-logins": "tsx scripts/create-employee-logins.ts",
     "init-leave-balances": "tsx scripts/init-leave-balances.ts",
-    "update-leave-balances": "tsx scripts/update-leave-balances-by-joining-date.ts"
+    "update-leave-balances": "tsx scripts/update-leave-balances-by-joining-date.ts",
+    "backfill-attendance": "tsx scripts/backfill-attendance-from-time-logs.ts"
   },
   "dependencies": {
     "@next/third-parties": "^16.1.1",

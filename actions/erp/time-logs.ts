@@ -32,6 +32,7 @@ export async function clockInAction(
     const timeLog = await dbClockIn(employeeId, location);
 
     revalidatePath('/employee/dashboard');
+    revalidatePath('/employee/attendance');
 
     return {
       success: true,
@@ -65,6 +66,7 @@ export async function clockOutAction(
     const timeLog = await dbClockOut(employeeId, notes, location);
 
     revalidatePath('/employee/dashboard');
+    revalidatePath('/employee/attendance');
 
     return {
       success: true,

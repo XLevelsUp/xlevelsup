@@ -8,25 +8,37 @@ import {
   createAttendance,
   updateAttendance,
   deleteAttendance,
+  bulkUpsertAttendance,
   getMonthlyAttendanceSummary,
   getTodayAttendance,
 } from '@/lib/erp/attendance';
 import { revalidatePath } from 'next/cache';
 import type { Attendance, AttendanceSummary } from '@/types/erp';
 
+const ATTENDANCE_STATUSES = [
+  'present',
+  'absent',
+  'half-day',
+  'paid-leave',
+  'unpaid-leave',
+  'holiday',
+] as const;
+
 const attendanceSchema = z.object({
   employee_id: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum([
-    'present',
-    'absent',
-    'half-day',
-    'paid-leave',
-    'unpaid-leave',
-    'holiday',
-  ]),
+  status: z.enum(ATTENDANCE_STATUSES),
   overtime_hours: z.number().min(0).max(24).optional().nullable(),
   notes: z.string().optional(),
+});
+
+const bulkAttendanceSchema = z.object({
+  employee_ids: z.array(z.number().int().positive()).min(1, 'Select at least one employee'),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  status: z.enum(ATTENDANCE_STATUSES),
+  notes: z.string().nullable().optional(),
+  skip_weekends: z.boolean().optional().default(true),
 });
 
 export interface AttendanceActionResult {
@@ -110,6 +122,82 @@ export async function saveAttendanceAction(
       return { success: false, error: error.issues[0].message };
     }
     return { success: false, error: 'Failed to save attendance' };
+  }
+}
+
+export interface BulkAttendanceActionResult {
+  success: boolean;
+  error?: string;
+  created?: number;
+  updated?: number;
+}
+
+/**
+ * Bulk-set attendance status for many employees across a date range in one
+ * go (e.g. mark a team present/absent/on-holiday for a week).
+ */
+export async function bulkUpdateAttendanceAction(input: {
+  employeeIds: number[];
+  startDate: string;
+  endDate: string;
+  status: Attendance['status'];
+  notes?: string | null;
+  skipWeekends?: boolean;
+}): Promise<BulkAttendanceActionResult> {
+  try {
+    const session = await requireRole(['admin', 'hr']);
+
+    const validated = bulkAttendanceSchema.parse({
+      employee_ids: input.employeeIds,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      status: input.status,
+      notes: input.notes,
+      skip_weekends: input.skipWeekends,
+    });
+
+    if (validated.end_date < validated.start_date) {
+      return { success: false, error: 'End date must be on or after the start date' };
+    }
+
+    // Build the list of applicable dates in range
+    const dates: string[] = [];
+    const cursor = new Date(`${validated.start_date}T00:00:00`);
+    const end = new Date(`${validated.end_date}T00:00:00`);
+    while (cursor <= end) {
+      const dayOfWeek = cursor.getDay();
+      if (!(validated.skip_weekends && (dayOfWeek === 0 || dayOfWeek === 6))) {
+        const y = cursor.getFullYear();
+        const m = String(cursor.getMonth() + 1).padStart(2, '0');
+        const d = String(cursor.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${d}`);
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    if (dates.length === 0) {
+      return {
+        success: false,
+        error: 'No applicable dates in the selected range (all weekends?)',
+      };
+    }
+
+    const result = await bulkUpsertAttendance(
+      validated.employee_ids,
+      dates,
+      validated.status,
+      validated.notes || null,
+      session.userId,
+    );
+
+    revalidatePath('/erp/attendance');
+    return { success: true, created: result.created, updated: result.updated };
+  } catch (error) {
+    console.error('Bulk update attendance error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return { success: false, error: 'Failed to bulk update attendance' };
   }
 }
 

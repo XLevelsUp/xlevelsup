@@ -129,6 +129,76 @@ export async function deleteAttendance(
 }
 
 /**
+ * Bulk create/update attendance status for many employees across many dates
+ * in as few round trips as possible: one fetch to find which (employee,
+ * date) pairs already have a record, then one bulk insert for the rest and
+ * one bulk update for the ones that exist. Never touches fields other than
+ * status/notes on existing rows (leaves overtime_hours etc. as-is).
+ */
+export async function bulkUpsertAttendance(
+  employeeIds: number[],
+  dates: string[],
+  status: Attendance['status'],
+  notes: string | null,
+  createdBy: number,
+): Promise<{ created: number; updated: number }> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('attendance')
+    .select('id, employee_id, date')
+    .in('employee_id', employeeIds)
+    .in('date', dates);
+
+  if (fetchError) throw fetchError;
+
+  const existingIdByKey = new Map<string, number>();
+  (existing || []).forEach((row) => {
+    existingIdByKey.set(`${row.employee_id}_${row.date}`, row.id);
+  });
+
+  const toInsert: Array<{
+    employee_id: number;
+    date: string;
+    status: Attendance['status'];
+    notes: string | null;
+    created_by: number;
+  }> = [];
+  const toUpdateIds: number[] = [];
+
+  for (const employeeId of employeeIds) {
+    for (const date of dates) {
+      const key = `${employeeId}_${date}`;
+      const existingId = existingIdByKey.get(key);
+      if (existingId) {
+        toUpdateIds.push(existingId);
+      } else {
+        toInsert.push({
+          employee_id: employeeId,
+          date,
+          status,
+          notes,
+          created_by: createdBy,
+        });
+      }
+    }
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await supabase.from('attendance').insert(toInsert);
+    if (error) throw error;
+  }
+
+  if (toUpdateIds.length > 0) {
+    const { error } = await supabase
+      .from('attendance')
+      .update({ status, notes, updated_at: new Date().toISOString() })
+      .in('id', toUpdateIds);
+    if (error) throw error;
+  }
+
+  return { created: toInsert.length, updated: toUpdateIds.length };
+}
+
+/**
  * Get monthly attendance summary for an employee
  */
 export async function getMonthlyAttendanceSummary(
