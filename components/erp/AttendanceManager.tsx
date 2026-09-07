@@ -10,8 +10,8 @@ import AttendanceForm from './AttendanceForm';
 import BulkAttendanceForm from './BulkAttendanceForm';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
-import type { Employee, Attendance, LeaveBalance, LeaveRequestWithEmployee } from '@/types/erp';
-import { formatDisplayDate, getMonthName } from '@/lib/erp/utils';
+import type { Employee, Attendance, LeaveBalance, LeaveRequestWithEmployee, TimeLog } from '@/types/erp';
+import { formatDisplayDate, getMonthName, formatDuration } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
 import { getEmployeeLeaveBalanceAction } from '@/actions/erp/leave-requests';
@@ -21,6 +21,7 @@ interface AttendanceManagerProps {
   employees: Employee[];
   attendance: Attendance[];
   leaveRequests: LeaveRequestWithEmployee[];
+  timeLogs: TimeLog[];
   initialMonth: string;
   initialEmployeeId?: number;
 }
@@ -29,6 +30,7 @@ export default function AttendanceManager({
   employees,
   attendance,
   leaveRequests,
+  timeLogs,
   initialMonth,
   initialEmployeeId,
 }: AttendanceManagerProps) {
@@ -116,6 +118,14 @@ export default function AttendanceManager({
   }, [initialEmployeeId]);
 
   const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+  // Sum time-log hours per employee+date (an employee can have multiple
+  // clock-in/out sessions in one day) for the "Hours Worked" column.
+  const hoursWorkedByKey = new Map<string, number>();
+  timeLogs.forEach((log) => {
+    const key = `${log.employee_id}_${log.date}`;
+    hoursWorkedByKey.set(key, (hoursWorkedByKey.get(key) || 0) + (log.total_hours || 0));
+  });
 
   // Local YYYY-MM-DD key — never toISOString(), which shifts the date by a
   // day in timezones ahead of UTC (e.g. IST).
@@ -388,12 +398,15 @@ export default function AttendanceManager({
                 'Employee',
                 'Department',
                 'Status',
+                'Hours Worked',
                 'Notes',
                 'Actions',
               ]}
             >
               {attendance.map((record) => {
                 const employee = employeeMap.get(record.employee_id);
+                const dateKey = record.date.split('T')[0];
+                const hoursWorked = hoursWorkedByKey.get(`${record.employee_id}_${dateKey}`);
                 return (
                   <TableRow key={`${record.employee_id}-${record.date}`}>
                     <TableCell>
@@ -420,6 +433,11 @@ export default function AttendanceManager({
                         {record.status === 'half-day' && record.half_day_period
                           ? ` (${record.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
                           : ''}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className='text-xs text-gray-300'>
+                        {hoursWorked ? formatDuration(hoursWorked, false) : '-'}
                       </span>
                     </TableCell>
                     <TableCell>

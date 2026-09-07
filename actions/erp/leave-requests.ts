@@ -20,6 +20,16 @@ import {
 } from '@/lib/erp/leave-requests';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { requireRole } from '@/lib/auth';
+import { getTodayIST } from '@/lib/erp/utils';
+
+/** Today as YYYY-MM-DD in IST — the timezone leave-day rules are defined in. */
+function todayDateStringIST(): string {
+  const { year, month, day } = getTodayIST();
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** Leave types allowed for a same-day (today) request — everything else must be planned ahead. */
+const SAME_DAY_LEAVE_TYPES = ['sick', 'emergency'];
 
 /**
  * Verify the caller is authenticated as this exact employee and is not a
@@ -56,6 +66,7 @@ const leaveRequestSchema = z.object({
     'paternity',
     'other',
     'wfh',
+    'emergency',
   ]),
   start_date: z.string().min(1, 'Start date is required'),
   end_date: z.string().min(1, 'End date is required'),
@@ -102,6 +113,17 @@ export async function createLeaveRequestAction(
       return {
         success: false,
         error: 'End date must be after or equal to start date',
+      };
+    }
+
+    const today = todayDateStringIST();
+    if (validated.start_date < today) {
+      return { success: false, error: 'Leave requests cannot be made for past dates.' };
+    }
+    if (validated.start_date === today && !SAME_DAY_LEAVE_TYPES.includes(validated.leave_type)) {
+      return {
+        success: false,
+        error: 'Only Sick or Emergency leave can be requested for today. Please plan other leave types in advance.',
       };
     }
 
@@ -200,6 +222,17 @@ export async function updateLeaveRequestAction(
       return {
         success: false,
         error: 'End date must be after or equal to start date',
+      };
+    }
+
+    const today = todayDateStringIST();
+    if (validated.start_date < today) {
+      return { success: false, error: 'Leave requests cannot be made for past dates.' };
+    }
+    if (validated.start_date === today && !SAME_DAY_LEAVE_TYPES.includes(validated.leave_type)) {
+      return {
+        success: false,
+        error: 'Only Sick or Emergency leave can be requested for today. Please plan other leave types in advance.',
       };
     }
 

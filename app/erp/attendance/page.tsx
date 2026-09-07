@@ -2,6 +2,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllEmployees } from '@/lib/erp/employees';
 import { getAllAttendance } from '@/lib/erp/attendance';
+import { getAllTimeLogs } from '@/lib/erp/time-logs';
 import { getAllLeaveRequests } from '@/lib/erp/leave-requests';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import AttendanceManager from '@/components/erp/AttendanceManager';
@@ -32,6 +33,7 @@ export default async function AttendancePage({
     status: 'approved',
     employee_id: employeeId,
   });
+  const timeLogs = await getAllTimeLogs({ month, employee_id: employeeId });
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
@@ -40,6 +42,7 @@ export default async function AttendancePage({
           employees={employees}
           attendance={attendance}
           leaveRequests={leaveRequests}
+          timeLogs={timeLogs}
           initialMonth={month}
           initialEmployeeId={employeeId}
         />

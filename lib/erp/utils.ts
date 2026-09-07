@@ -3,6 +3,22 @@
  */
 
 /**
+ * True for a normal weekday, or the first Saturday of the month — which is
+ * now a working day for attendance/clock-in/leave purposes (company policy
+ * change). Employees are expected to be present, but it is deliberately
+ * NOT a payroll working day: `getWorkingDayDatesInMonth` below must keep
+ * excluding every Saturday and never call this function, so the day never
+ * enters the salary calculation. A clock-in on it still creates an
+ * attendance row, but payroll simply never walks that date.
+ */
+export function isAttendanceWorkingDay(date: Date): boolean {
+  const dayOfWeek = date.getDay();
+  if (dayOfWeek !== 0 && dayOfWeek !== 6) return true; // Mon-Fri
+  if (dayOfWeek === 6 && date.getDate() <= 7) return true; // first Saturday
+  return false;
+}
+
+/**
  * Get total working days in a month (excluding weekends and optionally public holidays).
  * @param year       - Year (e.g., 2026)
  * @param month      - Month (1-12)

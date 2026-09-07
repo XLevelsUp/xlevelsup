@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { isAttendanceWorkingDay } from '@/lib/erp/utils';
 
 /**
  * Format a Date as a local YYYY-MM-DD string. Never use `toISOString()` for
@@ -143,10 +144,10 @@ export default function DatePicker({
     const dateString = toLocalDateString(date);
     if (minDate && dateString < minDate) return true;
     if (maxDate && dateString > maxDate) return true;
-    if (disableWeekends) {
-      const day = date.getDay(); // 0 = Sunday, 6 = Saturday
-      if (day === 0 || day === 6) return true;
-    }
+    // The first Saturday of the month is a working day (company policy), so
+    // it stays selectable here even with disableWeekends on — every other
+    // Saturday and all Sundays remain blocked.
+    if (disableWeekends && !isAttendanceWorkingDay(date)) return true;
     // Check explicit disabled dates (e.g., public holidays)
     if (disabledDates) {
       const dateSet =

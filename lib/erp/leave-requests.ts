@@ -10,10 +10,13 @@ import type {
   LeaveBalance,
 } from '@/types/erp';
 import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
+import { isAttendanceWorkingDay } from '@/lib/erp/utils';
 
 /**
  * Calculate total working days between two dates (inclusive).
- * Excludes weekends (Sat/Sun) and, optionally, a set of public holiday date strings.
+ * Excludes non-working weekend days (Sunday, and every Saturday except the
+ * first of the month — see isAttendanceWorkingDay) and, optionally, a set
+ * of public holiday date strings.
  *
  * @param startDate   - YYYY-MM-DD start date
  * @param endDate     - YYYY-MM-DD end date
@@ -33,9 +36,7 @@ export function calculateLeaveDays(
     date <= end;
     date.setDate(date.getDate() + 1)
   ) {
-    const dayOfWeek = date.getDay();
-    // Skip weekends (0 = Sunday, 6 = Saturday)
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+    if (!isAttendanceWorkingDay(date)) continue;
     // Skip public holidays
     const dateStr = date.toISOString().split('T')[0];
     if (holidaySet && holidaySet.has(dateStr)) continue;
@@ -58,7 +59,8 @@ export async function calculateLeaveDaysWithHolidays(
 }
 
 /**
- * Get WFH days count for an employee in a specific month (excludes weekends)
+ * Get WFH days count for an employee in a specific month (excludes
+ * non-working weekend days — see isAttendanceWorkingDay).
  */
 export async function getWfhDaysCountInMonth(
   employeeId: number,
@@ -98,8 +100,7 @@ export async function getWfhDaysCountInMonth(
 
     if (overlapStart <= overlapEnd) {
       for (let d = new Date(overlapStart); d <= overlapEnd; d.setDate(d.getDate() + 1)) {
-        const dayOfWeek = d.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        if (isAttendanceWorkingDay(d)) {
           totalWfhDays++;
         }
       }

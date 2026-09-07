@@ -45,14 +45,17 @@ export default function LeaveRequestForm({
   // Compute date boundaries. Uses local getters, not toISOString() — the
   // latter converts to UTC first, which rolls back to the previous day in
   // any timezone ahead of UTC (e.g. IST) during the early-morning hours.
-  const tomorrow = (() => {
+  const today = (() => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   })();
+  // Same-day requests are only allowed for Sick/Emergency — everything else
+  // must still be planned a day ahead (server enforces this too).
+  const isSameDayRequest = startDate === today;
+  const SAME_DAY_LEAVE_TYPES = ['sick', 'emergency'];
 
   // Fetch public holidays for the current (and next) year so they are blocked in the DatePicker
   useEffect(() => {
@@ -130,15 +133,31 @@ export default function LeaveRequestForm({
             className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
           >
             <option value=''>Select leave type</option>
-            <option value='casual'>Casual Leave</option>
-            <option value='floater'>Floater Leave</option>
-            <option value='sick'>Sick Leave</option>
-            <option value='earned'>Earned Leave</option>
-            <option value='unpaid'>Unpaid Leave</option>
-            <option value='maternity'>Maternity Leave</option>
-            <option value='paternity'>Paternity Leave</option>
-            <option value='wfh'>Work From Home</option>
+            {isSameDayRequest ? (
+              <>
+                <option value='sick'>Sick Leave</option>
+                <option value='emergency'>Emergency Leave</option>
+              </>
+            ) : (
+              <>
+                <option value='casual'>Casual Leave</option>
+                <option value='floater'>Floater Leave</option>
+                <option value='sick'>Sick Leave</option>
+                <option value='earned'>Earned Leave</option>
+                <option value='unpaid'>Unpaid Leave</option>
+                <option value='maternity'>Maternity Leave</option>
+                <option value='paternity'>Paternity Leave</option>
+                <option value='wfh'>Work From Home</option>
+                <option value='emergency'>Emergency Leave</option>
+              </>
+            )}
           </select>
+
+          {isSameDayRequest && (
+            <p className='mt-2 text-xs text-amber-400'>
+              💡 Only Sick or Emergency leave can be requested for today. Other leave types must be planned in advance.
+            </p>
+          )}
 
           {/* Show available balance for selected leave type */}
           {selectedBalance &&
@@ -217,6 +236,12 @@ export default function LeaveRequestForm({
               💡 Work From Home requests are limited to a maximum of 2 days per calendar month.
             </p>
           )}
+
+          {selectedLeaveType === 'emergency' && (
+            <p className='mt-2 text-xs text-gray-400'>
+              💡 For urgent, unplanned situations — can be requested for today.
+            </p>
+          )}
         </div>
 
         {/* Start Date */}
@@ -231,11 +256,17 @@ export default function LeaveRequestForm({
               // single-day-leave case with no extra clicks; the employee
               // can still change it for a multi-day request.
               setEndDate(date);
+              // Today only allows Sick/Emergency — clear an incompatible
+              // type already picked (e.g. switching from a future date).
+              if (date === today && selectedLeaveType && !SAME_DAY_LEAVE_TYPES.includes(selectedLeaveType)) {
+                setSelectedLeaveType('');
+              }
             }}
-            minDate={tomorrow}
+            minDate={today}
             placeholder='Select start date'
             disableWeekends
             disabledDates={holidayDates}
+            helperText='The first Saturday of each month is a working day, so it can be selected too. Only Sick/Emergency leave can be requested for today.'
           />
           {/* Hidden field for form submission */}
           <input type='hidden' name='start_date' value={startDate} />
@@ -300,7 +331,7 @@ export default function LeaveRequestForm({
               required
               value={endDate}
               onChange={setEndDate}
-              minDate={startDate || tomorrow}
+              minDate={startDate || today}
               placeholder='Select end date'
               disableWeekends
               disabledDates={holidayDates}

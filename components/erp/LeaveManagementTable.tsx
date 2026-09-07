@@ -28,6 +28,7 @@ const getLeaveTypeLabel = (type: string) => {
     paternity: 'Paternity',
     wfh: 'Work From Home',
     other: 'Other',
+    emergency: 'Emergency',
     // Legacy support
     annual: 'Casual', // Migrated from annual
   };

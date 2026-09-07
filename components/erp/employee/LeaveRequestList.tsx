@@ -59,6 +59,7 @@ export default function LeaveRequestList({
       paternity: 'Paternity Leave',
       wfh: 'Work From Home',
       other: 'Other',
+      emergency: 'Emergency Leave',
       // Legacy support
       annual: 'Casual Leave', // Migrated from annual
     };
