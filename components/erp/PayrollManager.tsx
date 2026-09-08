@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import {
   generatePayrollAction,
   updatePayrollStatusAction,
+  markPayrollPaidAction,
   deletePayrollAction,
   deletePayrollForMonthAction,
 } from '@/actions/erp/payroll';
@@ -52,6 +53,9 @@ export default function PayrollManager({
   const [generateMonth, setGenerateMonth] = useState(initialMonth);
   const [deleteMonthValue, setDeleteMonthValue] = useState(initialMonth);
   const [deletingMonth, setDeletingMonth] = useState(false);
+  const [markPaidRecord, setMarkPaidRecord] = useState<PayrollWithEmployee | null>(null);
+  const [referenceNumber, setReferenceNumber] = useState('');
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   const applyFilters = (overrides?: Partial<{ month: string; status: string }>) => {
     const next = { month, status, ...overrides };
@@ -85,7 +89,7 @@ export default function PayrollManager({
 
   const handleStatusChange = async (
     id: number,
-    newStatus: 'draft' | 'approved' | 'paid',
+    newStatus: 'draft' | 'approved',
   ) => {
     const result = await updatePayrollStatusAction(id, newStatus);
     if (result.success) {
@@ -93,6 +97,23 @@ export default function PayrollManager({
       router.refresh();
     } else {
       toast.error(result.error || 'Failed to update status');
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!markPaidRecord || !referenceNumber.trim()) return;
+
+    setMarkingPaid(true);
+    const result = await markPayrollPaidAction(markPaidRecord.id, referenceNumber.trim());
+    setMarkingPaid(false);
+
+    if (result.success) {
+      toast.success('Marked as paid — recorded in the financial ledger');
+      setMarkPaidRecord(null);
+      setReferenceNumber('');
+      router.refresh();
+    } else {
+      toast.error(result.error || 'Failed to mark as paid');
     }
   };
 
@@ -305,9 +326,15 @@ export default function PayrollManager({
                 <TableCell>
                   <select
                     value={record.status}
-                    onChange={(e) =>
-                      handleStatusChange(record.id, e.target.value as any)
-                    }
+                    onChange={(e) => {
+                      const newStatus = e.target.value as 'draft' | 'approved' | 'paid';
+                      if (newStatus === 'paid') {
+                        setMarkPaidRecord(record);
+                        setReferenceNumber('');
+                      } else {
+                        handleStatusChange(record.id, newStatus);
+                      }
+                    }}
                     className='px-2 py-1 rounded text-xs font-medium bg-dark-800 border border-gray-700 text-white'
                   >
                     <option value='draft'>Draft</option>
@@ -393,6 +420,58 @@ export default function PayrollManager({
             {deletingMonth ? 'Deleting...' : 'Delete Payroll for Month'}
           </Button>
         </div>
+      </Modal>
+
+      {/* Mark Paid Modal */}
+      <Modal
+        isOpen={!!markPaidRecord}
+        onClose={() => {
+          setMarkPaidRecord(null);
+          setReferenceNumber('');
+        }}
+        title='Mark Payroll as Paid'
+      >
+        {markPaidRecord && (
+          <div className='space-y-4'>
+            <div className='bg-dark-800/50 border border-gray-700 rounded-lg p-3'>
+              <p className='text-sm font-medium text-white'>
+                {markPaidRecord.employee_name}
+              </p>
+              <p className='text-xs text-gray-400'>
+                {getMonthName(markPaidRecord.month)}
+              </p>
+              <p className='text-lg font-bold text-cyan mt-1'>
+                <SensitiveValue>{formatCurrency(markPaidRecord.net_salary)}</SensitiveValue>
+              </p>
+            </div>
+            <p className='text-sm text-gray-300'>
+              This confirms the salary was paid by bank transfer and automatically
+              records it in the financial ledger. A reference ID is required.
+            </p>
+            <div>
+              <label className='block text-sm font-medium mb-2'>
+                Bank Transfer Reference ID *
+              </label>
+              <input
+                type='text'
+                value={referenceNumber}
+                onChange={(e) => setReferenceNumber(e.target.value)}
+                placeholder='e.g. UTR / transaction reference number'
+                disabled={markingPaid}
+                className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              />
+            </div>
+            <Button
+              type='button'
+              variant='primary'
+              className='w-full'
+              disabled={!referenceNumber.trim() || markingPaid}
+              onClick={handleMarkPaid}
+            >
+              {markingPaid ? 'Marking as Paid...' : 'Confirm & Mark Paid'}
+            </Button>
+          </div>
+        )}
       </Modal>
     </div>
   );

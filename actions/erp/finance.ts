@@ -13,6 +13,7 @@ import {
   getEmployeeIdFromUserId,
 } from '@/lib/erp/finance';
 import { uploadReceiptFile, getReceiptSignedUrl } from '@/lib/erp/receipts';
+import { getPayslipSignedUrl } from '@/lib/erp/payslips';
 import { revalidatePath } from 'next/cache';
 import type { FinancialLedgerEntry } from '@/types/erp';
 
@@ -287,6 +288,21 @@ export async function getReceiptUrlAction(path: string): Promise<{ url: string |
     return { url };
   } catch (error) {
     console.error('Get receipt URL error:', error);
+    return { url: null };
+  }
+}
+
+/**
+ * Same shape as getReceiptUrlAction, but for the payslips bucket — payroll
+ * ledger entries store their receipt_path there instead of expense-receipts.
+ */
+export async function getPayslipUrlAction(path: string): Promise<{ url: string | null }> {
+  try {
+    await requireAuth();
+    const url = await getPayslipSignedUrl(path);
+    return { url };
+  } catch (error) {
+    console.error('Get payslip URL error:', error);
     return { url: null };
   }
 }

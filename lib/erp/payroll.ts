@@ -3,8 +3,11 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import { computeNetSalary } from '@/lib/erp/utils';
-import type { Payroll, PayrollWithEmployee } from '@/types/erp';
+import { computeNetSalary, formatDate, getMonthName } from '@/lib/erp/utils';
+import { insertLedgerEntry } from '@/lib/erp/finance';
+import { getEmployeeById } from '@/lib/erp/employees';
+import { generatePayslipPdf, uploadPayslipPdf } from '@/lib/erp/payslips';
+import type { Payroll, PayrollWithEmployee, LedgerFormData } from '@/types/erp';
 
 /**
  * Get all payroll records with optional filters
@@ -184,11 +187,14 @@ export async function updatePayrollAdjustments(
 }
 
 /**
- * Update payroll status
+ * Update payroll status between draft and approved. Marking a record paid
+ * always goes through markPayrollPaid instead (see below) — that path
+ * requires a bank transfer reference ID and creates the matching ledger
+ * entry, which this generic setter must not be able to bypass.
  */
 export async function updatePayrollStatus(
   id: number,
-  status: 'draft' | 'approved' | 'paid',
+  status: 'draft' | 'approved',
   userId: number,
 ): Promise<Payroll> {
   let updateData: any = {
@@ -199,14 +205,88 @@ export async function updatePayrollStatus(
   if (status === 'approved') {
     updateData.approved_by = userId;
     updateData.approved_at = new Date().toISOString();
-  } else if (status === 'paid') {
-    updateData.paid_by = userId;
-    updateData.paid_at = new Date().toISOString();
   }
 
   const { data, error } = await supabase
     .from('payroll')
     .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Mark a payroll record as paid via bank transfer, with a mandatory
+ * reference ID. Creates the matching financial_ledger outflow entry first —
+ * a payroll run is never left marked "paid" without a financial record
+ * backing it — then flips the payroll status.
+ */
+export async function markPayrollPaid(
+  id: number,
+  referenceNumber: string,
+  userId: number,
+): Promise<Payroll> {
+  const record = await getPayrollById(id);
+  if (!record) {
+    throw new Error('Payroll record not found');
+  }
+  if (record.status === 'paid') {
+    throw new Error('This payroll record is already marked as paid');
+  }
+
+  // Generate and attach the payslip. Non-fatal: a PDF hiccup must never
+  // block the actual payment from being recorded — the ledger entry (with
+  // its reference ID) is what matters most, the payslip is a convenience
+  // attached alongside it.
+  let receiptPath: string | null = null;
+  const employee = await getEmployeeById(record.employee_id);
+  if (employee) {
+    try {
+      const pdfBytes = generatePayslipPdf(
+        record,
+        {
+          name: record.employee_name,
+          employeeIdDisplay: employee.employee_id,
+          department: record.employee_department,
+          role: record.employee_role,
+        },
+        referenceNumber,
+      );
+      receiptPath = await uploadPayslipPdf(pdfBytes, employee.employee_id, record.month);
+    } catch (err) {
+      console.error('Failed to generate/upload payslip:', err);
+    }
+  }
+
+  const ledgerEntry: LedgerFormData = {
+    transaction_type: 'payroll',
+    direction: 'outflow',
+    category: 'Salary',
+    amount: record.net_salary,
+    transaction_date: formatDate(new Date()),
+    payment_mode: 'Bank Transfer',
+    payment_status: 'completed',
+    employee_id: record.employee_id,
+    payroll_id: record.id,
+    payee_name: record.employee_name,
+    reference_number: referenceNumber,
+    description: `Salary payment — ${record.employee_name} (${getMonthName(record.month)})`,
+    approval_status: 'paid',
+    receipt_path: receiptPath,
+  };
+  await insertLedgerEntry(ledgerEntry, userId);
+
+  const { data, error } = await supabase
+    .from('payroll')
+    .update({
+      status: 'paid',
+      paid_by: userId,
+      paid_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .select()
     .single();

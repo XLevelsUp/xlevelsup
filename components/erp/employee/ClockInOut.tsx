@@ -150,11 +150,9 @@ export default function ClockInOut({
         };
         toast.success('Location captured');
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        // Toast suppressed for now — clock-in should feel uninterrupted even
+        // when location can't be captured; still logged for debugging.
         console.warn('Location capture failed:', error);
-        toast(`Location unavailable (${errMsg}) - clocking in without location`, {
-          icon: '⚠️',
-        });
       }
 
       const result = await clockInAction(employeeId, location);

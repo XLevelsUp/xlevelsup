@@ -18,7 +18,19 @@ import {
   deleteLedgerEntryAction,
   approveLedgerEntryAction,
   getReceiptUrlAction,
+  getPayslipUrlAction,
 } from '@/actions/erp/finance';
+
+/** One labeled field in the transaction details modal — renders nothing when the value is empty, so the modal only shows what's actually populated. */
+function DetailField({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
+  if (!value) return null;
+  return (
+    <div>
+      <p className='text-[11px] text-gray-500 uppercase tracking-wide'>{label}</p>
+      <p className={`text-gray-200 ${mono ? 'font-mono text-xs' : 'text-sm'}`}>{value}</p>
+    </div>
+  );
+}
 
 interface FinanceManagerProps {
   initialEntries: FinancialLedgerEntry[];
@@ -34,6 +46,9 @@ interface FinanceManagerProps {
    * default can't drift a day from what the server already fetched. */
   defaultMonth: string;
   defaultYear: string;
+  /** The actual account balance across all of history — deliberately not
+   * affected by the period filter. See app/erp/finances/page.tsx. */
+  trueNetBalance: number;
 }
 
 export default function FinanceManager({
@@ -47,6 +62,7 @@ export default function FinanceManager({
   userId,
   defaultMonth,
   defaultYear,
+  trueNetBalance,
 }: FinanceManagerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,7 +77,9 @@ export default function FinanceManager({
   // Period defaults to the current month (see defaultMonth) so the page
   // opens scoped to "now" rather than dumping the whole company history
   // into every tab; an explicit ?year= switches the picker into year mode.
-  const [periodType, setPeriodType] = useState<'month' | 'year'>(searchParams.get('year') ? 'year' : 'month');
+  const [periodType, setPeriodType] = useState<'month' | 'year' | 'all'>(
+    searchParams.get('all') ? 'all' : searchParams.get('year') ? 'year' : 'month',
+  );
   const [filterMonth, setFilterMonth] = useState(
     searchParams.get('month') || (searchParams.get('year') ? '' : defaultMonth),
   );
@@ -79,7 +97,7 @@ export default function FinanceManager({
   const applyFilters = (overrides?: Partial<{
     type: string;
     category: string;
-    periodType: 'month' | 'year';
+    periodType: 'month' | 'year' | 'all';
     month: string;
     year: string;
     status: string;
@@ -101,7 +119,9 @@ export default function FinanceManager({
     params.set('tab', currentTab);
     if (next.type) params.set('type', next.type);
     if (next.category) params.set('category', next.category);
-    if (next.periodType === 'year') {
+    if (next.periodType === 'all') {
+      params.set('all', '1');
+    } else if (next.periodType === 'year') {
       if (next.year) params.set('year', next.year);
     } else if (next.month) {
       params.set('month', next.month);
@@ -112,7 +132,7 @@ export default function FinanceManager({
     router.push(`/erp/finances?${params.toString()}`);
   };
 
-  const handlePeriodTypeChange = (type: 'month' | 'year') => {
+  const handlePeriodTypeChange = (type: 'month' | 'year' | 'all') => {
     setPeriodType(type);
     applyFilters({ periodType: type });
   };
@@ -176,15 +196,20 @@ export default function FinanceManager({
   };
 
   const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
+  const [detailsEntry, setDetailsEntry] = useState<FinancialLedgerEntry | null>(null);
+  const employeeNameById = useMemo(
+    () => new Map(employees.map((e) => [e.id, e.name])),
+    [employees],
+  );
 
-  const handleViewReceipt = async (entryId: number, path: string) => {
+  const handleViewReceipt = async (entryId: number, path: string, isPayslip: boolean) => {
     setViewingReceiptId(entryId);
     try {
-      const { url } = await getReceiptUrlAction(path);
+      const { url } = await (isPayslip ? getPayslipUrlAction(path) : getReceiptUrlAction(path));
       if (url) {
         window.open(url, '_blank', 'noopener,noreferrer');
       } else {
-        toast.error('Could not open receipt — it may have been removed.');
+        toast.error(`Could not open ${isPayslip ? 'payslip' : 'receipt'} — it may have been removed.`);
       }
     } finally {
       setViewingReceiptId(null);
@@ -200,6 +225,7 @@ export default function FinanceManager({
   // this is a no-op subset there. Both branches just prefix-match on
   // transaction_date since 'YYYY' is itself a prefix of 'YYYY-MM-DD'.
   const periodFilteredEntries = useMemo(() => {
+    if (periodType === 'all') return initialEntries;
     const prefix = periodType === 'year' ? filterYear : filterMonth;
     if (!prefix) return initialEntries;
     return initialEntries.filter((e) => e.transaction_date.startsWith(prefix));
@@ -310,7 +336,7 @@ export default function FinanceManager({
       });
     }
 
-    if (filterMonth) {
+    if (periodType !== 'all' && filterMonth) {
       const byDay: Record<string, { inflow: number; outflow: number }> = {};
       for (const e of periodFilteredEntries) {
         if (e.payment_status !== 'completed') continue;
@@ -326,6 +352,8 @@ export default function FinanceManager({
         .map(([day, v]) => ({ label: day, ...v }));
     }
 
+    // "All time" gets every month present, unlike the last-12 fallback
+    // below — the whole point is to see the complete history.
     const byMonth: Record<string, { inflow: number; outflow: number }> = {};
     for (const e of initialEntries) {
       if (e.payment_status !== 'completed') continue;
@@ -335,14 +363,12 @@ export default function FinanceManager({
       if (e.direction === 'inflow') byMonth[month].inflow += amt;
       else byMonth[month].outflow += amt;
     }
-    return Object.keys(byMonth)
-      .sort()
-      .slice(-12)
-      .map((m) => {
-        const [y, mo] = m.split('-').map(Number);
-        const label = new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        return { label, ...byMonth[m] };
-      });
+    const months = Object.keys(byMonth).sort();
+    return (periodType === 'all' ? months : months.slice(-12)).map((m) => {
+      const [y, mo] = m.split('-').map(Number);
+      const label = new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      return { label, ...byMonth[m] };
+    });
   }, [initialEntries, periodFilteredEntries, periodType, filterMonth, filterYear]);
 
   // Define tab navigation elements
@@ -402,24 +428,31 @@ export default function FinanceManager({
         <div>
           <div className='flex items-center justify-between mb-2'>
             <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider'>Period</label>
-            <div className='flex rounded-md overflow-hidden border border-gray-700 text-[10px]'>
+            <div className='flex shrink-0 rounded-md overflow-hidden border border-gray-700 text-[10px]'>
               <button
                 type='button'
                 onClick={() => handlePeriodTypeChange('month')}
-                className={`px-2 py-0.5 font-semibold transition-colors ${
-                  periodType === 'month' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
-                }`}
+                className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors ${periodType === 'month' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
+                  }`}
               >
                 Month
               </button>
               <button
                 type='button'
                 onClick={() => handlePeriodTypeChange('year')}
-                className={`px-2 py-0.5 font-semibold transition-colors ${
-                  periodType === 'year' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
-                }`}
+                className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors ${periodType === 'year' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
+                  }`}
               >
                 Year
+              </button>
+              <button
+                type='button'
+                onClick={() => handlePeriodTypeChange('all')}
+                title='Entire history since the beginning'
+                className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors ${periodType === 'all' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
+                  }`}
+              >
+                All
               </button>
             </div>
           </div>
@@ -432,7 +465,7 @@ export default function FinanceManager({
                 applyFilters({ periodType: 'month', month: next });
               }}
             />
-          ) : (
+          ) : periodType === 'year' ? (
             <select
               value={filterYear}
               onChange={(e) => {
@@ -447,6 +480,10 @@ export default function FinanceManager({
                 </option>
               ))}
             </select>
+          ) : (
+            <div className='px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-gray-400'>
+              Since the beginning
+            </div>
           )}
         </div>
         <div>
@@ -542,11 +579,10 @@ export default function FinanceManager({
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
-            className={`px-5 py-3 border-b-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
-              currentTab === tab.id
+            className={`px-5 py-3 border-b-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 ${currentTab === tab.id
                 ? 'border-cyan text-cyan bg-cyan/5'
                 : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-900/40'
-            }`}
+              }`}
           >
             {tab.name}
           </button>
@@ -573,10 +609,11 @@ export default function FinanceManager({
             <StatTile
               label='Net Balance'
               value={
-                <span className={stats.netBalance >= 0 ? 'text-cyan' : 'text-orange-400'}>
-                  <SensitiveValue>{formatCurrency(stats.netBalance)}</SensitiveValue>
+                <span className={trueNetBalance >= 0 ? 'text-cyan' : 'text-orange-400'}>
+                  <SensitiveValue>{formatCurrency(trueNetBalance)}</SensitiveValue>
                 </span>
               }
+              sublabel='Actual balance, all-time'
               accentClassName='border-cyan'
             />
             <StatTile
@@ -614,14 +651,22 @@ export default function FinanceManager({
           {/* Cash-flow trend */}
           <div className='glass p-6 rounded-lg'>
             <h3 className='text-sm font-semibold text-white mb-1'>
-              {periodType === 'year' ? `Monthly Cash Flow — ${filterYear}` : filterMonth ? 'Daily Cash Flow' : 'Cash Flow Trend'}
+              {periodType === 'all'
+                ? 'Monthly Cash Flow — Entire History'
+                : periodType === 'year'
+                  ? `Monthly Cash Flow — ${filterYear}`
+                  : filterMonth
+                    ? 'Daily Cash Flow'
+                    : 'Cash Flow Trend'}
             </h3>
             <p className='text-xs text-gray-500 mb-4'>
-              {periodType === 'year'
-                ? `Inflow vs outflow by month, within ${filterYear}`
-                : filterMonth
-                ? `Inflow vs outflow by day, within the selected month`
-                : `Inflow vs outflow across the last ${trendData.length} month${trendData.length === 1 ? '' : 's'} of activity`}
+              {periodType === 'all'
+                ? `Inflow vs outflow by month, since the beginning (${trendData.length} month${trendData.length === 1 ? '' : 's'})`
+                : periodType === 'year'
+                  ? `Inflow vs outflow by month, within ${filterYear}`
+                  : filterMonth
+                    ? `Inflow vs outflow by day, within the selected month`
+                    : `Inflow vs outflow across the last ${trendData.length} month${trendData.length === 1 ? '' : 's'} of activity`}
             </p>
             <TrendChart data={trendData} formatValue={formatCurrency} />
           </div>
@@ -659,7 +704,7 @@ export default function FinanceManager({
                 ]}
               >
                 {initialEntries.map((entry) => (
-                  <TableRow key={entry.id}>
+                  <TableRow key={entry.id} onDoubleClick={() => setDetailsEntry(entry)}>
                     <TableCell className='whitespace-nowrap'>{formatDisplayDate(entry.transaction_date)}</TableCell>
                     <TableCell>
                       <span className='px-2.5 py-0.5 rounded text-[10px] font-bold uppercase bg-dark-800 text-cyan border border-cyan/15'>
@@ -669,9 +714,8 @@ export default function FinanceManager({
                     <TableCell className='font-semibold text-gray-300'>{entry.category}</TableCell>
                     <TableCell>
                       <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                          entry.direction === 'inflow' ? 'text-green-400' : 'text-red-400'
-                        }`}
+                        className={`inline-flex items-center gap-1.5 text-xs font-bold ${entry.direction === 'inflow' ? 'text-green-400' : 'text-red-400'
+                          }`}
                       >
                         {entry.direction === 'inflow' ? '↓ Inflow' : '↑ Outflow'}
                       </span>
@@ -698,13 +742,12 @@ export default function FinanceManager({
                     <TableCell className='text-xs text-gray-400'>{entry.payment_mode || 'N/A'}</TableCell>
                     <TableCell>
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          entry.approval_status === 'pending'
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${entry.approval_status === 'pending'
                             ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                             : entry.approval_status === 'rejected'
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        }`}
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          }`}
                       >
                         {entry.approval_status || entry.payment_status || 'completed'}
                       </span>
@@ -713,11 +756,17 @@ export default function FinanceManager({
                     <TableCell>
                       {entry.receipt_path ? (
                         <button
-                          onClick={() => handleViewReceipt(entry.id, entry.receipt_path!)}
+                          onClick={() =>
+                            handleViewReceipt(entry.id, entry.receipt_path!, entry.transaction_type === 'payroll')
+                          }
                           disabled={viewingReceiptId === entry.id}
                           className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-colors disabled:opacity-50'
                         >
-                          {viewingReceiptId === entry.id ? 'Opening…' : '📎 View'}
+                          {viewingReceiptId === entry.id
+                            ? 'Opening…'
+                            : entry.transaction_type === 'payroll'
+                            ? '📄 Payslip'
+                            : '📎 View'}
                         </button>
                       ) : (
                         <span className='text-xs text-gray-600'>—</span>
@@ -754,6 +803,16 @@ export default function FinanceManager({
                             <DeleteIcon />
                           </button>
                         )}
+                        <button
+                          onClick={() => setDetailsEntry(entry)}
+                          title='View Details'
+                          aria-label='View Details'
+                          className='text-gray-400 hover:text-white transition-colors px-1'
+                        >
+                          <svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
+                            <path d='M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z' />
+                          </svg>
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -791,8 +850,8 @@ export default function FinanceManager({
                   status === 'pending'
                     ? 'border-yellow-500'
                     : status === 'rejected'
-                    ? 'border-red-500'
-                    : 'border-green-500'
+                      ? 'border-red-500'
+                      : 'border-green-500'
                 }
               />
             ))}
@@ -880,6 +939,105 @@ export default function FinanceManager({
             router.refresh();
           }}
         />
+      </Modal>
+
+      {/* Transaction Details Modal — opened via row double-click or the ⋮ button */}
+      <Modal
+        isOpen={!!detailsEntry}
+        onClose={() => setDetailsEntry(null)}
+        title='Transaction Details'
+      >
+        {detailsEntry && (
+          <div className='space-y-4'>
+            <div className='flex items-center justify-between'>
+              <span className='px-2.5 py-0.5 rounded text-[10px] font-bold uppercase bg-dark-800 text-cyan border border-cyan/15'>
+                {detailsEntry.transaction_type}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-bold ${detailsEntry.direction === 'inflow' ? 'text-green-400' : 'text-red-400'
+                  }`}
+              >
+                {detailsEntry.direction === 'inflow' ? '↓ Inflow' : '↑ Outflow'}
+              </span>
+            </div>
+
+            <div className='text-center py-2 border-b border-gray-800'>
+              <p className='text-3xl font-bold text-white'>
+                <SensitiveValue>{formatCurrency(detailsEntry.amount)}</SensitiveValue>
+              </p>
+              <p className='text-xs text-gray-500 mt-1'>{formatDisplayDate(detailsEntry.transaction_date)}</p>
+            </div>
+
+            <div className='grid grid-cols-2 gap-x-4 gap-y-3'>
+              <DetailField label='Category' value={detailsEntry.category} />
+              <DetailField
+                label='Status'
+                value={detailsEntry.approval_status || detailsEntry.payment_status || 'completed'}
+              />
+              <DetailField label='Payment Mode' value={detailsEntry.payment_mode} />
+              <DetailField label='Reference ID' value={detailsEntry.reference_number} mono />
+              <DetailField label='Invoice Number' value={detailsEntry.invoice_number} mono />
+              <DetailField label='Client' value={detailsEntry.client_name} />
+              <DetailField label='Project' value={detailsEntry.project_name} />
+              <DetailField label='Payee' value={detailsEntry.payee_name} />
+              <DetailField label='Payer / Source' value={detailsEntry.payer_name} />
+              <DetailField label='Vendor' value={detailsEntry.vendor_name} />
+              <DetailField
+                label='Employee'
+                value={
+                  detailsEntry.employee_id
+                    ? employeeNameById.get(detailsEntry.employee_id) || `#${detailsEntry.employee_id}`
+                    : undefined
+                }
+              />
+            </div>
+
+            {detailsEntry.description && (
+              <div>
+                <p className='text-[11px] text-gray-500 uppercase tracking-wide mb-1'>Description</p>
+                <p className='text-sm text-gray-300 whitespace-pre-wrap'>{detailsEntry.description}</p>
+              </div>
+            )}
+
+            {detailsEntry.notes && (
+              <div>
+                <p className='text-[11px] text-gray-500 uppercase tracking-wide mb-1'>Notes</p>
+                <p className='text-sm text-gray-300 whitespace-pre-wrap'>{detailsEntry.notes}</p>
+              </div>
+            )}
+
+            {detailsEntry.receipt_path && (
+              <Button
+                type='button'
+                variant='secondary'
+                className='w-full'
+                onClick={() =>
+                  handleViewReceipt(
+                    detailsEntry.id,
+                    detailsEntry.receipt_path!,
+                    detailsEntry.transaction_type === 'payroll',
+                  )
+                }
+                disabled={viewingReceiptId === detailsEntry.id}
+              >
+                {viewingReceiptId === detailsEntry.id
+                  ? 'Opening…'
+                  : detailsEntry.transaction_type === 'payroll'
+                  ? '📄 View Payslip'
+                  : '📎 View Receipt'}
+              </Button>
+            )}
+
+            <div className='pt-3 border-t border-gray-800 text-[11px] text-gray-600 space-y-1'>
+              {detailsEntry.approved_at && (
+                <p>Approved: {formatDisplayDate(detailsEntry.approved_at)}</p>
+              )}
+              {detailsEntry.created_at && (
+                <p>Logged: {formatDisplayDate(detailsEntry.created_at)}</p>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

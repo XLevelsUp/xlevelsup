@@ -9,6 +9,7 @@ import {
   createPayroll,
   updatePayrollAdjustments,
   updatePayrollStatus,
+  markPayrollPaid,
   deletePayroll,
   deletePayrollByMonth,
 } from '@/lib/erp/payroll';
@@ -200,16 +201,19 @@ export async function updatePayrollAdjustmentsAction(
 }
 
 /**
- * Update payroll status
+ * Update payroll status between draft and approved. Marking a record as
+ * paid always goes through markPayrollPaidAction instead — it requires a
+ * bank transfer reference ID and creates the matching ledger entry, and
+ * that requirement must not be bypassable from this generic setter.
  */
 export async function updatePayrollStatusAction(
   id: number,
-  status: 'draft' | 'approved' | 'paid',
+  status: 'draft' | 'approved',
 ): Promise<PayrollActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
 
-    if (status === 'approved' || status === 'paid') {
+    if (status === 'approved') {
       const existing = await getPayrollById(id);
       if (!existing) {
         return { success: false, error: 'Payroll record not found' };
@@ -226,6 +230,50 @@ export async function updatePayrollStatusAction(
   } catch (error) {
     console.error('Update payroll status error:', error);
     return { success: false, error: 'Failed to update payroll status' };
+  }
+}
+
+const markPaidSchema = z.object({
+  reference_number: z.string().trim().min(1, 'A bank transfer reference ID is required to mark payroll as paid'),
+});
+
+/**
+ * Mark payroll as paid via bank transfer. Requires a reference ID — this is
+ * enforced here, not just in the UI, and creates the matching financial
+ * ledger entry as part of the same operation (see markPayrollPaid).
+ */
+export async function markPayrollPaidAction(
+  id: number,
+  referenceNumber: string,
+): Promise<PayrollActionResult> {
+  try {
+    const session = await requireRole(['admin', 'hr']);
+
+    const validated = markPaidSchema.parse({ reference_number: referenceNumber });
+
+    const existing = await getPayrollById(id);
+    if (!existing) {
+      return { success: false, error: 'Payroll record not found' };
+    }
+    if (existing.generated_by === session.userId) {
+      return { success: false, error: 'You cannot approve/mark-paid a payroll run you generated yourself' };
+    }
+
+    const payroll = await markPayrollPaid(id, validated.reference_number, session.userId);
+
+    revalidatePath('/erp/payroll');
+    revalidatePath('/erp/finances');
+
+    return { success: true, payroll };
+  } catch (error) {
+    console.error('Mark payroll paid error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to mark payroll as paid',
+    };
   }
 }
 

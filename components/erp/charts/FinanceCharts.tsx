@@ -110,6 +110,8 @@ export interface BarBreakdownItem {
   key: string;
   label: string;
   value: number;
+  /** Set only on the synthetic "Other (N)" entry — the individual items folded into it, so their names are still visible on hover. */
+  otherItems?: BarBreakdownItem[];
 }
 
 interface BarBreakdownProps {
@@ -129,6 +131,7 @@ function rankAndFold(items: BarBreakdownItem[], limit: number) {
       key: '__other__',
       label: `Other (${rest.length})`,
       value: rest.reduce((sum, r) => sum + r.value, 0),
+      otherItems: rest,
     });
   }
   return { visible, total: sorted.reduce((sum, i) => sum + i.value, 0) || 1 };
@@ -203,6 +206,16 @@ function BarBreakdownBars({
                 style={{ width: `${widthPct}%` }}
               />
             </div>
+            {isOther && item.otherItems && (
+              <div className="mt-1.5 ml-2 pl-2 border-l border-gray-800 space-y-1">
+                {item.otherItems.map((o) => (
+                  <div key={o.key} className="flex justify-between gap-3 text-[11px] text-gray-500">
+                    <span className="truncate">{o.label}</span>
+                    <span className="whitespace-nowrap">{formatValue(o.value)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -272,24 +285,35 @@ function BarBreakdownDonut({
           const isOther = item.key === '__other__';
           const pct = (item.value / total) * 100;
           return (
-            <div
-              key={item.key}
-              className={`flex items-center justify-between gap-3 text-xs rounded px-1.5 py-1 -mx-1.5 transition-colors ${
-                hoverKey === item.key ? 'bg-white/5' : ''
-              }`}
-              onMouseEnter={() => setHoverKey(item.key)}
-              onMouseLeave={() => setHoverKey((k) => (k === item.key ? null : k))}
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <span
-                  className="w-2.5 h-2.5 rounded-sm shrink-0"
-                  style={{ backgroundColor: isOther ? OTHER_HEX : hexForIndex(index) }}
-                />
-                <span className="font-medium text-gray-300 truncate">{item.label}</span>
-              </span>
-              <span className="text-gray-400 font-semibold whitespace-nowrap">
-                {formatValue(item.value)} <span className="text-gray-600">({pct.toFixed(0)}%)</span>
-              </span>
+            <div key={item.key}>
+              <div
+                className={`flex items-center justify-between gap-3 text-xs rounded px-1.5 py-1 -mx-1.5 transition-colors ${
+                  hoverKey === item.key ? 'bg-white/5' : ''
+                }`}
+                onMouseEnter={() => setHoverKey(item.key)}
+                onMouseLeave={() => setHoverKey((k) => (k === item.key ? null : k))}
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-sm shrink-0"
+                    style={{ backgroundColor: isOther ? OTHER_HEX : hexForIndex(index) }}
+                  />
+                  <span className="font-medium text-gray-300 truncate">{item.label}</span>
+                </span>
+                <span className="text-gray-400 font-semibold whitespace-nowrap">
+                  {formatValue(item.value)} <span className="text-gray-600">({pct.toFixed(0)}%)</span>
+                </span>
+              </div>
+              {isOther && item.otherItems && (
+                <div className="mt-0.5 ml-4 pl-2 border-l border-gray-800 space-y-0.5">
+                  {item.otherItems.map((o) => (
+                    <div key={o.key} className="flex justify-between gap-3 text-[11px] text-gray-500">
+                      <span className="truncate">{o.label}</span>
+                      <span className="whitespace-nowrap">{formatValue(o.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

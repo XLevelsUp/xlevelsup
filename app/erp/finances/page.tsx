@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { getLedgerEntries } from '@/lib/erp/finance';
+import { getLedgerEntries, getFinanceSummary } from '@/lib/erp/finance';
 import { getCompanyAccounts } from '@/lib/erp/company-accounts';
 import { getClients } from '@/lib/erp/clients';
 import { getAllEmployees } from '@/lib/erp/employees';
@@ -18,6 +18,7 @@ export default async function FinancesPage({
     status?: string;
     month?: string;
     year?: string;
+    all?: string;
     mode?: string;
     client?: string;
     employeeId?: string;
@@ -56,7 +57,10 @@ export default async function FinancesPage({
   const defaultMonth = `${todayYear}-${String(todayMonth).padStart(2, '0')}`;
   const defaultYear = String(todayYear);
 
-  const periodType: 'month' | 'year' = params.year ? 'year' : 'month';
+  // "all" (entire history since the beginning) takes precedence over year,
+  // which takes precedence over the month default — all three are mutually
+  // exclusive in the URL, same as month/year already were.
+  const periodType: 'month' | 'year' | 'all' = params.all ? 'all' : params.year ? 'year' : 'month';
   const effectiveMonth = periodType === 'month' ? params.month || defaultMonth : undefined;
   const effectiveYear = periodType === 'year' ? params.year || defaultYear : undefined;
 
@@ -70,6 +74,8 @@ export default async function FinancesPage({
     // wired to the wrong column, so picking e.g. "Approved" matched zero rows.
     approval_status: params.status || undefined,
     payment_mode: params.mode || undefined,
+    // "all" mode deliberately sets neither bound below — every tab (not
+    // just Overview/Analytics) gets the complete unfiltered history.
     month: periodType === 'month' && !isAnalyticalTab ? effectiveMonth : undefined,
     dateFrom: periodType === 'year' ? `${effectiveYear}-01-01` : undefined,
     dateTo: periodType === 'year' ? `${effectiveYear}-12-31` : undefined,
@@ -78,11 +84,16 @@ export default async function FinancesPage({
     payee: params.payee || undefined,
   };
 
-  const [initialEntries, employees, accounts, clients] = await Promise.all([
+  const [initialEntries, employees, accounts, clients, financeSummary] = await Promise.all([
     getLedgerEntries(session.userId, session.role, filters),
     getAllEmployees({ status: 'active' }),
     getCompanyAccounts(),
     getClients(),
+    // Deliberately unfiltered — the actual account balance the company has,
+    // not scoped to whatever period the user happens to be viewing. Shown
+    // as "Net Balance" and must never swing negative just because a single
+    // month's outflow briefly exceeded that month's inflow.
+    getFinanceSummary(session.userId, session.role),
   ]);
 
   // Fetch all account-linked transactions for CompanyAccountManager
@@ -114,6 +125,7 @@ export default async function FinancesPage({
           userId={session.userId}
           defaultMonth={defaultMonth}
           defaultYear={defaultYear}
+          trueNetBalance={financeSummary.netBalance}
         />
       </main>
     </ERPLayoutWrapper>

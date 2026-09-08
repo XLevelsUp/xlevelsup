@@ -31,13 +31,15 @@ export function Table({ headers, children, className = '' }: TableProps) {
 interface TableRowProps {
   children: React.ReactNode;
   onClick?: () => void;
+  onDoubleClick?: () => void;
   className?: string;
 }
 
-export function TableRow({ children, onClick, className = '' }: TableRowProps) {
+export function TableRow({ children, onClick, onDoubleClick, className = '' }: TableRowProps) {
   return (
     <tr
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       className={`hover:bg-gray-850/30 transition-all duration-200 ${
         onClick ? 'cursor-pointer' : ''
       } ${className}`}
