@@ -51,6 +51,17 @@ export async function getClientByName(name: string): Promise<Client | null> {
   }
 }
 
+/** One-line billing address for an invoice's "Bill To" block, or null if the client has none on file. */
+export function formatClientAddress(client: Client | null): string | null {
+  if (!client) return null;
+  const parts = [
+    [client.address_line1, client.address_line2].filter(Boolean).join(', '),
+    [client.city, client.state].filter(Boolean).join(', '),
+    client.pincode,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' — ') : null;
+}
+
 export async function getClientById(id: number): Promise<Client | null> {
   try {
     const { data, error } = await supabase

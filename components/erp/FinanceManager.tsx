@@ -7,11 +7,13 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import FinanceForm from './FinanceForm';
 import CompanyAccountManager from './CompanyAccountManager';
+import InvoiceReceiptModal from './InvoiceReceiptModal';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import { StatTile, BarBreakdown, TrendChart, type BarBreakdownItem } from './charts/FinanceCharts';
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
+import type { ReceiptData } from '@/types/billing';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import {
@@ -20,6 +22,7 @@ import {
   getReceiptUrlAction,
   getPayslipUrlAction,
 } from '@/actions/erp/finance';
+import { getOrCreateInvoiceForTransactionAction } from '@/actions/erp/billing';
 
 /** One labeled field in the transaction details modal — renders nothing when the value is empty, so the modal only shows what's actually populated. */
 function DetailField({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
@@ -197,6 +200,8 @@ export default function FinanceManager({
 
   const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
   const [detailsEntry, setDetailsEntry] = useState<FinancialLedgerEntry | null>(null);
+  const [invoiceReceipt, setInvoiceReceipt] = useState<ReceiptData | null>(null);
+  const [generatingInvoiceId, setGeneratingInvoiceId] = useState<number | null>(null);
   const employeeNameById = useMemo(
     () => new Map(employees.map((e) => [e.id, e.name])),
     [employees],
@@ -213,6 +218,23 @@ export default function FinanceManager({
       }
     } finally {
       setViewingReceiptId(null);
+    }
+  };
+
+  // Generates a proper tax invoice for a Client Income entry (or reprints
+  // the one already generated for it — see getOrCreateInvoiceForTransactionAction).
+  const handleGenerateInvoice = async (entryId: number) => {
+    setGeneratingInvoiceId(entryId);
+    try {
+      const result = await getOrCreateInvoiceForTransactionAction(entryId);
+      if (result.success && result.receipt) {
+        setInvoiceReceipt(result.receipt);
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Failed to generate invoice');
+      }
+    } finally {
+      setGeneratingInvoiceId(null);
     }
   };
 
@@ -793,6 +815,16 @@ export default function FinanceManager({
                               </button>
                             </>
                           )}
+                        {entry.transaction_type === 'income' && userRole !== 'employee' && (
+                          <button
+                            onClick={() => handleGenerateInvoice(entry.id)}
+                            disabled={generatingInvoiceId === entry.id}
+                            title='Generate tax invoice for this income'
+                            className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-[var(--purple)]/10 text-purple border border-[var(--purple)]/30 hover:bg-[var(--purple)]/20 transition-colors disabled:opacity-50'
+                          >
+                            {generatingInvoiceId === entry.id ? 'Generating…' : '🧾 Invoice'}
+                          </button>
+                        )}
                         {userRole === 'admin' && (
                           <button
                             onClick={() => handleDelete(entry.id)}
@@ -1006,6 +1038,18 @@ export default function FinanceManager({
               </div>
             )}
 
+            {detailsEntry.transaction_type === 'income' && userRole !== 'employee' && (
+              <Button
+                type='button'
+                variant='secondary'
+                className='w-full'
+                onClick={() => handleGenerateInvoice(detailsEntry.id)}
+                disabled={generatingInvoiceId === detailsEntry.id}
+              >
+                {generatingInvoiceId === detailsEntry.id ? 'Generating…' : '🧾 Generate Invoice'}
+              </Button>
+            )}
+
             {detailsEntry.receipt_path && (
               <Button
                 type='button'
@@ -1039,6 +1083,11 @@ export default function FinanceManager({
           </div>
         )}
       </Modal>
+
+      <InvoiceReceiptModal
+        receipt={invoiceReceipt}
+        onClose={() => setInvoiceReceipt(null)}
+      />
     </div>
   );
 }

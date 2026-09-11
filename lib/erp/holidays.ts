@@ -83,6 +83,45 @@ export async function getHolidayDateSetInRange(
 }
 
 /**
+ * Get the Set of active NON-floater holiday dates (YYYY-MM-DD) in a range.
+ *
+ * Floater holidays are opt-in — the company is open and the employee works
+ * unless they spend a floater leave day on it. So they must not be treated
+ * as non-working days when counting a leave range; only public/company/
+ * optional closures are. Use this (not getHolidayDateSetInRange) anywhere
+ * leave days are counted.
+ */
+export async function getNonFloaterHolidayDateSetInRange(
+  startDate: string,
+  endDate: string,
+): Promise<Set<string>> {
+  const holidays = await getHolidaysInRange(startDate, endDate);
+  return new Set(
+    holidays.filter((h) => h.holiday_type !== 'floater').map((h) => h.date),
+  );
+}
+
+/**
+ * Get the Set of active floater holiday dates (YYYY-MM-DD) in a range.
+ * Floater leave may only be taken on one of these days.
+ */
+export async function getFloaterHolidayDateSetInRange(
+  startDate: string,
+  endDate: string,
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('company_holidays')
+    .select('date')
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .eq('is_active', true)
+    .eq('holiday_type', 'floater');
+
+  if (error) throw error;
+  return new Set(((data as { date: string }[]) || []).map((h) => h.date));
+}
+
+/**
  * Get all active public (non-floater) holidays between two dates.
  * Public holidays are mandatory days off — excluded from leave & payroll working days.
  */

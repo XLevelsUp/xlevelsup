@@ -9,16 +9,18 @@ import {
   linkOrderTransaction,
   getOrders,
   getOrderWithItems,
+  getOrderIdByLinkedTransaction,
   updateOrder,
   replaceOrderItems,
 } from '@/lib/erp/billing';
-import { insertLedgerEntry, updateLedgerEntryById } from '@/lib/erp/finance';
-import { getClientByName } from '@/lib/erp/clients';
+import { insertLedgerEntry, updateLedgerEntryById, getLedgerEntryById } from '@/lib/erp/finance';
+import { getClientByName, formatClientAddress } from '@/lib/erp/clients';
 import { computeGstBreakdown, round2Amount } from '@/lib/billing-tax';
 import { revalidatePath } from 'next/cache';
 import type {
   GetOrderForEditResult,
   Order,
+  PaymentMethod,
   ProcessServiceInvoiceResult,
   ReceiptData,
   ReceiptLineItem,
@@ -139,16 +141,15 @@ export async function processServiceInvoice(
       success: true,
       financeSyncFailed,
       orderId: order.id,
-      orderNumber: `ORD-${String(order.id).padStart(6, '0')}`,
       invoiceNumber: order.invoice_number,
       receipt: {
         invoiceNumber: order.invoice_number,
-        orderNumber: `ORD-${String(order.id).padStart(6, '0')}`,
         createdAt: order.created_at,
         paymentMethod: order.payment_method,
         clientName,
         clientPhone: matchedClient?.phone ?? null,
         clientGstin: matchedClient?.gstin ?? null,
+        clientAddress: formatClientAddress(matchedClient),
         items: receiptItems,
         taxableValue,
         cgstAmount,
@@ -271,16 +272,15 @@ export async function updateServiceInvoice(
       success: true,
       financeSyncFailed,
       orderId,
-      orderNumber: `ORD-${String(orderId).padStart(6, '0')}`,
       invoiceNumber: order.invoice_number,
       receipt: {
         invoiceNumber: order.invoice_number,
-        orderNumber: `ORD-${String(orderId).padStart(6, '0')}`,
         createdAt: order.created_at,
         paymentMethod,
         clientName: order.client_name,
         clientPhone: matchedClient?.phone ?? null,
         clientGstin: matchedClient?.gstin ?? null,
+        clientAddress: formatClientAddress(matchedClient),
         items: receiptItems,
         taxableValue,
         cgstAmount,
@@ -348,12 +348,12 @@ export async function getOrderReceiptAction(orderId: number): Promise<GetOrderRe
       success: true,
       receipt: {
         invoiceNumber: order.invoice_number,
-        orderNumber: `ORD-${String(order.id).padStart(6, '0')}`,
         createdAt: order.created_at,
         paymentMethod: order.payment_method,
         clientName: order.client_name,
         clientPhone: matchedClient?.phone ?? null,
         clientGstin: matchedClient?.gstin ?? null,
+        clientAddress: formatClientAddress(matchedClient),
         items: receiptItems,
         taxableValue: order.taxable_value,
         cgstAmount: order.cgst_amount,
@@ -364,5 +364,116 @@ export async function getOrderReceiptAction(orderId: number): Promise<GetOrderRe
   } catch (error) {
     console.error('Get order receipt error:', error);
     return { success: false, error: 'Failed to fetch invoice' };
+  }
+}
+
+/** Maps a Finance ledger entry's free-text payment_mode to the billing system's fixed enum. */
+function toPaymentMethod(mode: string | null | undefined): PaymentMethod {
+  const normalized = (mode || '').trim().toLowerCase();
+  if (normalized === 'cash') return 'CASH';
+  if (normalized === 'upi') return 'UPI';
+  return 'BANK_TRANSFER';
+}
+
+/**
+ * Generate a proper tax invoice for an existing "Client Income" ledger
+ * entry — used from the Finances "Client Income" tab, which lets an
+ * admin log income directly without going through the Billing Terminal.
+ * Idempotent: a second call for the same transaction reprints the invoice
+ * already created for it instead of creating a duplicate.
+ */
+export async function getOrCreateInvoiceForTransactionAction(
+  transactionId: number,
+): Promise<ProcessServiceInvoiceResult> {
+  try {
+    const session = await requireRole(['admin', 'hr']);
+
+    const entry = await getLedgerEntryById(transactionId);
+    if (!entry) {
+      return { success: false, error: 'Transaction not found' };
+    }
+    if (entry.transaction_type !== 'income') {
+      return { success: false, error: 'Only client income transactions can be invoiced' };
+    }
+    if (!entry.client_name) {
+      return { success: false, error: 'This transaction has no client name to invoice' };
+    }
+
+    const existingOrderId = await getOrderIdByLinkedTransaction(transactionId);
+    if (existingOrderId) {
+      return getOrderReceiptAction(existingOrderId);
+    }
+
+    const grandTotal = round2Amount(Number(entry.amount));
+    const { taxableValue, cgstAmount, sgstAmount } = computeGstBreakdown(grandTotal);
+
+    const order = await createOrder({
+      client_name: entry.client_name,
+      payment_method: toPaymentMethod(entry.payment_mode),
+      taxable_value: taxableValue,
+      cgst_amount: cgstAmount,
+      sgst_amount: sgstAmount,
+      grand_total: grandTotal,
+      notes: entry.notes || null,
+      created_by: session.userId,
+    });
+
+    const description = (entry.description || entry.category).slice(0, 1000);
+
+    try {
+      await createOrderItems(order.id, [{ description, quantity: 1, rate: grandTotal }]);
+      await linkOrderTransaction(order.id, entry.id);
+    } catch (innerError) {
+      await deleteOrder(order.id);
+      // A unique-constraint violation on linked_transaction_id means a
+      // concurrent click (double-click, or two admins at once) already
+      // linked its own order to this transaction first — return that
+      // winning order's invoice instead of surfacing an error, so the
+      // user still lands on a receipt rather than a failure message.
+      const isUniqueViolation = (innerError as { code?: string } | null)?.code === '23505';
+      if (isUniqueViolation) {
+        const winningOrderId = await getOrderIdByLinkedTransaction(transactionId);
+        if (winningOrderId) return getOrderReceiptAction(winningOrderId);
+      }
+      throw innerError;
+    }
+
+    // Keep the ledger row's reference number in sync with the invoice —
+    // same convention processServiceInvoice uses — so the invoice is
+    // findable from the Finance side too. Only if not already set.
+    if (!entry.reference_number) {
+      await updateLedgerEntryById(entry.id, { reference_number: order.invoice_number }, session.userId);
+    }
+
+    revalidatePath('/erp/billing');
+    revalidatePath('/erp/finances');
+
+    const matchedClient = await getClientByName(entry.client_name);
+
+    return {
+      success: true,
+      orderId: order.id,
+      invoiceNumber: order.invoice_number,
+      receipt: {
+        invoiceNumber: order.invoice_number,
+        createdAt: order.created_at,
+        paymentMethod: order.payment_method,
+        clientName: entry.client_name,
+        clientPhone: matchedClient?.phone ?? null,
+        clientGstin: matchedClient?.gstin ?? null,
+        clientAddress: formatClientAddress(matchedClient),
+        items: [{ description, quantity: 1, lineTotal: grandTotal }],
+        taxableValue,
+        cgstAmount,
+        sgstAmount,
+        grandTotal,
+      },
+    };
+  } catch (error) {
+    console.error('Generate invoice from transaction error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate invoice',
+    };
   }
 }

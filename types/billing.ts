@@ -69,12 +69,12 @@ export interface ReceiptLineItem {
 
 export interface ReceiptData {
   invoiceNumber: string;
-  orderNumber: string;
   createdAt: string;
   paymentMethod: PaymentMethod;
   clientName: string;
   clientPhone?: string | null;
   clientGstin?: string | null;
+  clientAddress?: string | null;
   items: ReceiptLineItem[];
   taxableValue: number;
   cgstAmount: number;
@@ -87,7 +87,6 @@ export interface ProcessServiceInvoiceResult {
   error?: string;
   financeSyncFailed?: boolean;
   orderId?: number;
-  orderNumber?: string;
   invoiceNumber?: string;
   receipt?: ReceiptData;
 }

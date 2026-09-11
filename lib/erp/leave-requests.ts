@@ -9,7 +9,7 @@ import type {
   LeaveRequestFormData,
   LeaveBalance,
 } from '@/types/erp';
-import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
+import { getNonFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
 import { isAttendanceWorkingDay } from '@/lib/erp/utils';
 
 /**
@@ -49,12 +49,19 @@ export function calculateLeaveDays(
 /**
  * Async variant of calculateLeaveDays that fetches public holidays from the
  * database automatically. Use this in server actions / API routes.
+ *
+ * Floater holidays are deliberately excluded from the subtracted set — they
+ * are opt-in days the employee still works unless they spend floater leave
+ * on them, so a floater-leave request must count them as working days.
  */
 export async function calculateLeaveDaysWithHolidays(
   startDate: string,
   endDate: string,
 ): Promise<number> {
-  const holidaySet = await getHolidayDateSetInRange(startDate, endDate);
+  const holidaySet = await getNonFloaterHolidayDateSetInRange(
+    startDate,
+    endDate,
+  );
   return calculateLeaveDays(startDate, endDate, holidaySet);
 }
 

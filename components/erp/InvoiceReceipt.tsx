@@ -9,6 +9,9 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
   currency: 'INR',
 });
 
+/** SAC code for the services this business invoices — same for every line item. */
+const HSN_SAC_CODE = '998314';
+
 interface InvoiceReceiptProps {
   receipt: ReceiptData;
   /** Renders inline (normal document flow) for batch printing instead of taking over the full page on its own. */
@@ -43,13 +46,24 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
 
         @media print {
           @page {
-            size: A5 portrait;
+            /* Explicit mm dimensions instead of the named "A5 portrait"
+               keyword — more reliably respected across browsers/printer
+               drivers than the named size, which can silently fall back
+               to the print dialog's default paper size (commonly A4),
+               leaving the A5-sized invoice box floating in the corner of
+               a larger blank page. */
+            size: 148mm 210mm;
             margin: 0;
           }
 
           html, body {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            /* The app's dark theme sets a near-black body background
+               (--background in globals.css); exact color-adjust above
+               would otherwise print that as a solid black page behind
+               the invoice instead of letting the browser discard it. */
+            background: #fff !important;
           }
 
           body * {
@@ -63,6 +77,15 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
 
           .invoice-a5 {
             box-shadow: none;
+            /* min-height (used on screen so content can grow the card) is
+               a floor only — if print-rendering computes the box even a
+               fraction of a pixel taller than 210mm (border/rounding),
+               the browser starts a second, almost entirely blank page.
+               Pin an exact height and clip anything past it instead. */
+            height: 210mm;
+            overflow: hidden;
+            page-break-after: avoid;
+            page-break-inside: avoid;
           }
 
           .invoice-a5--single {
@@ -222,6 +245,11 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           color: #888;
         }
 
+        .invoice-a5__col-hsn {
+          width: 16mm;
+          color: #555;
+        }
+
         .invoice-a5__num {
           text-align: right;
           white-space: nowrap;
@@ -325,7 +353,6 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
               minute: '2-digit',
             })}
           </div>
-          <div className="invoice-a5__invoice-meta-row">Order #: {receipt.orderNumber}</div>
           <span className="invoice-a5__badge">{receipt.paymentMethod.replace('_', ' ')}</span>
         </div>
       </div>
@@ -334,6 +361,9 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
       <div className="invoice-a5__bill-to">
         <div className="invoice-a5__bill-to-label">Bill To</div>
         <div className="invoice-a5__bill-to-name">{receipt.clientName}</div>
+        {receipt.clientAddress && (
+          <div className="invoice-a5__bill-to-detail">{receipt.clientAddress}</div>
+        )}
         {receipt.clientPhone && (
           <div className="invoice-a5__bill-to-detail">{receipt.clientPhone}</div>
         )}
@@ -348,6 +378,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           <tr>
             <th className="invoice-a5__col-idx">#</th>
             <th>Service</th>
+            <th className="invoice-a5__col-hsn">HSN</th>
             <th className="invoice-a5__num">Amount</th>
           </tr>
         </thead>
@@ -356,6 +387,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
             <tr key={index}>
               <td className="invoice-a5__col-idx">{index + 1}</td>
               <td>{item.description}</td>
+              <td className="invoice-a5__col-hsn">{HSN_SAC_CODE}</td>
               <td className="invoice-a5__num">{currencyFormatter.format(item.lineTotal)}</td>
             </tr>
           ))}

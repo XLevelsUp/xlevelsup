@@ -9,6 +9,7 @@ export default function Modal({
   onClose,
   children,
   title,
+  maxWidthClassName,
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -37,7 +38,7 @@ export default function Modal({
           {/* Modal */}
           <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
             <motion.div
-              className='glass max-w-2xl w-full p-8 rounded-2xl relative max-h-[90vh] overflow-y-auto'
+              className={`glass ${maxWidthClassName || 'max-w-2xl'} w-full p-8 rounded-2xl relative max-h-[90vh] overflow-y-auto`}
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}

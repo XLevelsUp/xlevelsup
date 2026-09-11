@@ -134,6 +134,22 @@ export async function linkOrderTransaction(
 }
 
 /**
+ * Find the order (if any) already invoicing a given financial_ledger row —
+ * used to make "generate invoice for this transaction" idempotent instead
+ * of creating a duplicate invoice on a second click.
+ */
+export async function getOrderIdByLinkedTransaction(transactionId: number): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('linked_transaction_id', transactionId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.id ?? null;
+}
+
+/**
  * List past invoices (newest first), optionally filtered by month
  * (YYYY-MM) and/or a case-insensitive client-name search.
  */

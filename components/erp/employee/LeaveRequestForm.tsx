@@ -38,7 +38,18 @@ export default function LeaveRequestForm({
   const [selectedLeaveType, setSelectedLeaveType] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Holidays that block a leave date (public/company/optional closures).
   const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
+  // Floater holidays — the ONLY days floater leave may be taken on, so they
+  // are an allowlist here rather than part of the blocked set.
+  const [floaterDates, setFloaterDates] = useState<Set<string>>(new Set());
+  const [floaterHolidays, setFloaterHolidays] = useState<
+    { date: string; name: string }[]
+  >([]);
+  // Floater leave allowlists the floater dates, so an empty-because-still-
+  // loading set would render the whole calendar unselectable with no
+  // explanation. Track the fetch so that state can be labelled.
+  const [holidaysLoaded, setHolidaysLoaded] = useState(false);
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayPeriod, setHalfDayPeriod] = useState<'' | 'first_half' | 'second_half'>('');
 
@@ -56,20 +67,50 @@ export default function LeaveRequestForm({
   // must still be planned a day ahead (server enforces this too).
   const isSameDayRequest = startDate === today;
   const SAME_DAY_LEAVE_TYPES = ['sick', 'emergency'];
+  // Floater leave may only be taken on a floater holiday, and always as a
+  // single day — the picker and the end-date field below change shape for it.
+  const isFloaterLeave = selectedLeaveType === 'floater';
+  const upcomingFloaterHolidays = floaterHolidays.filter((h) => h.date >= today);
 
-  // Fetch public holidays for the current (and next) year so they are blocked in the DatePicker
+  // Fetch holidays for the current AND next year so they are handled in the
+  // DatePicker — a request raised in December can legitimately span January.
   useEffect(() => {
     const year = new Date().getFullYear();
-    fetch(`/api/erp/holidays?year=${year}`)
-      .then((r) => r.json())
-      .then(({ holidays }) => {
-        if (Array.isArray(holidays)) {
-          setHolidayDates(new Set(holidays.map((h: { date: string }) => h.date)));
-        }
+    Promise.all(
+      [year, year + 1].map((y) =>
+        fetch(`/api/erp/holidays?year=${y}`)
+          .then((r) => r.json())
+          .then(({ holidays }) => (Array.isArray(holidays) ? holidays : []))
+          .catch(() => []),
+      ),
+    )
+      .then((results) => {
+        const all = results.flat() as {
+          date: string;
+          name: string;
+          holiday_type: string;
+        }[];
+        // Floater holidays are opt-in days the employee still works unless
+        // they spend floater leave on them — so they must NOT be blocked.
+        setHolidayDates(
+          new Set(
+            all
+              .filter((h) => h.holiday_type !== 'floater')
+              .map((h) => h.date),
+          ),
+        );
+        const floaters = all
+          .filter((h) => h.holiday_type === 'floater')
+          .sort((a, b) => a.date.localeCompare(b.date));
+        setFloaterDates(new Set(floaters.map((h) => h.date)));
+        setFloaterHolidays(
+          floaters.map((h) => ({ date: h.date, name: h.name })),
+        );
       })
       .catch(() => {
         // Non-fatal: holidays just won't be blocked in the picker
-      });
+      })
+      .finally(() => setHolidaysLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -129,7 +170,23 @@ export default function LeaveRequestForm({
             required
             disabled={isPending}
             value={selectedLeaveType}
-            onChange={(e) => setSelectedLeaveType(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSelectedLeaveType(next);
+              // A date already picked may be invalid for the new type —
+              // floater accepts only floater holidays, and every other type
+              // rejects them. Clear it rather than submit something the
+              // server will bounce.
+              const stillValid =
+                !startDate ||
+                (next === 'floater'
+                  ? floaterDates.has(startDate)
+                  : !floaterDates.has(startDate));
+              if (!stillValid) {
+                setStartDate('');
+                setEndDate('');
+              }
+            }}
             className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
           >
             <option value=''>Select leave type</option>
@@ -242,6 +299,44 @@ export default function LeaveRequestForm({
               💡 For urgent, unplanned situations — can be requested for today.
             </p>
           )}
+
+          {isFloaterLeave && (
+            <div className='mt-2 p-3 bg-gray-900/50 border border-gray-700 rounded-lg'>
+              <p className='text-xs text-[var(--cyan)]'>
+                💡 Floater leave can only be taken on a floater holiday, one
+                day at a time. Pick one of the dates below.
+              </p>
+              {!holidaysLoaded ? (
+                <p className='mt-2 text-xs text-gray-400'>
+                  Loading floater holidays…
+                </p>
+              ) : upcomingFloaterHolidays.length > 0 ? (
+                <ul className='mt-2 space-y-1'>
+                  {upcomingFloaterHolidays.map((h) => (
+                    <li
+                      key={h.date}
+                      className='flex items-center justify-between text-xs'
+                    >
+                      <span className='text-gray-300'>{h.name}</span>
+                      <span className='text-gray-400'>
+                        {new Date(
+                          `${h.date}T00:00:00`,
+                        ).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className='mt-2 text-xs text-amber-400'>
+                  ⚠️ No floater holidays remain this year.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Start Date */}
@@ -263,10 +358,19 @@ export default function LeaveRequestForm({
               }
             }}
             minDate={today}
-            placeholder='Select start date'
+            placeholder={
+              isFloaterLeave ? 'Select a floater holiday' : 'Select start date'
+            }
             disableWeekends
             disabledDates={holidayDates}
-            helperText='The first Saturday of each month is a working day, so it can be selected too. Only Sick/Emergency leave can be requested for today.'
+            // Floater leave inverts the rule: instead of blocking holidays,
+            // the floater holidays are the only selectable days.
+            enabledDates={isFloaterLeave ? floaterDates : undefined}
+            helperText={
+              isFloaterLeave
+                ? 'Only floater holidays are selectable for this leave type.'
+                : 'The first Saturday of each month is a working day, so it can be selected too. Only Sick/Emergency leave can be requested for today.'
+            }
           />
           {/* Hidden field for form submission */}
           <input type='hidden' name='start_date' value={startDate} />
@@ -324,6 +428,9 @@ export default function LeaveRequestForm({
               💡 Half-day leave counts as 0.5 day against your balance.
             </p>
           </div>
+        ) : isFloaterLeave ? (
+          // A floater holiday is a single day, so there is no range to pick.
+          <input type='hidden' name='end_date' value={startDate} />
         ) : (
           <div>
             <DatePicker

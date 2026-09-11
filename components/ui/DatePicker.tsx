@@ -40,6 +40,14 @@ interface DatePickerProps {
   disableWeekends?: boolean;
   /** Specific dates to block (YYYY-MM-DD). Pass holiday dates here. */
   disabledDates?: Set<string> | string[];
+  /**
+   * Allowlist of selectable dates (YYYY-MM-DD). When given, every date
+   * outside the set is blocked, and dates inside it bypass disableWeekends
+   * and disabledDates — for leave types that are only valid on specific
+   * days (floater leave, which may only be taken on a floater holiday —
+   * itself a holiday, and possibly a weekend). minDate/maxDate still apply.
+   */
+  enabledDates?: Set<string> | string[];
 }
 
 interface Position {
@@ -59,6 +67,7 @@ export default function DatePicker({
   helperText,
   disableWeekends = false,
   disabledDates,
+  enabledDates,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -144,6 +153,14 @@ export default function DatePicker({
     const dateString = toLocalDateString(date);
     if (minDate && dateString < minDate) return true;
     if (maxDate && dateString > maxDate) return true;
+    // An allowlist, when present, is authoritative: anything outside it is
+    // blocked, and anything inside it is selectable regardless of the
+    // weekend/holiday rules below.
+    if (enabledDates) {
+      const allowed =
+        enabledDates instanceof Set ? enabledDates : new Set(enabledDates);
+      return !allowed.has(dateString);
+    }
     // The first Saturday of the month is a working day (company policy), so
     // it stays selectable here even with disableWeekends on — every other
     // Saturday and all Sundays remain blocked.

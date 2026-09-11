@@ -19,6 +19,8 @@ export interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
+  /** Overrides the default `max-w-2xl` — e.g. `max-w-7xl` for wide content like an A3 invoice preview. */
+  maxWidthClassName?: string;
 }
 
 export interface FormData {

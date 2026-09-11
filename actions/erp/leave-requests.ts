@@ -18,9 +18,67 @@ import {
   getWfhDaysCountInMonth,
   getEmployeeLeaveBalance,
 } from '@/lib/erp/leave-requests';
+import { getFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { requireRole } from '@/lib/auth';
 import { getTodayIST } from '@/lib/erp/utils';
+
+/**
+ * Floater leave may only be taken ON a designated floater holiday, one day at
+ * a time. Returns an error message, or null when the request is valid.
+ */
+async function validateFloaterLeave(validated: {
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+}): Promise<string | null> {
+  if (validated.leave_type !== 'floater') return null;
+
+  if (validated.start_date !== validated.end_date) {
+    return 'Floater leave must be for a single floater holiday.';
+  }
+
+  const floaterDates = await getFloaterHolidayDateSetInRange(
+    validated.start_date,
+    validated.end_date,
+  );
+  if (!floaterDates.has(validated.start_date)) {
+    return 'Floater leave can only be taken on a designated floater holiday. Please pick one of the floater holidays listed on the leave form.';
+  }
+  return null;
+}
+
+/**
+ * How many days a request consumes, or 0 when the period contains no usable
+ * day.
+ *
+ * Floater leave is special-cased: it is pinned to a single floater holiday,
+ * which is itself a holiday and may fall on a weekend — so the working-day
+ * count applied to every other leave type would always return 0 for it.
+ * validateFloaterLeave has already confirmed the date by this point.
+ */
+async function resolveRequestedDays(validated: {
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  is_half_day: boolean;
+}): Promise<number> {
+  if (validated.leave_type === 'floater') {
+    return validated.is_half_day ? 0.5 : 1;
+  }
+  if (validated.is_half_day) {
+    return (await calculateLeaveDaysWithHolidays(
+      validated.start_date,
+      validated.start_date,
+    )) > 0
+      ? 0.5
+      : 0;
+  }
+  return calculateLeaveDaysWithHolidays(
+    validated.start_date,
+    validated.end_date,
+  );
+}
 
 /** Today as YYYY-MM-DD in IST — the timezone leave-day rules are defined in. */
 function todayDateStringIST(): string {
@@ -142,9 +200,12 @@ export async function createLeaveRequestAction(
       }
     }
 
-    const requestedDays = validated.is_half_day
-      ? (await calculateLeaveDaysWithHolidays(validated.start_date, validated.start_date)) > 0 ? 0.5 : 0
-      : await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
+    const floaterError = await validateFloaterLeave(validated);
+    if (floaterError) {
+      return { success: false, error: floaterError };
+    }
+
+    const requestedDays = await resolveRequestedDays(validated);
     if (requestedDays === 0) {
       return {
         success: false,
@@ -251,9 +312,12 @@ export async function updateLeaveRequestAction(
       }
     }
 
-    const requestedDays = validated.is_half_day
-      ? (await calculateLeaveDaysWithHolidays(validated.start_date, validated.start_date)) > 0 ? 0.5 : 0
-      : await calculateLeaveDaysWithHolidays(validated.start_date, validated.end_date);
+    const floaterError = await validateFloaterLeave(validated);
+    if (floaterError) {
+      return { success: false, error: floaterError };
+    }
+
+    const requestedDays = await resolveRequestedDays(validated);
     if (requestedDays === 0) {
       return {
         success: false,

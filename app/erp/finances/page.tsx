@@ -101,14 +101,19 @@ export default async function FinancesPage({
     ? await getLedgerEntries(session.userId, session.role, {})
     : [];
 
-  // Consolidate all standard categories
+  // Consolidate all standard categories. 'Maintenance' is deliberately
+  // listed once even though it applies to both income and expense entries —
+  // this list backs a single <select>, so a repeated value would produce a
+  // duplicate React key and a duplicate option in the dropdown.
   const categories = [
-    // Income
-    'Service Fee', 'Consulting', 'Development', 'Marketing Services', 'Design Services', 'Maintenance', 'Subscription', 'License Fee', 'Other Income',
-    // Expenses
-    'Salary', 'Office Rent', 'Utilities', 'Internet', 'Software Subscription', 'Marketing Ads', 'Freelancer Payment', 'Travel', 'Food', 'Equipment', 'Client Project Cost', 'Maintenance', 'Tax', 'Bank Charges', 'Miscellaneous',
-    // Investments
-    'Founder Investment', 'Partner Capital', 'External Funding', 'Business Reserve',
+    ...new Set([
+      // Income
+      'Service Fee', 'Consulting', 'Development', 'Marketing Services', 'Design Services', 'Maintenance', 'Subscription', 'License Fee', 'Other Income',
+      // Expenses
+      'Salary', 'Office Rent', 'Utilities', 'Internet', 'Software Subscription', 'Marketing Ads', 'Freelancer Payment', 'Travel', 'Food', 'Equipment', 'Client Project Cost', 'Maintenance', 'Tax', 'Bank Charges', 'Miscellaneous',
+      // Investments
+      'Founder Investment', 'Partner Capital', 'External Funding', 'Business Reserve',
+    ]),
   ];
 
   return (
