@@ -24,6 +24,7 @@ interface AttendanceManagerProps {
   timeLogs: TimeLog[];
   initialMonth: string;
   initialEmployeeId?: number;
+  initialIsAllTime?: boolean;
 }
 
 export default function AttendanceManager({
@@ -33,6 +34,7 @@ export default function AttendanceManager({
   timeLogs,
   initialMonth,
   initialEmployeeId,
+  initialIsAllTime,
 }: AttendanceManagerProps) {
   const router = useRouter();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -41,18 +43,44 @@ export default function AttendanceManager({
   const [employeeId, setEmployeeId] = useState<number | undefined>(
     initialEmployeeId,
   );
+  const [isAllTime, setIsAllTime] = useState(initialIsAllTime ?? false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar' | 'leave-report'>('table');
   const [selectedDateStr, setSelectedDateStr] = useState('');
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   const [loadingLeaveBalances, setLoadingLeaveBalances] = useState(false);
 
-  const applyFilters = (overrides?: Partial<{ month: string; employeeId: number | undefined }>) => {
-    const next = { month, employeeId, ...overrides };
+  const applyFilters = (
+    overrides?: Partial<{ month: string; employeeId: number | undefined; allTime: boolean }>,
+  ) => {
+    const next = { month, employeeId, allTime: isAllTime, ...overrides };
     const params = new URLSearchParams();
-    params.set('month', next.month);
+    params.set('month', next.allTime ? 'all' : next.month);
     if (next.employeeId) params.set('employee_id', next.employeeId.toString());
 
     router.push(`/erp/attendance?${params.toString()}`);
+  };
+
+  // Full History is scoped to one employee — flip it off if the employee
+  // filter is cleared while it's active, so it never silently pulls every
+  // employee's entire attendance/time-log history at once.
+  const handleEmployeeChange = (next: number | undefined) => {
+    setEmployeeId(next);
+    loadLeaveBalances(next);
+    if (!next && isAllTime) {
+      setIsAllTime(false);
+      if (viewMode === 'calendar') setViewMode('table');
+      applyFilters({ employeeId: next, allTime: false });
+    } else {
+      applyFilters({ employeeId: next });
+    }
+  };
+
+  const handleToggleAllTime = () => {
+    if (!employeeId) return;
+    const next = !isAllTime;
+    setIsAllTime(next);
+    if (next && viewMode === 'calendar') setViewMode('table');
+    applyFilters({ allTime: next });
   };
 
   const loadLeaveBalances = async (empId: number | undefined) => {
@@ -235,13 +263,19 @@ export default function AttendanceManager({
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
             <label className='block text-sm font-medium mb-2'>Month</label>
-            <MonthPicker
-              value={month}
-              onChange={(next) => {
-                setMonth(next);
-                applyFilters({ month: next });
-              }}
-            />
+            {isAllTime ? (
+              <div className='w-full px-4 py-2 rounded-lg bg-dark-800/60 border border-dashed border-gray-700 text-gray-400 text-sm'>
+                Showing entire history — month filter off
+              </div>
+            ) : (
+              <MonthPicker
+                value={month}
+                onChange={(next) => {
+                  setMonth(next);
+                  applyFilters({ month: next });
+                }}
+              />
+            )}
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Employee</label>
@@ -249,9 +283,7 @@ export default function AttendanceManager({
               value={employeeId || ''}
               onChange={(e) => {
                 const next = e.target.value ? parseInt(e.target.value) : undefined;
-                setEmployeeId(next);
-                applyFilters({ employeeId: next });
-                loadLeaveBalances(next);
+                handleEmployeeChange(next);
               }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
@@ -263,6 +295,28 @@ export default function AttendanceManager({
               ))}
             </select>
           </div>
+        </div>
+
+        <div className='mt-4 pt-4 border-t border-gray-800 flex items-center justify-between gap-3 flex-wrap'>
+          <p className='text-xs text-gray-500'>
+            {employeeId
+              ? 'View this employee\'s entire attendance history from the day they joined, instead of one month at a time.'
+              : 'Select an employee above to enable Full History.'}
+          </p>
+          <button
+            type='button'
+            onClick={handleToggleAllTime}
+            disabled={!employeeId}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-all ${
+              isAllTime
+                ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
+                : employeeId
+                  ? 'border border-gray-700 text-gray-300 hover:border-cyan hover:text-cyan'
+                  : 'border border-gray-800 text-gray-600 cursor-not-allowed'
+            }`}
+          >
+            {isAllTime ? '📜 Full History (on) — back to month view' : '📜 View Full History'}
+          </button>
         </div>
       </div>
 
@@ -359,16 +413,18 @@ export default function AttendanceManager({
         >
           📋 Table View
         </button>
-        <button
-          onClick={() => setViewMode('calendar')}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            viewMode === 'calendar'
-              ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          📅 Calendar View
-        </button>
+        {!isAllTime && (
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            📅 Calendar View
+          </button>
+        )}
         <button
           onClick={() => setViewMode('leave-report')}
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
@@ -645,11 +701,17 @@ export default function AttendanceManager({
       {viewMode === 'leave-report' && (
         <div className='space-y-6'>
           {(() => {
+            // WFH is a work arrangement, not leave — the employee still
+            // worked that day, so it must not count toward "days used" or
+            // appear in this leave report (leave balances already exclude
+            // it the same way — see the leaveBalances filter above).
+            const nonWfhLeaveRequests = leaveRequests.filter((req) => req.leave_type !== 'wfh');
+
             const totalsByEmployee = new Map<
               number,
               { name: string; employeeIdDisplay: string; department: string; totalDays: number; count: number }
             >();
-            leaveRequests.forEach((req) => {
+            nonWfhLeaveRequests.forEach((req) => {
               const existing = totalsByEmployee.get(req.employee_id);
               if (existing) {
                 existing.totalDays += Number(req.total_days);
@@ -667,7 +729,7 @@ export default function AttendanceManager({
             const summaryRows = Array.from(totalsByEmployee.values()).sort(
               (a, b) => b.totalDays - a.totalDays,
             );
-            const sortedRequests = [...leaveRequests].sort(
+            const sortedRequests = [...nonWfhLeaveRequests].sort(
               (a, b) => (a.start_date < b.start_date ? 1 : -1),
             );
             const grandTotalDays = summaryRows.reduce((sum, r) => sum + r.totalDays, 0);
@@ -682,7 +744,7 @@ export default function AttendanceManager({
                     </h3>
                     <span className='text-xs text-gray-400'>
                       Total: <span className='text-white font-medium'>{grandTotalDays}</span> days across{' '}
-                      {leaveRequests.length} approved request{leaveRequests.length === 1 ? '' : 's'}
+                      {nonWfhLeaveRequests.length} approved request{nonWfhLeaveRequests.length === 1 ? '' : 's'}
                     </span>
                   </div>
                   {summaryRows.length === 0 ? (

@@ -20,9 +20,11 @@ export default async function EmployeeDashboardPage() {
   const leaveBalances = await getEmployeeLeaveBalance(session.id);
   const timeLogSummary = await getTimeLogSummary(session.id);
 
-  // Get pending leave requests
-  const pendingLeaves = leaveRequests.filter((l) => l.status === 'pending');
-  const approvedLeaves = leaveRequests.filter((l) => l.status === 'approved');
+  // Get pending leave requests. WFH is a work arrangement, not leave — the
+  // employee still worked that day — so it's excluded here, matching how
+  // leave balances already treat it.
+  const pendingLeaves = leaveRequests.filter((l) => l.status === 'pending' && l.leave_type !== 'wfh');
+  const approvedLeaves = leaveRequests.filter((l) => l.status === 'approved' && l.leave_type !== 'wfh');
 
   // Get annual leave balance
   const annualLeaveBalance = leaveBalances.find(

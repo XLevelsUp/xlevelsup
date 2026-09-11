@@ -19,21 +19,28 @@ export default async function AttendancePage({
   }
 
   const params = await searchParams;
-  const month = params.month || getCurrentMonth();
+  // 'all' is a sentinel for "entire history, no month filter" — see the
+  // Full History toggle in AttendanceManager. Any other value (or none)
+  // behaves as before, defaulting to the current month.
+  const isAllTime = params.month === 'all';
+  const month = isAllTime ? '' : params.month || getCurrentMonth();
   const employeeId = params.employee_id
     ? parseInt(params.employee_id)
     : undefined;
 
   const employees = await getAllEmployees({ status: 'active' });
   const attendance = await getAllAttendance({
-    month,
+    month: isAllTime ? undefined : month,
     employee_id: employeeId,
   });
   const leaveRequests = await getAllLeaveRequests({
     status: 'approved',
     employee_id: employeeId,
   });
-  const timeLogs = await getAllTimeLogs({ month, employee_id: employeeId });
+  const timeLogs = await getAllTimeLogs({
+    month: isAllTime ? undefined : month,
+    employee_id: employeeId,
+  });
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
@@ -43,8 +50,9 @@ export default async function AttendancePage({
           attendance={attendance}
           leaveRequests={leaveRequests}
           timeLogs={timeLogs}
-          initialMonth={month}
+          initialMonth={month || getCurrentMonth()}
           initialEmployeeId={employeeId}
+          initialIsAllTime={isAllTime}
         />
       </main>
     </ERPLayoutWrapper>
