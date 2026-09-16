@@ -4,7 +4,7 @@
  */
 
 import Database from 'better-sqlite3';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { hash } from 'bcryptjs';
 
@@ -18,10 +18,9 @@ let db: Database.Database | null = null;
 export function getDb(): Database.Database {
   if (!db) {
     // Create data directory if it doesn't exist
-    const fs = require('fs');
     const dataDir = join(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
     }
 
     db = new Database(DB_PATH);

@@ -44,6 +44,7 @@ export default function AttendanceChangeRequestForm({
   // Handle updates to props (e.g. a date picked from the calendar)
   useEffect(() => {
     if (initialDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs the form to a date picked elsewhere on the page and passed back in as a prop.
       setSelectedDate(initialDate);
       setClockInTime('');
       setClockOutTime('');
@@ -55,7 +56,7 @@ export default function AttendanceChangeRequestForm({
     setCurrentStatus(initialCurrentStatus ?? null);
   }, [initialDate, initialIsMissed, initialAttendanceId, initialCurrentStatus]);
 
-  const handleFormAction = async (prevState: any, formData: FormData) => {
+  const handleFormAction = async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
     lastFormData.current = formData;
     // Validate date selection
     if (!selectedDate) {
@@ -112,6 +113,7 @@ export default function AttendanceChangeRequestForm({
       ) as HTMLFormElement;
       if (form) {
         form.reset();
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- clears the form after a successful submit, alongside the imperative form.reset() on the line above it — both react to the same completed action.
         setRequestedStatus('');
         setHalfDayPeriod('');
         setSelectedDate('');

@@ -49,7 +49,7 @@ export default function MarketingArchitecturePage() {
                     </h1>
                     <p className="text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
                         We abandon slow WordPress templates for custom Next.js architectures that load instantly.
-                        Every millisecond counts when you're converting visitors into customers.
+                        Every millisecond counts when you&apos;re converting visitors into customers.
                     </p>
                 </motion.div>
 
@@ -186,7 +186,7 @@ export default function MarketingArchitecturePage() {
                                 Ready to <span className="gradient-text">Upgrade</span> Your Architecture?
                             </h2>
                             <p className="text-gray-400 mb-8 text-lg">
-                                Let's audit your current site and engineer a high-performance solution.
+                                Let&apos;s audit your current site and engineer a high-performance solution.
                             </p>
                             <Link
                                 href="/#contact"

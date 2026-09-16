@@ -46,7 +46,21 @@ export default function Preloader() {
   const rafRef = useRef(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  /* eslint-disable react-hooks/set-state-in-effect --
+     `shouldPlay` starts null, meaning "not yet decided". Deciding it requires
+     sessionStorage and matchMedia, neither of which exists during SSR, so it
+     cannot be computed in render or in a useState initializer without a
+     hydration mismatch — the server would always have to guess, and half the
+     time it would guess wrong and flash the overlay at a returning visitor.
+     Mount is the earliest point the answer is knowable. This is the browser-API
+     read the rule cannot model, not the cascading-render pattern it targets:
+     the effect runs once with [] deps and every setState here is terminal. */
   useEffect(() => {
+    // Captured once so every cleanup path below clears exactly the timers this
+    // run scheduled. The array is only ever pushed to, never reassigned, so
+    // this is the same list `timersRef.current` would resolve to.
+    const timers = timersRef.current;
+
     // Skip preloader on mobile — mobile CPUs/networks are throttled enough
     // that the preloader overlay blocks the hero LCP for 4-6s on Lighthouse.
     // Mobile visitors benefit more from instant content than the intro sequence.
@@ -63,7 +77,7 @@ export default function Preloader() {
       const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       const after = (ms: number, fn: () => void) => {
-        timersRef.current.push(setTimeout(fn, ms));
+        timers.push(setTimeout(fn, ms));
       };
       setPct(100);
       setPhase('wordmark');
@@ -73,7 +87,7 @@ export default function Preloader() {
         document.body.style.overflow = prevOverflow;
       });
       return () => {
-        timersRef.current.forEach(clearTimeout);
+        timers.forEach(clearTimeout);
         document.body.style.overflow = prevOverflow;
       };
     }
@@ -94,7 +108,7 @@ export default function Preloader() {
     document.body.style.overflow = 'hidden';
 
     const after = (ms: number, fn: () => void) => {
-      timersRef.current.push(setTimeout(fn, ms));
+      timers.push(setTimeout(fn, ms));
     };
 
     if (prefersReduced) {
@@ -107,7 +121,7 @@ export default function Preloader() {
         document.body.style.overflow = prevOverflow;
       });
       return () => {
-        timersRef.current.forEach(clearTimeout);
+        timers.forEach(clearTimeout);
         document.body.style.overflow = prevOverflow;
       };
     }
@@ -141,10 +155,11 @@ export default function Preloader() {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      timersRef.current.forEach(clearTimeout);
+      timers.forEach(clearTimeout);
       document.body.style.overflow = prevOverflow;
     };
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (shouldPlay !== true || phase === 'done') return null;
 

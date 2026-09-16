@@ -46,8 +46,8 @@ export default function NotFound() {
                         Page Not <span className="gradient-text">Found</span>
                     </h2>
                     <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-                        Looks like this URL doesn't exist in our architecture.
-                        Even our engineering can't find what you're looking for.
+                        Looks like this URL doesn&apos;t exist in our architecture.
+                        Even our engineering can&apos;t find what you&apos;re looking for.
                     </p>
                 </motion.div>
 

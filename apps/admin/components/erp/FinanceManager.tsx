@@ -62,7 +62,7 @@ export default function FinanceManager({
   accountTransactions,
   clients = [],
   userRole,
-  userId,
+  userId: _userId,
   defaultMonth,
   defaultYear,
   trueNetBalance,

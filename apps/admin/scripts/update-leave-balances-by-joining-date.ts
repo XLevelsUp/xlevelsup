@@ -98,7 +98,10 @@ function calculateProratedLeaves(
     };
   }
 
-  const floater = Math.round((monthsRemaining / monthsInYear) * 2); // Prorated floater
+  // Floater is NOT prorated by joining month like casual/sick — it's tied
+  // to specific company-designated floater holidays, not a gradually
+  // accrued day off, so anyone employed for the year gets the full count.
+  const floater = 2;
   const sick = Math.round((monthsRemaining / monthsInYear) * 5); // Prorated sick leave
   const earned = 0; // Always starts at 0
 
@@ -299,7 +302,12 @@ async function updateLeaveBalances() {
         { count: number; min: number; max: number; avg: number }
       > = {};
 
-      distribution.forEach((record: any) => {
+      // Shape mirrors the select above: leave_type, total_allocated, used_days.
+      distribution.forEach((record: {
+        leave_type: string;
+        total_allocated: number;
+        used_days: number;
+      }) => {
         if (!stats[record.leave_type]) {
           stats[record.leave_type] = {
             count: 0,
@@ -330,8 +338,8 @@ async function updateLeaveBalances() {
     }
 
     console.log('\n✅ Leave balance update completed!\n');
-  } catch (error: any) {
-    console.error('\n❌ Update failed:', error.message);
+  } catch (error: unknown) {
+    console.error('\n❌ Update failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

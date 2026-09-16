@@ -1,9 +1,8 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useState, useEffect, useActionState } from 'react';
+import { useState, useEffect, useRef, useActionState } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Button from './ui/Button';
 import { captureLead, type CaptureLeadResult } from '@/actions/capture-lead';
@@ -46,8 +45,11 @@ function SubmitButton() {
 }
 
 export default function ContactForm() {
-    const router = useRouter();
-    const [isSuccess, setIsSuccess] = useState(false);
+    // `state.success` already is the success flag — mirroring it into component
+    // state meant an effect had to copy one into the other on every submit.
+    // Render reads it directly now; this ref only guards the one-shot toast and
+    // redirect below so they cannot fire twice.
+    const celebratedRef = useRef(false);
 
     // Controlled form inputs to preserve data on error
     const [formData, setFormData] = useState({
@@ -80,10 +82,13 @@ export default function ContactForm() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Handle successful submission
+    // Fire the one-shot celebration: toast, then open the booking page. Both
+    // are external side effects, so an effect is the right place for them —
+    // what used to live here and is now gone is the setState that merely
+    // duplicated `state.success`.
     useEffect(() => {
-        if (state.success && !isSuccess) {
-            setIsSuccess(true);
+        if (state.success && !celebratedRef.current) {
+            celebratedRef.current = true;
 
             // Show success toast
             toast.success('Success! Redirecting to booking...', {
@@ -101,7 +106,7 @@ export default function ContactForm() {
                 window.open('https://cal.com/pranesh-s-zomkol/growth-audit', '_blank');
             }, 1500);
         }
-    }, [state.success, isSuccess]);
+    }, [state.success]);
 
     // Show error toast if submission failed (form data is preserved)
     // Only show error if there's an error AND we haven't succeeded
@@ -121,7 +126,7 @@ export default function ContactForm() {
 
     return (
         <AnimatePresence mode="wait">
-            {!isSuccess ? (
+            {!state.success ? (
                 <motion.form
                     key="form"
                     action={formAction}

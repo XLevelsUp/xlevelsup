@@ -237,8 +237,8 @@ async function initializeLeaveBalances() {
             `   ✅ ${leave.leave_type}: Initialized (${leave.total_allocated} days)`,
           );
           successCount++;
-        } catch (error: any) {
-          console.error(`   ❌ ${leave.leave_type}: Failed - ${error.message}`);
+        } catch (error: unknown) {
+          console.error(`   ❌ ${leave.leave_type}: Failed - ${error instanceof Error ? error.message : String(error)}`);
           errorCount++;
         }
       }
@@ -267,7 +267,12 @@ async function initializeLeaveBalances() {
         { count: number; total_allocated: number; total_used: number }
       > = {};
 
-      distribution.forEach((record: any) => {
+      // Shape mirrors the select above: leave_type, total_allocated, used_days.
+      distribution.forEach((record: {
+        leave_type: string;
+        total_allocated: number;
+        used_days: number;
+      }) => {
         if (!stats[record.leave_type]) {
           stats[record.leave_type] = {
             count: 0,
@@ -289,8 +294,8 @@ async function initializeLeaveBalances() {
     }
 
     console.log('\n✅ Leave balance initialization completed!\n');
-  } catch (error: any) {
-    console.error('\n❌ Initialization failed:', error.message);
+  } catch (error: unknown) {
+    console.error('\n❌ Initialization failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

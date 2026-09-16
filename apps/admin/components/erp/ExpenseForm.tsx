@@ -39,7 +39,7 @@ export default function ExpenseForm({
   const lastFormData = useRef<FormData | null>(null);
 
   const [state, formAction] = useActionState(
-    async (prevState: any, formData: FormData) => {
+    async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
       lastFormData.current = formData;
       return await createExpenseAction(formData);
     },

@@ -239,20 +239,29 @@ function BarBreakdownDonut({
   // percentages can be used directly as stroke-dasharray values below.
   const gapDeg = visible.length > 1 ? 1.5 : 0; // thin surface gap between segments, not a stroke
 
+  // Cumulative start position of each donut segment, as a percentage.
+  // segmentOffsets[i] is the sum of all segments before i, so the first is
+  // always 0 and the last ends at 100.
+  const segmentOffsets = visible.reduce<number[]>((acc, item, index) => {
+    const prev = index === 0 ? 0 : acc[index - 1] + (visible[index - 1].value / total) * 100;
+    acc.push(prev);
+    return acc;
+  }, []);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
       <div className="flex justify-center">
         <div className="relative w-40 h-40">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
             <circle cx="18" cy="18" r="15.915" fill="none" stroke="currentColor" className="text-white/5" strokeWidth="4" />
-            {(() => {
-              let acc = 0;
-              return visible.map((item, index) => {
+            {visible.map((item, index) => {
                 const isOther = item.key === '__other__';
                 const pct = (item.value / total) * 100;
                 const dash = Math.max(pct - gapDeg, 0);
-                const offset = 100 - acc;
-                acc += pct;
+                // Where this segment starts: the sum of every preceding one.
+                // Derived from `segmentOffsets` rather than a running counter
+                // mutated inside the map, which read as a render-time mutation.
+                const offset = 100 - segmentOffsets[index];
                 return (
                   <circle
                     key={item.key}
@@ -271,8 +280,7 @@ function BarBreakdownDonut({
                     onMouseLeave={() => setHoverKey((k) => (k === item.key ? null : k))}
                   />
                 );
-              });
-            })()}
+            })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-base font-bold text-white">{formatValue(total).split('.')[0]}</span>

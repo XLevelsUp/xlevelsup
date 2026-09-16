@@ -28,7 +28,7 @@ export default async function DashboardPage() {
         <div className='mb-8'>
           <h1 className='text-3xl font-bold gradient-text'>ERP Dashboard</h1>
           <p className='text-gray-400 mt-2'>
-            Overview of your organization's key metrics
+            Overview of your organization&apos;s key metrics
           </p>
         </div>
 
@@ -186,7 +186,7 @@ export default async function DashboardPage() {
                 {timeTrackingStats.not_started}
               </div>
               <div className='text-xs text-gray-500 mt-1'>
-                haven't clocked in
+                haven&apos;t clocked in
               </div>
             </div>
           </div>

@@ -29,6 +29,7 @@ export default function ERPLayoutWrapper({
 
   // Close mobile menu on page change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- closes the mobile menu on navigation. The alternative is closing it in every nav link handler, which spreads the same concern across the whole menu.
     setIsMobileMenuOpen(false);
   }, [pathname]);
 

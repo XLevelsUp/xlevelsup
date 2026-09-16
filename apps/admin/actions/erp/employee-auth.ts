@@ -36,7 +36,7 @@ const changePasswordSchema = z.object({
  * Employee login action
  */
 export async function employeeLoginAction(
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{
   success: boolean;
@@ -129,7 +129,7 @@ export async function employeeLogoutAction(): Promise<void> {
  */
 export async function changePasswordAction(
   employeeId: number,
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -190,7 +190,7 @@ export async function changePasswordAction(
  */
 export async function forceChangePasswordAction(
   employeeId: number,
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {

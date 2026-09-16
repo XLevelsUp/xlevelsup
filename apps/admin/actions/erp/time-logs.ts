@@ -14,7 +14,13 @@ import { revalidatePath } from 'next/cache';
 export interface ActionResult {
   success: boolean;
   error?: string;
-  data?: any;
+  /**
+   * Payload shape varies by action — a TimeLog for clock-in, a
+   * { timeLog, totalHoursToday } pair for clock-out, a TimeLogSummary for the
+   * summary action. `unknown` rather than a union because no caller reads it
+   * today; narrow it at the call site if one ever does.
+   */
+  data?: unknown;
 }
 
 /**
@@ -38,11 +44,11 @@ export async function clockInAction(
       success: true,
       data: timeLog,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Clock in error:', error);
     return {
       success: false,
-      error: error.message || 'Failed to clock in',
+      error: (error instanceof Error && error.message) || 'Failed to clock in',
     };
   }
 }
@@ -75,11 +81,11 @@ export async function clockOutAction(
         totalHoursToday: summary.total_hours_today,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Clock out error:', error);
     return {
       success: false,
-      error: error.message || 'Failed to clock out',
+      error: (error instanceof Error && error.message) || 'Failed to clock out',
     };
   }
 }
@@ -97,11 +103,11 @@ export async function getTimeLogSummaryAction(
       success: true,
       data: summary,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get time log summary error:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get time log summary',
+      error: (error instanceof Error && error.message) || 'Failed to get time log summary',
     };
   }
 }

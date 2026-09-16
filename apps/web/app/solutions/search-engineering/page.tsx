@@ -102,7 +102,6 @@ export default function SearchEngineeringPage() {
 
   // §4: reusable spring configs — critically damped everywhere.
   const revealTransition: Transition = reduced ? { duration: 0.2, ease: 'easeOut' } : springDefault;
-  const snappyTransition: Transition = reduced ? { duration: 0.2, ease: 'easeOut' } : springSnappy;
 
   // §13: when reduced, strip travel entirely — only opacity changes remain.
   const revealInitial   = reduced ? { opacity: 0 }               : { opacity: 0, y: 20 };

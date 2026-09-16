@@ -8,7 +8,6 @@ import {
   setSessionCookie,
   deleteSessionCookie,
 } from '@/lib/auth';
-import type { User } from '@/types/erp';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),

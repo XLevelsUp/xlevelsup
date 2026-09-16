@@ -11,7 +11,17 @@ import type {
   EmployeeCareerHistoryWithNames,
   EmployeeCareerChangeType,
   CareerChangeFormData,
+  Employee,
 } from '@/types/erp';
+
+/**
+ * A career-history row as PostgREST returns it from the two joined selects
+ * below, with the employee columns nested under the relation name rather than
+ * flattened into employee_name / employee_display_id.
+ */
+interface CareerHistoryJoinedRow extends EmployeeCareerHistory {
+  employee: { name: string; employee_id: string } | null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // READ OPERATIONS
@@ -68,7 +78,7 @@ export async function fetchAllCareerHistory(filters?: {
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: CareerHistoryJoinedRow) => ({
     ...row,
     employee_name: row.employee?.name || 'Unknown',
     employee_display_id: row.employee?.employee_id || '',
@@ -103,7 +113,7 @@ export async function fetchPendingEffectiveChanges(): Promise<
 
   if (error) throw error;
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: CareerHistoryJoinedRow) => ({
     ...row,
     employee_name: row.employee?.name || 'Unknown',
     employee_display_id: row.employee?.employee_id || '',
@@ -232,12 +242,16 @@ export async function updateEmployeeCareerDetails(
     | 'new_salary'
   >,
 ): Promise<void> {
-  const updates: Record<string, any> = {
+  const updates: Partial<Employee> & { updated_at: string } = {
     updated_at: new Date().toISOString(),
   };
 
   if (changes.new_employment_type) {
-    updates.employment_type = changes.new_employment_type;
+    // CareerChangeFormData types these as plain `string` and the zod schema in
+    // actions/erp/employee-career.ts validates them as z.string(), not z.enum —
+    // so this narrowing is asserted, not checked. Tightening the schema to an
+    // enum would make it real, but that changes what the form accepts.
+    updates.employment_type = changes.new_employment_type as Employee['employment_type'];
   }
   if (changes.new_designation) {
     updates.role = changes.new_designation; // employees.role = designation
@@ -246,7 +260,8 @@ export async function updateEmployeeCareerDetails(
     updates.department = changes.new_department;
   }
   if (changes.new_salary_type) {
-    updates.salary_type = changes.new_salary_type;
+    // Same unchecked narrowing as new_employment_type above.
+    updates.salary_type = changes.new_salary_type as Employee['salary_type'];
   }
   if (changes.new_salary !== undefined && changes.new_salary !== null) {
     updates.monthly_salary = changes.new_salary;

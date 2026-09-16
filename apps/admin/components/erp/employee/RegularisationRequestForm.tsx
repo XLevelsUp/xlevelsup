@@ -145,7 +145,7 @@ export default function RegularisationRequestForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
-  const handleFormAction = async (prevState: any, formData: FormData) => {
+  const handleFormAction = async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
     lastFormData.current = formData;
     if (!selectedDate) return { success: false, error: 'Please select a date' };
     if (!requestType) return { success: false, error: 'Please select a request type' };

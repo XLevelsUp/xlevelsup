@@ -48,6 +48,7 @@ function useDismiss(id: string) {
 
   useEffect(() => {
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is unavailable during SSR, so the dismissed flag cannot be read in render or a useState initializer without a hydration mismatch. Mount is the first point it is knowable.
       setDismissed(localStorage.getItem(id) === '1');
     } catch {
       setDismissed(false);

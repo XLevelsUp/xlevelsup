@@ -79,6 +79,7 @@ export default function DatePicker({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: the calendar portal needs document, so it renders only after mount.
   useEffect(() => setMounted(true), []);
 
   // Re-sync when the value prop changes after mount (e.g. a date picked
@@ -87,6 +88,7 @@ export default function DatePicker({
   // since useState's initializer only runs once.
   useEffect(() => {
     const parsed = value ? parseLocalDateString(value) : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- keeps the internal selection in step with a controlled `value` prop that the parent can change (e.g. a date clicked on the calendar elsewhere on the page).
     setSelectedDate(parsed);
     if (parsed) setDisplayDate(parsed);
   }, [value]);

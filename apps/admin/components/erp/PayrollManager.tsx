@@ -77,7 +77,7 @@ export default function PayrollManager({
 
     if (result.success) {
       toast.success(
-        `Payroll generated! ${result.payroll.generated} records created, ${result.payroll.skipped} skipped`,
+        `Payroll generated! ${result.payroll?.generated ?? 0} records created, ${result.payroll?.skipped ?? 0} skipped`,
         { duration: 3000 },
       );
       setShowGenerateModal(false);
@@ -151,7 +151,7 @@ export default function PayrollManager({
 
     if (result.success) {
       toast.success(
-        `Deleted ${result.payroll.deletedCount} payroll record(s) for ${monthLabel}. You can now generate fresh ones for this month.`,
+        `Deleted ${result.payroll?.deletedCount ?? 0} payroll record(s) for ${monthLabel}. You can now generate fresh ones for this month.`,
         { duration: 4000 },
       );
       setShowDeleteMonthModal(false);

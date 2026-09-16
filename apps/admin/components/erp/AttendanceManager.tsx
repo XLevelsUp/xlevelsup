@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { m as motion } from 'framer-motion';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -142,7 +141,6 @@ export default function AttendanceManager({
 
   useEffect(() => {
     loadLeaveBalances(initialEmployeeId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEmployeeId]);
 
   const employeeMap = new Map(employees.map((e) => [e.id, e]));

@@ -7,7 +7,11 @@ import { requireEmployeeAuth } from '@/lib/erp/employee-portal-auth';
 import { getEmployeeAttendanceWithRequests } from '@/lib/erp/attendance-change-requests';
 import { getEmployeeAttendanceChangeRequests } from '@/lib/erp/attendance-change-requests';
 import { supabase } from '@/lib/supabase';
-import type { AttendanceChangeRequest } from '@/types/erp';
+import type {
+  AttendanceChangeRequest,
+  AttendanceWithChangeRequest,
+  TimeLog,
+} from '@/types/erp';
 import AttendanceRecordsTable from '@/components/erp/employee/AttendanceRecordsTable';
 import AttendanceChangeRequestForm from '@/components/erp/employee/AttendanceChangeRequestForm';
 import AttendanceChangeRequestsList from '@/components/erp/employee/AttendanceChangeRequestsList';
@@ -36,13 +40,13 @@ export default async function EmployeeAttendancePage({
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const startDate = threeMonthsAgo.toISOString().split('T')[0];
 
-  let attendanceRecords: any[] = [];
+  let attendanceRecords: AttendanceWithChangeRequest[] = [];
   let changeRequests: AttendanceChangeRequest[] = [];
-  let timeLogs: any[] = [];
+  let timeLogs: TimeLog[] = [];
   let isFeatureAvailable = true;
 
   try {
-    const { data: testQuery, error: testError } = await supabase
+    const { error: testError } = await supabase
       .from('attendance_change_requests')
       .select('id')
       .limit(1);

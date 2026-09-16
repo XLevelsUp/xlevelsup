@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import MonthPicker from './MonthPicker';
 import type { Employee } from '@/types/erp';
+import type { TimeLogWithEmployee } from '@/lib/erp/time-logs';
 import { formatDisplayDate, formatDuration } from '@/lib/erp/utils';
 import Link from 'next/link';
 
 interface SessionsManagerProps {
   employees: Employee[];
-  initialTimeLogs: any[];
+  initialTimeLogs: TimeLogWithEmployee[];
   initialMonth: string;
   initialEmployeeId?: number;
 }
@@ -48,9 +48,9 @@ export default function SessionsManager({
 
   // Group logs by employee and date
   const groupedSessions: Record<string, {
-    employee: any;
+    employee: TimeLogWithEmployee['employee'];
     date: string;
-    sessions: any[];
+    sessions: TimeLogWithEmployee[];
     totalHours: number;
     hasActiveSession: boolean;
   }> = {};
@@ -274,7 +274,8 @@ export default function SessionsManager({
                                       </div>
                                       <div className='text-xs text-gray-400 mt-1'>
                                         <strong>In:</strong> {formatTime(session.clock_in_time)}
-                                        {session.clock_in_latitude && (
+                                        {session.clock_in_latitude != null &&
+                                          session.clock_in_longitude != null && (
                                           <span className='text-gray-500 ml-1'>
                                             📍 ({session.clock_in_latitude.toFixed(4)}, {session.clock_in_longitude.toFixed(4)})
                                           </span>
@@ -282,7 +283,8 @@ export default function SessionsManager({
                                       </div>
                                       <div className='text-xs text-gray-400'>
                                         <strong>Out:</strong> {session.clock_out_time ? formatTime(session.clock_out_time) : 'In Progress'}
-                                        {session.clock_out_latitude && (
+                                        {session.clock_out_latitude != null &&
+                                          session.clock_out_longitude != null && (
                                           <span className='text-gray-500 ml-1'>
                                             📍 ({session.clock_out_latitude.toFixed(4)}, {session.clock_out_longitude.toFixed(4)})
                                           </span>
@@ -296,7 +298,7 @@ export default function SessionsManager({
                                       </div>
                                       {session.notes && (
                                         <p className='text-xs text-gray-400 italic max-w-xs truncate mt-1'>
-                                          "{session.notes}"
+                                          &ldquo;{session.notes}&rdquo;
                                         </p>
                                       )}
                                     </div>

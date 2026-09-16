@@ -11,8 +11,17 @@
 
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
+import dotenv from 'dotenv';
+// Type-only: erased at compile time, so this script still builds its own
+// Supabase client and pulls in none of the app's runtime modules.
+import type { Payroll } from '../types/erp';
 
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env.local') });
+/** A payroll row with the employee columns this query joins in. */
+interface PayrollJoinedRow extends Payroll {
+  employees: { name: string; employee_id: string } | null;
+}
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -38,7 +47,7 @@ async function main() {
   nextMonth.setMonth(nextMonth.getMonth() + 1);
   const nextMonthStr = nextMonth.toISOString().slice(0, 10);
 
-  for (const p of (payrollRows || []) as any[]) {
+  for (const p of (payrollRows || []) as PayrollJoinedRow[]) {
     const { data: attRows, error: attError } = await supabase
       .from('attendance')
       .select('status')
@@ -49,10 +58,6 @@ async function main() {
 
     const records = attRows || [];
     const currentPresent = records.filter((r) => r.status === 'present').length;
-    const currentHalf = records.filter((r) => r.status === 'half-day').length;
-    const currentPaidLeave = records.filter((r) => r.status === 'paid-leave').length;
-    const currentUnpaidLeave = records.filter((r) => r.status === 'unpaid-leave').length;
-    const currentAbsent = records.filter((r) => r.status === 'absent').length;
 
     const { data: latestReview } = await supabase
       .from('attendance_change_requests')

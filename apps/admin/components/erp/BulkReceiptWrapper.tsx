@@ -18,6 +18,7 @@ export default function BulkReceiptWrapper({ receipts }: BulkReceiptWrapperProps
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the standard hydration guard. Rendering the receipt needs the DOM, so the component must know it has mounted, which by definition is only true in an effect.
     setMounted(true);
   }, []);
 

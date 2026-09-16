@@ -181,7 +181,11 @@ export async function createCareerChangeAction(
 
     const record = await insertEmployeeCareerHistory(
       validated as CareerChangeFormData,
-      (session as any).id as number,
+      // `session.userId`, not `session.id`: requireRole returns a SessionPayload,
+      // which has no `id`. Its `[key: string]: unknown` index signature meant
+      // `session.id` type-checked once cast, but at runtime the JWT carries only
+      // userId/email/role — so this passed `undefined` as requested_by.
+      session.userId,
     );
 
     revalidatePath('/erp/employees');

@@ -23,7 +23,7 @@ export default function AttendanceChangeRequestReviewForm({
   const formRef = useRef<HTMLFormElement>(null);
   const lastFormData = useRef<FormData | null>(null);
 
-  const handleFormAction = async (prevState: any, formData: FormData) => {
+  const handleFormAction = async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
     lastFormData.current = formData;
     const status = formData.get('status') as 'approved' | 'rejected';
     const comments = (formData.get('review_comments') as string) || undefined;

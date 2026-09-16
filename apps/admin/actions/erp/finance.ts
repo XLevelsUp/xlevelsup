@@ -13,6 +13,11 @@ import {
   getEmployeeIdFromUserId,
 } from '@/lib/erp/finance';
 import { uploadReceiptFile, getReceiptSignedUrl } from '@/lib/erp/receipts';
+import type {
+  FinanceTransactionType,
+  FinanceDirection,
+  LedgerFormData,
+} from '@/types/erp';
 import { getPayslipSignedUrl } from '@/lib/erp/payslips';
 import { revalidatePath } from 'next/cache';
 import type { FinancialLedgerEntry } from '@/types/erp';
@@ -84,7 +89,7 @@ export async function getFinanceSummaryAction(filters?: {
   month?: string;
   dateFrom?: string;
   dateTo?: string;
-}): Promise<any> {
+}): Promise<Awaited<ReturnType<typeof getFinanceSummary>>> {
   try {
     const session = await requireAuth();
     return await getFinanceSummary(session.userId, session.role, filters);
@@ -118,14 +123,14 @@ export async function createLedgerEntryAction(
       ? parseInt(formData.get('employee_id') as string, 10)
       : null;
 
-    const rawData: any = {
-      transaction_type: formData.get('transaction_type') as any,
-      direction: formData.get('direction') as any,
+    const rawData: LedgerFormData = {
+      transaction_type: formData.get('transaction_type') as FinanceTransactionType,
+      direction: formData.get('direction') as FinanceDirection,
       category: formData.get('category') as string,
       amount: rawAmount,
       transaction_date: formData.get('transaction_date') as string,
       payment_mode: (formData.get('payment_mode') as string) || null,
-      payment_status: (formData.get('payment_status') as any) || 'completed',
+      payment_status: (formData.get('payment_status') as string) || 'completed',
       client_name: (formData.get('client_name') as string) || null,
       project_name: (formData.get('project_name') as string) || null,
       employee_id: rawEmployeeId,
@@ -136,7 +141,7 @@ export async function createLedgerEntryAction(
       reference_number: (formData.get('reference_number') as string) || null,
       description: (formData.get('description') as string) || null,
       notes: (formData.get('notes') as string) || null,
-      approval_status: (formData.get('approval_status') as any) || 'approved',
+      approval_status: (formData.get('approval_status') as string) || 'approved',
       account_id: formData.get('account_id') ? parseInt(formData.get('account_id') as string, 10) : null,
       receipt_path: null as string | null,
     };
@@ -189,14 +194,14 @@ export async function updateLedgerEntryAction(
       ? parseInt(formData.get('employee_id') as string, 10)
       : null;
 
-    const rawData: any = {
-      transaction_type: formData.get('transaction_type') as any,
-      direction: formData.get('direction') as any,
+    const rawData: LedgerFormData = {
+      transaction_type: formData.get('transaction_type') as FinanceTransactionType,
+      direction: formData.get('direction') as FinanceDirection,
       category: formData.get('category') as string,
       amount: rawAmount,
       transaction_date: formData.get('transaction_date') as string,
       payment_mode: (formData.get('payment_mode') as string) || null,
-      payment_status: (formData.get('payment_status') as any) || 'completed',
+      payment_status: (formData.get('payment_status') as string) || 'completed',
       client_name: (formData.get('client_name') as string) || null,
       project_name: (formData.get('project_name') as string) || null,
       employee_id: rawEmployeeId,
@@ -207,7 +212,7 @@ export async function updateLedgerEntryAction(
       reference_number: (formData.get('reference_number') as string) || null,
       description: (formData.get('description') as string) || null,
       notes: (formData.get('notes') as string) || null,
-      approval_status: (formData.get('approval_status') as any) || 'approved',
+      approval_status: (formData.get('approval_status') as string) || 'approved',
       account_id: formData.get('account_id') ? parseInt(formData.get('account_id') as string, 10) : null,
     };
 

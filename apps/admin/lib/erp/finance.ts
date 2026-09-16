@@ -215,7 +215,7 @@ export async function approveLedgerEntry(
   comments?: string,
 ): Promise<FinancialLedgerEntry> {
   try {
-    const updateData: any = {
+    const updateData: Partial<FinancialLedgerEntry> = {
       approval_status: status,
       approved_by: userId,
       approved_at: new Date().toISOString(),

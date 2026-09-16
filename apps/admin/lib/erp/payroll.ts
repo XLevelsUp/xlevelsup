@@ -10,6 +10,15 @@ import { generatePayslipPdf, uploadPayslipPdf } from '@/lib/erp/payslips';
 import type { Payroll, PayrollWithEmployee, LedgerFormData } from '@/types/erp';
 
 /**
+ * A payroll row as PostgREST returns it from the joined select, before the
+ * nested `employees` relation is flattened into employee_name / employee_role /
+ * employee_department.
+ */
+interface PayrollJoinedRow extends Payroll {
+  employees: { name: string; role: string; department: string };
+}
+
+/**
  * Get all payroll records with optional filters
  */
 export async function getAllPayroll(filters?: {
@@ -44,7 +53,7 @@ export async function getAllPayroll(filters?: {
   if (error) throw error;
 
   // Transform the nested employee data to flat structure
-  return (data || []).map((item: any) => ({
+  return (data || []).map((item: PayrollJoinedRow) => ({
     ...item,
     employee_name: item.employees.name,
     employee_role: item.employees.role,
@@ -197,7 +206,7 @@ export async function updatePayrollStatus(
   status: 'draft' | 'approved',
   userId: number,
 ): Promise<Payroll> {
-  let updateData: any = {
+  const updateData: Partial<Payroll> = {
     status,
     updated_at: new Date().toISOString(),
   };

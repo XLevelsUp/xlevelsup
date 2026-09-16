@@ -133,7 +133,7 @@ export async function updateExpenseStatus(
   userId: number,
   rejectionReason?: string,
 ): Promise<Expense> {
-  let updateData: any = {
+  const updateData: Partial<Expense> = {
     status,
     updated_at: new Date().toISOString(),
   };

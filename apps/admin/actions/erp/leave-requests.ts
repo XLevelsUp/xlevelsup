@@ -6,14 +6,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { LeaveBalance, LeaveRequestFormData } from '@/types/erp';
+import type { LeaveBalance, LeaveRequestFormData, LeaveType } from '@/types/erp';
 import {
   createLeaveRequest,
   updateLeaveRequest,
   cancelLeaveRequest,
   getLeaveRequestById,
   reviewLeaveRequest,
-  calculateLeaveDays,
   calculateLeaveDaysWithHolidays,
   getWfhDaysCountInMonth,
   getEmployeeLeaveBalance,
@@ -143,7 +142,7 @@ const reviewSchema = z.object({
  */
 export async function createLeaveRequestAction(
   employeeId: number,
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -153,7 +152,7 @@ export async function createLeaveRequestAction(
     }
 
     const data: LeaveRequestFormData = {
-      leave_type: formData.get('leave_type') as any,
+      leave_type: formData.get('leave_type') as LeaveType,
       start_date: formData.get('start_date') as string,
       end_date: formData.get('end_date') as string,
       reason: formData.get('reason') as string,
@@ -255,7 +254,7 @@ export async function createLeaveRequestAction(
 export async function updateLeaveRequestAction(
   leaveRequestId: number,
   employeeId: number,
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -265,7 +264,7 @@ export async function updateLeaveRequestAction(
     }
 
     const data: LeaveRequestFormData = {
-      leave_type: formData.get('leave_type') as any,
+      leave_type: formData.get('leave_type') as LeaveType,
       start_date: formData.get('start_date') as string,
       end_date: formData.get('end_date') as string,
       reason: formData.get('reason') as string,

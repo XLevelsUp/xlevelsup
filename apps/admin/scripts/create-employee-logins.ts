@@ -6,13 +6,13 @@
  *   Temporary / freelancer           : TEMP000, TEMP001, ...
  *
  * Default password: Welcome@<employee_id>
- * Run with: npx ts-node -r tsconfig-paths/register scripts/create-employee-logins.ts
+ * Run with: npm run create-employee-logins -w @xlu/admin
  */
 
-// Load environment variables FIRST before any imports
-const dotenv = require('dotenv');
-const path = require('path');
+import dotenv from 'dotenv';
+import * as path from 'path';
 
+// Load environment variables FIRST — see the deferred imports below.
 dotenv.config({
   path: path.resolve(process.cwd(), '.env.local'),
 });
@@ -29,9 +29,13 @@ if (
   process.exit(1);
 }
 
-// Now import after env vars are loaded
-const { supabase } = require('../lib/supabase');
-const bcrypt = require('bcryptjs');
+// Loaded after the env check above, never at module scope: ../lib/supabase
+// reads NEXT_PUBLIC_SUPABASE_URL/ANON_KEY when it is evaluated and throws if
+// they are absent. A static `import` would be hoisted above both dotenv.config()
+// and the friendly error message above, so these are populated by main() below.
+// `typeof import(...)` is erased at compile time and emits no runtime import.
+let supabase: (typeof import('../lib/supabase'))['supabase'];
+let bcrypt: typeof import('bcryptjs');
 
 /** Generate next employee ID based on employment type */
 async function getNextEmployeeId(
@@ -132,11 +136,11 @@ async function createEmployeeLogins() {
           console.log(`      ID       : ${employeeId}`);
           console.log(`      Email    : ${employee.email}`);
           console.log(`      Password : ${defaultPassword}`);
-          console.log(`      Portal   : http://localhost:3000/employee/login\n`);
+          console.log(`      Portal   : http://localhost:3001/employee/login\n`);
           successCount++;
         }
-      } catch (err: any) {
-        console.error(`   ❌ Error processing ${employee.name}:`, err.message || err);
+      } catch (err: unknown) {
+        console.error(`   ❌ Error processing ${employee.name}:`, err instanceof Error ? err.message : err);
         failCount++;
       }
     }
@@ -153,12 +157,20 @@ async function createEmployeeLogins() {
     console.log('   • Temporary/freelancer     : TEMP001, TEMP002, ...');
     console.log('   • Default password format: Welcome@<employee_id>');
     console.log('   • All new employees must change password on first login');
-    console.log('   • Employee Portal : http://localhost:3000/employee/login\n');
+    console.log('   • Employee Portal : http://localhost:3001/employee/login\n');
   } catch (error) {
     console.error('❌ Fatal error:', error);
     process.exit(1);
   }
 }
 
-// Run the script
-createEmployeeLogins();
+// Run the script. The deferred imports have to land before anything touches
+// `supabase` or `bcrypt`, so entry goes through this bootstrap rather than
+// calling createEmployeeLogins() directly.
+async function main() {
+  ({ supabase } = await import('../lib/supabase'));
+  bcrypt = await import('bcryptjs');
+  await createEmployeeLogins();
+}
+
+main();

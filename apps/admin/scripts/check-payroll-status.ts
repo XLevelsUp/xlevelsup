@@ -9,8 +9,17 @@
 
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
+import dotenv from 'dotenv';
+// Type-only: erased at compile time, so this script still builds its own
+// Supabase client and pulls in none of the app's runtime modules.
+import type { Payroll } from '../types/erp';
 
-require('dotenv').config({
+/** A payroll row with the employee columns this query joins in. */
+interface PayrollJoinedRow extends Payroll {
+  employees: { name: string; employee_id: string } | null;
+}
+
+dotenv.config({
   path: path.resolve(process.cwd(), '.env.local'),
 });
 
@@ -53,7 +62,7 @@ async function main() {
     process.exit(1);
   }
 
-  const rows = (payroll || []) as any[];
+  const rows = (payroll || []) as PayrollJoinedRow[];
 
   console.log(`👥 Active employees: ${activeCount}`);
   console.log(`💰 Payroll records for ${month}: ${rows.length}`);

@@ -13,7 +13,6 @@ import type { ClientTransaction } from '@/types/finance';
 import {
   formatCurrency,
   formatDisplayDate,
-  getCurrentMonth,
 } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteClientTransactionAction, recordTransactionPaymentAction } from '@/actions/erp/client-finances';

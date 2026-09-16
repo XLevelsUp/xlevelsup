@@ -25,6 +25,7 @@ export function SensitiveDataProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- same as CelebrationBanners: reads window.localStorage, which only exists after hydration.
     if (window.localStorage.getItem(STORAGE_KEY) === 'true') setVisible(true);
   }, []);
 

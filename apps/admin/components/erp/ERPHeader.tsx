@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Button from '@/components/ui/Button';
 import { logout } from '@/actions/erp/auth';
 import toast from 'react-hot-toast';
 import { useState } from 'react';

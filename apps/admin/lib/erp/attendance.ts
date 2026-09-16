@@ -233,7 +233,7 @@ export async function getMonthlyAttendanceSummary(
   nextMonth.setMonth(nextMonth.getMonth() + 1);
   const nextMonthStr = nextMonth.toISOString().substring(0, 10);
 
-  const { data: attendanceRecords, error: attError } = await supabase
+  const { data: attendanceRecords } = await supabase
     .from('attendance')
     .select('status')
     .eq('employee_id', employeeId)

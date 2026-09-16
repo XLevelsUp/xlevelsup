@@ -16,8 +16,18 @@
 
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
+import dotenv from 'dotenv';
+// Type-only, so it is erased at compile time and never resolved at runtime —
+// this script deliberately builds its own Supabase client rather than importing
+// the app's, and that stays true.
+import type { AttendanceChangeRequest } from '../types/erp';
 
-require('dotenv').config({
+/** A pending request row with the employee columns the query below joins in. */
+interface PendingRequestRow extends AttendanceChangeRequest {
+  employees: { name: string; employee_id: string } | null;
+}
+
+dotenv.config({
   path: path.resolve(process.cwd(), '.env.local'),
 });
 
@@ -40,7 +50,7 @@ const REVIEW_COMMENTS = 'Approved via one-time payroll fix script (no second rev
 // Approval logic — ported 1:1 from lib/erp/attendance-change-requests.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function handleStatusChangeApproval(request: any, reviewerId: number): Promise<void> {
+async function handleStatusChangeApproval(request: AttendanceChangeRequest, reviewerId: number): Promise<void> {
   const halfDayPeriod =
     request.requested_status === 'half-day' ? request.half_day_period ?? null : null;
 
@@ -83,7 +93,7 @@ async function handleStatusChangeApproval(request: any, reviewerId: number): Pro
 }
 
 async function handleRegularisationApproval(
-  request: any,
+  request: AttendanceChangeRequest,
   reviewerId: number,
   reqType: string,
 ): Promise<void> {
@@ -137,7 +147,7 @@ async function handleRegularisationApproval(
   }
 }
 
-async function applyMissedClockIn(employeeId: number, date: string, request: any): Promise<void> {
+async function applyMissedClockIn(employeeId: number, date: string, request: AttendanceChangeRequest): Promise<void> {
   if (!request.requested_clock_in_time) return;
 
   const { data: existingLogs } = await supabase
@@ -181,7 +191,7 @@ async function applyMissedClockIn(employeeId: number, date: string, request: any
   }
 }
 
-async function applyMissedClockOut(employeeId: number, date: string, request: any): Promise<void> {
+async function applyMissedClockOut(employeeId: number, date: string, request: AttendanceChangeRequest): Promise<void> {
   if (!request.requested_clock_out_time) return;
 
   const clockOutTime = new Date(request.requested_clock_out_time);
@@ -252,7 +262,7 @@ async function applyMissedClockOut(employeeId: number, date: string, request: an
   }
 }
 
-async function applyMissedBoth(employeeId: number, date: string, request: any): Promise<void> {
+async function applyMissedBoth(employeeId: number, date: string, request: AttendanceChangeRequest): Promise<void> {
   if (!request.requested_clock_in_time || !request.requested_clock_out_time) return;
 
   const clockInTime = new Date(request.requested_clock_in_time);
@@ -294,7 +304,7 @@ async function applyMissedBoth(employeeId: number, date: string, request: any): 
   }
 }
 
-async function applyClockInCorrection(employeeId: number, date: string, request: any): Promise<void> {
+async function applyClockInCorrection(employeeId: number, date: string, request: AttendanceChangeRequest): Promise<void> {
   if (!request.requested_clock_in_time) return;
 
   const { data: logs } = await supabase
@@ -329,7 +339,7 @@ async function applyClockInCorrection(employeeId: number, date: string, request:
   if (error) throw error;
 }
 
-async function applyClockOutCorrection(employeeId: number, date: string, request: any): Promise<void> {
+async function applyClockOutCorrection(employeeId: number, date: string, request: AttendanceChangeRequest): Promise<void> {
   if (!request.requested_clock_out_time) return;
 
   const { data: logs } = await supabase
@@ -481,7 +491,7 @@ async function main() {
   }
 
   console.log(`\n📋 ${pending.length} pending request(s):`);
-  for (const r of pending as any[]) {
+  for (const r of pending as PendingRequestRow[]) {
     console.log(
       `  #${r.id} | ${r.employees?.employee_id ?? r.employee_id} ${r.employees?.name ?? ''} | ${r.request_date} | ${r.request_type} | ${r.reason}`,
     );
@@ -495,7 +505,7 @@ async function main() {
   let succeeded = 0;
   let failed = 0;
 
-  for (const request of pending as any[]) {
+  for (const request of pending as PendingRequestRow[]) {
     try {
       const { error: updateError } = await supabase
         .from('attendance_change_requests')

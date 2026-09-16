@@ -3,7 +3,6 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import { getTimeLogsByDate } from './time-logs';
 
 export interface EmployeeTimeStatus {
   employee_id: number;

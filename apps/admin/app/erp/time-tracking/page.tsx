@@ -126,7 +126,7 @@ export default async function TimeTrackingPage() {
             <div className='text-3xl font-bold text-gray-400 mb-1'>
               {timeTrackingStats.not_started}
             </div>
-            <div className='text-xs text-gray-500'>Haven't clocked in</div>
+            <div className='text-xs text-gray-500'>Haven&apos;t clocked in</div>
           </div>
         </div>
 

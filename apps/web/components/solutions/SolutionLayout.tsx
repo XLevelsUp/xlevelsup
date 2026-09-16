@@ -145,7 +145,7 @@ export default function SolutionLayout({ solution }: SolutionLayoutProps) {
                                 Ready to Upgrade <span className="gradient-text">Your Stack?</span>
                             </h2>
                             <p className="text-gray-400 mb-8">
-                                Let's analyze your current setup and engineer a solution tailored to your business goals.
+                                Let&apos;s analyze your current setup and engineer a solution tailored to your business goals.
                             </p>
                             <Link
                                 href="/#contact"

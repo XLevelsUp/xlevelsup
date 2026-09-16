@@ -77,7 +77,7 @@ export default function About() {
         : { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: springDefault } };
 
     // Problem cards keep their slight independent tilts — scattered, not a tidy row.
-    const scatter = (i: number) =>
+    const scatter = () =>
         reduced
             ? { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.25 } } }
             : {
@@ -152,7 +152,7 @@ export default function About() {
                     {problems.map((p, i) => (
                         <motion.div
                             key={i}
-                            variants={scatter(i)}
+                            variants={scatter()}
                             whileHover={reduced ? undefined : { y: -4 }}
                             transition={springDefault}
                             className={`group relative rounded-2xl border p-[var(--xlu-space-md)] transition-transform hover:md:rotate-0 ${tiltClass(i)}`}

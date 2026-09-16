@@ -188,7 +188,7 @@ const reviewSchema = z.object({
  */
 export async function createAttendanceChangeRequestAction(
   employeeId: number,
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -243,7 +243,7 @@ export async function createAttendanceChangeRequestAction(
  */
 export async function createAttendanceRegularisationRequestAction(
   employeeId: number,
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {

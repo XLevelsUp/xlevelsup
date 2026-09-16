@@ -8,8 +8,24 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
+import dotenv from 'dotenv';
+// Type-only: erased at compile time, so this script still builds its own
+// Supabase client and pulls in none of the app's runtime modules.
+import type { Payroll } from '../types/erp';
 
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env.local') });
+/**
+ * The subset of a payroll row this script selects, plus the joined employee
+ * columns. Only these five fields are requested, so it is a Pick rather than
+ * the whole Payroll.
+ */
+type PayrollJoinedRow = Pick<
+  Payroll,
+  'id' | 'employee_id' | 'status' | 'net_salary'
+> & {
+  employees: { name: string; employee_id: string } | null;
+};
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 const month = process.argv[2];
@@ -31,11 +47,11 @@ async function main() {
   }
 
   console.log(`Deleting ${existing.length} payroll record(s) for ${month}:`);
-  for (const r of existing as any[]) {
+  for (const r of existing as unknown as PayrollJoinedRow[]) {
     console.log(`  ${r.employees?.employee_id ?? r.employee_id} ${r.employees?.name ?? ''} | status=${r.status} | net=${r.net_salary}`);
   }
 
-  const nonDraft = (existing as any[]).filter((r) => r.status !== 'draft');
+  const nonDraft = (existing as unknown as PayrollJoinedRow[]).filter((r) => r.status !== 'draft');
   if (nonDraft.length > 0) {
     console.error(`\n❌ Aborting: ${nonDraft.length} record(s) are not 'draft' (approved/paid). Refusing to delete those without explicit confirmation.`);
     process.exit(1);

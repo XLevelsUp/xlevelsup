@@ -9,7 +9,7 @@ import ExpenseForm from './ExpenseForm';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
-import type { Expense, Employee } from '@/types/erp';
+import type { Expense, Employee, ExpenseStatus } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import {
@@ -62,7 +62,7 @@ export default function ExpenseManager({
     router.push(`/erp/expenses${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
-  const handleStatusChange = async (id: number, newStatus: any) => {
+  const handleStatusChange = async (id: number, newStatus: ExpenseStatus) => {
     const result = await updateExpenseStatusAction(id, newStatus);
     if (result.success) {
       toast.success('Status updated successfully');
@@ -376,7 +376,7 @@ export default function ExpenseManager({
                   <select
                     value={expense.status}
                     onChange={(e) =>
-                      handleStatusChange(expense.id, e.target.value)
+                      handleStatusChange(expense.id, e.target.value as ExpenseStatus)
                     }
                     className='px-2 py-1 rounded text-xs font-medium bg-dark-800 border border-gray-700 text-white'
                   >

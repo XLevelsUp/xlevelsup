@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
+import dotenv from 'dotenv';
 
 // Load environment variables
-require('dotenv').config({
+dotenv.config({
   path: path.resolve(process.cwd(), '.env.local'),
 });
 
@@ -56,7 +57,7 @@ async function main() {
 
     console.log(`📅 Date range: ${employee.joining_date} to 2026-07-14`);
 
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     let workingDaysCount = 0;
     let attendanceCount = 0;
     let timeLogsCount = 0;

@@ -39,7 +39,7 @@ export default function FinanceForm({
   accounts = [],
   clients = [],
   defaultAccountId,
-  userRole = 'admin',
+  userRole: _userRole = 'admin',
   onSuccess,
 }: FinanceFormProps) {
   const today = new Date().toISOString().split('T')[0];
@@ -57,7 +57,7 @@ export default function FinanceForm({
   const lastFormData = useRef<FormData | null>(null);
 
   const [state, formAction] = useActionState(
-    async (prevState: any, formData: FormData) => {
+    async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
       lastFormData.current = formData;
       // Inflow vs Outflow determination
       const isInflow = type === 'income' || type === 'investment';

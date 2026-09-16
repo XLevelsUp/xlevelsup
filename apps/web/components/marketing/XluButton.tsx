@@ -27,6 +27,12 @@ import type { ReactNode } from 'react';
 import { springSnappy } from './motion';
 import { useMagnetic } from './useMagnetic';
 
+// Hoisted deliberately: motion(Link) mints a NEW component type on every call.
+// Building it inside render gave each render a different type, so React
+// unmounted and remounted the link — resetting any in-flight animation —
+// instead of updating it. At module scope it is one stable type.
+const MotionLink = motion(Link);
+
 type Variant = 'primary' | 'secondary';
 
 interface XluButtonProps {
@@ -78,7 +84,13 @@ export default function XluButton({
   'aria-label': ariaLabel,
 }: XluButtonProps) {
   const reduced = useReducedMotion();
-  const mag = useMagnetic<HTMLDivElement>({ radius: 110, strength: 0.24 });
+  // Destructured rather than kept as `mag.*`: reading `mag.ref` in the JSX below
+  // trips react-hooks/refs, which cannot tell a ref being *passed* to a ref prop
+  // from one being *read* during render.
+  const { ref: magRef, x: magX, y: magY } = useMagnetic<HTMLDivElement>({
+    radius: 110,
+    strength: 0.24,
+  });
   const applyMagnet = magnetic && variant === 'primary' && !disabled;
 
   const style =
@@ -103,7 +115,6 @@ export default function XluButton({
 
   if (href) {
     const isInternal = href.startsWith('/') || href.startsWith('#');
-    const MotionLink = motion(Link);
 
     content = isInternal ? (
       <MotionLink href={href} className={cls} style={style} aria-label={ariaLabel} {...motionProps}>
@@ -147,7 +158,7 @@ export default function XluButton({
   // its own press/hover transforms, so the two springs never fight over the
   // same value (apple-design §3: independent, interruptible springs).
   return (
-    <motion.div ref={mag.ref} style={{ x: mag.x, y: mag.y, display: 'inline-block' }}>
+    <motion.div ref={magRef} style={{ x: magX, y: magY, display: 'inline-block' }}>
       {content}
     </motion.div>
   );

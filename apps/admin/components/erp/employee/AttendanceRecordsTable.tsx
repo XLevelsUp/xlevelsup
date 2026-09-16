@@ -56,7 +56,7 @@ export default function AttendanceRecordsTable({
           weekday: 'short',
         });
       }
-    } catch (e) {
+    } catch {
       // fallback
     }
     return formatDate(dateString);
@@ -459,7 +459,7 @@ export default function AttendanceRecordsTable({
                           </div>
                           {session.notes && (
                             <p className='text-gray-400 italic mt-1 max-w-[200px] sm:max-w-xs truncate'>
-                              "{session.notes}"
+                              &ldquo;{session.notes}&rdquo;
                             </p>
                           )}
                         </div>
@@ -717,7 +717,7 @@ export default function AttendanceRecordsTable({
                                         </div>
                                         {session.notes && (
                                           <p className='text-gray-400 italic mt-1 max-w-[200px] sm:max-w-xs truncate'>
-                                            "{session.notes}"
+                                            &ldquo;{session.notes}&rdquo;
                                           </p>
                                         )}
                                       </div>

@@ -49,7 +49,7 @@ export default function Hero() {
   const reduced = useReducedMotion();
 
   // The primary CTA's magnetic pull lives inside XluButton itself.
-  const secondary = useMagnetic<HTMLDivElement>({ radius: 100, strength: 0.2 });
+  const { ref: secondaryRef, x: secondaryX, y: secondaryY } = useMagnetic<HTMLDivElement>({ radius: 100, strength: 0.2 });
 
   // Foreground counter-parallax: the aura's cyan field LEADS the pointer
   // (+x), the content drifts gently AGAINST it (-x). Two planes moving in
@@ -187,7 +187,7 @@ export default function Hero() {
             Architect Your Growth
           </XluButton>
 
-          <motion.div ref={secondary.ref} style={{ x: secondary.x, y: secondary.y }}>
+          <motion.div ref={secondaryRef} style={{ x: secondaryX, y: secondaryY }}>
             <Link
               href='/solutions/marketing-architecture'
               className='xlu-pressable group inline-flex items-center justify-center gap-2 rounded-full border border-[var(--xlu-hairline)] px-8 py-4 text-lg font-semibold text-[var(--xlu-ink)] transition-colors duration-[var(--xlu-dur-base)] hover:border-[color-mix(in_srgb,var(--xlu-brand)_45%,transparent)]'

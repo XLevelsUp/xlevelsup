@@ -3,7 +3,19 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import type { TimeLog, TimeLogSummary } from '@/types/erp';
+import type { Employee, TimeLog, TimeLogSummary } from '@/types/erp';
+
+/**
+ * A time_logs row with the employee columns getAllTimeLogs joins in. Only the
+ * five columns that query selects are present — not a whole Employee — so this
+ * is a Pick rather than the full row.
+ */
+export interface TimeLogWithEmployee extends TimeLog {
+  employee: Pick<
+    Employee,
+    'id' | 'employee_id' | 'name' | 'department' | 'employment_type'
+  > | null;
+}
 
 /**
  * Ensure an attendance record exists for this employee/date, marking it
@@ -346,7 +358,7 @@ export async function getAllTimeLogs(filters?: {
   month?: string;
   employee_id?: number;
   status?: 'active' | 'completed';
-}): Promise<any[]> {
+}): Promise<TimeLogWithEmployee[]> {
   let query = supabase
     .from('time_logs')
     .select(
@@ -383,7 +395,7 @@ export async function getAllTimeLogs(filters?: {
   
   // Exclude temporary employees by default
   return (data || []).filter(
-    (log: any) => log.employee?.employment_type !== 'temporary'
+    (log: TimeLogWithEmployee) => log.employee?.employment_type !== 'temporary'
   );
 }
 

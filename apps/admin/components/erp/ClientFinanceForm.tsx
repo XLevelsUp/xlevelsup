@@ -43,7 +43,7 @@ export default function ClientFinanceForm({
   const lastFormData = useRef<FormData | null>(null);
 
   const [state, formAction] = useActionState(
-    async (prevState: any, formData: FormData) => {
+    async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
       lastFormData.current = formData;
       if (transaction) {
         return await updateClientTransactionAction(transaction.id, formData);
@@ -61,6 +61,7 @@ export default function ClientFinanceForm({
 
   useEffect(() => {
     if (transaction) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs the form to whichever transaction the modal was opened with. The React-blessed alternative is remounting via a key at the call sites, which changes how the modal is mounted — out of scope for a lint pass.
       setTransactionType(transaction.type);
       setPaymentStatus(transaction.payment_status);
       setAmount(transaction.amount?.toString() || '');

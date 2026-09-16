@@ -23,12 +23,29 @@ import {
   type PayrollAttendanceStatus,
 } from '@/lib/erp/utils';
 import { revalidatePath } from 'next/cache';
-import type { PayrollWithEmployee } from '@/types/erp';
+import type { Payroll, PayrollWithEmployee } from '@/types/erp';
 
-export interface PayrollActionResult {
+/**
+ * What a bulk payroll operation reports back — generate fills
+ * generated/skipped/errors, delete-month fills deletedCount. Distinct from a
+ * Payroll row, which is what the single-record actions return.
+ */
+export interface PayrollBulkSummary {
+  generated?: number;
+  skipped?: number;
+  errors?: string[];
+  deletedCount?: number;
+}
+
+/**
+ * `payroll` carries a different payload depending on the action, so the type
+ * parameter lets each one declare which it is rather than every caller having
+ * to narrow a union.
+ */
+export interface PayrollActionResult<T = Payroll | PayrollBulkSummary> {
   success: boolean;
   error?: string;
-  payroll?: any;
+  payroll?: T;
 }
 
 /**
@@ -53,7 +70,7 @@ export async function getPayrollAction(filters?: {
  */
 export async function generatePayrollAction(
   formData: FormData,
-): Promise<PayrollActionResult> {
+): Promise<PayrollActionResult<PayrollBulkSummary>> {
   try {
     const session = await requireRole(['admin', 'hr']);
 
@@ -182,7 +199,7 @@ export async function generatePayrollAction(
 export async function updatePayrollAdjustmentsAction(
   id: number,
   formData: FormData,
-): Promise<PayrollActionResult> {
+): Promise<PayrollActionResult<Payroll>> {
   try {
     await requireRole(['admin', 'hr']);
 
@@ -209,7 +226,7 @@ export async function updatePayrollAdjustmentsAction(
 export async function updatePayrollStatusAction(
   id: number,
   status: 'draft' | 'approved',
-): Promise<PayrollActionResult> {
+): Promise<PayrollActionResult<Payroll>> {
   try {
     const session = await requireRole(['admin', 'hr']);
 
@@ -245,7 +262,7 @@ const markPaidSchema = z.object({
 export async function markPayrollPaidAction(
   id: number,
   referenceNumber: string,
-): Promise<PayrollActionResult> {
+): Promise<PayrollActionResult<Payroll>> {
   try {
     const session = await requireRole(['admin', 'hr']);
 
@@ -299,7 +316,7 @@ export async function deletePayrollAction(
  */
 export async function deletePayrollForMonthAction(
   month: string,
-): Promise<PayrollActionResult> {
+): Promise<PayrollActionResult<PayrollBulkSummary>> {
   try {
     await requireRole(['admin', 'hr']);
 

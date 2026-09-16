@@ -215,7 +215,7 @@ export default function EmployeeCareerHistoryComponent({
               {/* Reason */}
               {entry.reason && (
                 <p className="text-xs text-gray-400 italic border-t border-gray-800/60 pt-2 mt-2">
-                  "{entry.reason}"
+                  &ldquo;{entry.reason}&rdquo;
                 </p>
               )}
 

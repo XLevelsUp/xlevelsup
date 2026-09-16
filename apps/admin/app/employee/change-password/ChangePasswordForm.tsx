@@ -6,7 +6,6 @@
  */
 
 import { useActionState, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   forceChangePasswordAction,
   employeeLogoutAction,
@@ -23,13 +22,12 @@ export default function ChangePasswordForm({
   employeeId,
   employeeName,
 }: ChangePasswordFormProps) {
-  const router = useRouter();
   const [isChanging, setIsChanging] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Bind the action with employeeId - use a wrapper function
-  const handleFormAction = async (prevState: any, formData: FormData) => {
+  const handleFormAction = async (prevState: { success: boolean; error?: string } | null, formData: FormData) => {
     return await forceChangePasswordAction(employeeId, prevState, formData);
   };
 
@@ -56,6 +54,7 @@ export default function ChangePasswordForm({
       handleLogoutAndRedirect();
     } else if (state?.error) {
       toast.error(state.error);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears the submitting flag once the server action reports failure. Deriving it from useFormStatus instead would mean restructuring the submit path; the toast beside it is an external side effect that belongs in an effect regardless.
       setIsChanging(false);
     }
   }, [state]);

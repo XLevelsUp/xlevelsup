@@ -116,14 +116,6 @@ export default function ClockInOut({
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Format hours to decimal
-  const formatHours = (seconds: number): string => {
-    if (!seconds || isNaN(seconds) || seconds < 0) {
-      return '0.00';
-    }
-    return (seconds / 3600).toFixed(2);
-  };
-
   // Calculate total hours including current session
   const getTotalHours = (): number => {
     if (!summary.is_clocked_in) {

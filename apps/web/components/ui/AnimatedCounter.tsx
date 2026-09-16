@@ -29,13 +29,16 @@ export default function AnimatedCounter({
             { threshold: 0.1 }
         );
 
-        if (counterRef.current) {
-            observer.observe(counterRef.current);
+        // Captured once, so cleanup unobserves the same node the effect
+        // observed even if the ref has since been pointed elsewhere.
+        const node = counterRef.current;
+        if (node) {
+            observer.observe(node);
         }
 
         return () => {
-            if (counterRef.current) {
-                observer.unobserve(counterRef.current);
+            if (node) {
+                observer.unobserve(node);
             }
         };
     }, [isVisible]);

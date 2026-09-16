@@ -219,7 +219,7 @@ const basicDetailsSchema = z.object({
  * verified session id, never a client-supplied one.
  */
 export async function updateOwnBasicDetailsAction(
-  prevState: any,
+  prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; employee?: Employee }> {
   try {

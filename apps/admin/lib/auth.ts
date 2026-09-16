@@ -5,7 +5,6 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 import type { User, UserRole } from '@/types/erp';
 
 const SECRET_KEY = new TextEncoder().encode(
@@ -56,7 +55,7 @@ export async function verifySession(
   try {
     const verified = await jwtVerify(token, SECRET_KEY);
     return verified.payload as SessionPayload;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

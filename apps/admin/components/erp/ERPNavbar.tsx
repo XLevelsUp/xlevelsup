@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { m as motion } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import { logout } from '@/actions/erp/auth';
 import { useRouter } from 'next/navigation';

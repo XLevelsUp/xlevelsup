@@ -4,7 +4,7 @@ import { m as motion, useReducedMotion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import ContactForm from '@/components/ContactForm';
 import { CornerBrackets, BlueprintGrid } from '@/components/solutions/FigureSection';
-import { springDefault, revealViewport } from '@/components/marketing/motion';
+import { springDefault } from '@/components/marketing/motion';
 
 /**
  * /contact — restyled onto the --xlu-* system.

@@ -7,11 +7,29 @@ import { supabaseServer as supabase } from '@/lib/supabase-server';
 import type {
   AttendanceChangeRequest,
   AttendanceChangeRequestWithEmployee,
+  AttendanceChangeStatus,
   AttendanceRegularisationType,
   AttendanceRegularisationFormData,
+  Attendance,
   AttendanceStatus,
+  AttendanceWithChangeRequest,
+  TimeLog,
   HalfDayPeriod,
 } from '@/types/erp';
+
+/**
+ * The raw rows the two joined selects in this module return, before they are
+ * flattened into the `*WithEmployee` / `*WithChangeRequest` shapes the callers
+ * see. PostgREST nests joined tables under the relation name, so these describe
+ * that nesting rather than the flattened result.
+ */
+interface ChangeRequestRow extends AttendanceChangeRequest {
+  employees: { name: string; email: string; employee_id: string } | null;
+}
+
+interface AttendanceJoinedRow extends Attendance {
+  change_requests?: { id: number; status: AttendanceChangeStatus }[] | null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // READ OPERATIONS
@@ -50,7 +68,7 @@ export async function getAllAttendanceChangeRequests(filters?: {
 
   if (error) throw error;
 
-  return (data || []).map((request: any) => ({
+  return (data || []).map((request: ChangeRequestRow) => ({
     ...request,
     employee_name: request.employees?.name || 'Unknown',
     employee_email: request.employees?.email || '',
@@ -82,8 +100,8 @@ export async function fetchAttendanceByEmployeeAndDate(
   employeeId: number,
   date: string,
 ): Promise<{
-  attendance: any | null;
-  timeLog: any | null;
+  attendance: Attendance | null;
+  timeLog: TimeLog | null;
   clockInTime: string | null;
   clockOutTime: string | null;
 }> {
@@ -125,7 +143,7 @@ export async function getEmployeeAttendanceWithRequests(
   employeeId: number,
   startDate?: string,
   endDate?: string,
-): Promise<any[]> {
+): Promise<AttendanceWithChangeRequest[]> {
   let query = supabase
     .from('attendance')
     .select(
@@ -156,14 +174,14 @@ export async function getEmployeeAttendanceWithRequests(
 
   if (error) throw error;
 
-  return (data || []).map((attendance: any) => ({
+  return (data || []).map((attendance: AttendanceJoinedRow) => ({
     ...attendance,
     has_pending_request:
       attendance.change_requests?.some(
-        (req: any) => req.status === 'pending',
+        (req) => req.status === 'pending',
       ) || false,
     change_request_id:
-      attendance.change_requests?.find((req: any) => req.status === 'pending')
+      attendance.change_requests?.find((req) => req.status === 'pending')
         ?.id || null,
   }));
 }
@@ -358,7 +376,7 @@ export async function reviewAttendanceChangeRequest(
 
 /** Handle legacy status-change approval */
 async function handleStatusChangeApproval(
-  request: any,
+  request: AttendanceChangeRequest,
   reviewerId: number,
 ): Promise<void> {
   const halfDayPeriod =
@@ -408,7 +426,7 @@ async function handleStatusChangeApproval(
 
 /** Handle new typed regularisation approval */
 async function handleRegularisationApproval(
-  request: any,
+  request: AttendanceChangeRequest,
   reviewerId: number,
   reqType: AttendanceRegularisationType,
 ): Promise<void> {
@@ -472,7 +490,7 @@ async function handleRegularisationApproval(
 async function applyMissedClockIn(
   employeeId: number,
   date: string,
-  request: any,
+  request: AttendanceChangeRequest,
 ): Promise<void> {
   if (!request.requested_clock_in_time) return;
 
@@ -524,7 +542,7 @@ async function applyMissedClockIn(
 async function applyMissedClockOut(
   employeeId: number,
   date: string,
-  request: any,
+  request: AttendanceChangeRequest,
 ): Promise<void> {
   if (!request.requested_clock_out_time) return;
 
@@ -603,8 +621,8 @@ async function applyMissedClockOut(
 async function applyMissedBoth(
   employeeId: number,
   date: string,
-  request: any,
-  reviewerId: number,
+  request: AttendanceChangeRequest,
+  _reviewerId: number,
 ): Promise<void> {
   if (!request.requested_clock_in_time || !request.requested_clock_out_time) return;
 
@@ -652,7 +670,7 @@ async function applyMissedBoth(
 async function applyClockInCorrection(
   employeeId: number,
   date: string,
-  request: any,
+  request: AttendanceChangeRequest,
 ): Promise<void> {
   if (!request.requested_clock_in_time) return;
 
@@ -692,7 +710,7 @@ async function applyClockInCorrection(
 async function applyClockOutCorrection(
   employeeId: number,
   date: string,
-  request: any,
+  request: AttendanceChangeRequest,
 ): Promise<void> {
   if (!request.requested_clock_out_time) return;
 

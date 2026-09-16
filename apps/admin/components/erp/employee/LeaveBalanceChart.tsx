@@ -38,13 +38,6 @@ export default function LeaveBalanceChart({
     return types[type] || { label: type, icon: '📅', color: 'gray' };
   };
 
-  const getProgressColor = (remaining: number, total: number) => {
-    const percentage = (remaining / total) * 100;
-    if (percentage > 60) return 'bg-green-500';
-    if (percentage > 30) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
   const getProgressBarColor = (type: string) => {
     const colors: Record<string, string> = {
       casual: 'bg-[var(--cyan)]',

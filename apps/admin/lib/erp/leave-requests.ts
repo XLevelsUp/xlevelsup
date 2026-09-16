@@ -13,6 +13,16 @@ import { getNonFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
 import { isAttendanceWorkingDay } from '@/lib/erp/utils';
 
 /**
+ * A leave_requests row as PostgREST returns it from the joined select, with
+ * employee and reviewer nested under their relation names rather than
+ * flattened into the employee_name / reviewer_name fields callers see.
+ */
+interface LeaveRequestJoinedRow extends LeaveRequest {
+  employee: { name: string; employee_id: string; department: string } | null;
+  reviewer: { name: string } | null;
+}
+
+/**
  * Calculate total working days between two dates (inclusive).
  * Excludes non-working weekend days (Sunday, and every Saturday except the
  * first of the month — see isAttendanceWorkingDay) and, optionally, a set
@@ -159,7 +169,7 @@ export async function getAllLeaveRequests(filters?: {
 
   // Transform the data to match LeaveRequestWithEmployee interface
   return (
-    data?.map((item: any) => ({
+    data?.map((item: LeaveRequestJoinedRow) => ({
       ...item,
       employee_name: item.employee?.name || 'Unknown',
       employee_id_display: item.employee?.employee_id || '',
@@ -490,7 +500,12 @@ function calculateProratedLeaves(
     };
   }
 
-  const floater = Math.round((monthsRemaining / monthsInYear) * 2); // Prorated floater
+  // Floater is NOT prorated by joining month like casual/sick — it's not a
+  // gradually-accrued day off, it's tied to specific company-designated
+  // floater holidays (see validateFloaterLeave), so anyone employed for the
+  // year is entitled to the full count regardless of which month they
+  // joined in.
+  const floater = 2;
   const sick = Math.round((monthsRemaining / monthsInYear) * 5); // Prorated sick leave
   const earned = 0; // Always starts at 0
 
