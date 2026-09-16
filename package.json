@@ -2,48 +2,19 @@
   "name": "xlevelsup",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "init-erp": "tsx scripts/init-erp.ts",
-    "create-employee-logins": "tsx scripts/create-employee-logins.ts",
-    "init-leave-balances": "tsx scripts/init-leave-balances.ts",
-    "update-leave-balances": "tsx scripts/update-leave-balances-by-joining-date.ts",
-    "backfill-attendance": "tsx scripts/backfill-attendance-from-time-logs.ts"
-  },
-  "dependencies": {
-    "@next/third-parties": "^16.1.1",
-    "@supabase/supabase-js": "^2.108.1",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
-    "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.10.0",
-    "critters": "^0.0.23",
-    "framer-motion": "^12.23.26",
-    "google-auth-library": "^10.5.0",
-    "googleapis": "^170.0.0",
-    "html2canvas-pro": "^2.4.2",
-    "jose": "^6.2.3",
-    "jspdf": "^4.2.1",
-    "lucide-react": "^1.23.0",
-    "next": "16.1.1",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-hot-toast": "^2.6.0",
-    "zod": "^4.3.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "dotenv": "^17.4.2",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.1",
-    "tailwindcss": "^4",
-    "tsx": "^4.22.4",
-    "typescript": "^5"
+    "dev": "npm run dev -w @xlu/web",
+    "dev:web": "npm run dev -w @xlu/web",
+    "dev:admin": "npm run dev -w @xlu/admin",
+    "build": "npm run build -w @xlu/web && npm run build -w @xlu/admin",
+    "build:web": "npm run build -w @xlu/web",
+    "build:admin": "npm run build -w @xlu/admin",
+    "start:web": "npm run start -w @xlu/web",
+    "start:admin": "npm run start -w @xlu/admin",
+    "lint": "npm run lint -w @xlu/web && npm run lint -w @xlu/admin",
+    "typecheck": "npm run typecheck -w @xlu/web && npm run typecheck -w @xlu/admin"
   }
 }
