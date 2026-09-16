@@ -18,7 +18,7 @@ function SubmitButton() {
       className='w-full'
       disabled={pending}
     >
-      {pending ? 'Submitting...' : 'Submit for Approval'}
+      {pending ? 'Saving...' : 'Save Attendance'}
     </Button>
   );
 }

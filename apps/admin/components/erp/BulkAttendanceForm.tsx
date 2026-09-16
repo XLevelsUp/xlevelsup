@@ -239,9 +239,8 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
 
       <div className='bg-blue-900/20 border border-blue-700/30 rounded-lg p-3'>
         <p className='text-xs text-blue-300'>
-          <strong>Note:</strong> This proposes creating a new attendance record for any
-          employee/date that doesn&apos;t have one yet, and overwriting the status on any that
-          already exist — but nothing is applied until a <em>different</em> admin approves it.
+          <strong>Note:</strong> This creates a new attendance record for any employee/date
+          that doesn&apos;t have one yet, and overwrites the status on any that already exist.
         </p>
       </div>
 
@@ -252,7 +251,7 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
         disabled={!canSubmit}
         onClick={handleSubmit}
       >
-        {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+        {isSubmitting ? 'Applying...' : 'Apply Attendance'}
       </Button>
     </div>
   );

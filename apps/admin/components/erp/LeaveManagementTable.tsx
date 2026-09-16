@@ -407,24 +407,20 @@ function ReviewModal({
         {/* Action Buttons */}
         {request.status === 'pending' ? (
           <>
-            <p className='text-xs text-gray-500 -mt-1'>
-              This submits your decision to another admin for confirmation — it won&apos;t take
-              effect until a <em>different</em> admin approves it.
-            </p>
             <div className='flex gap-3'>
               <button
                 onClick={() => onReview('approved', comments)}
                 disabled={processing}
                 className='flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
               >
-                {processing ? 'Processing...' : 'Propose Approve'}
+                {processing ? 'Processing...' : 'Approve'}
               </button>
               <button
                 onClick={() => onReview('rejected', comments)}
                 disabled={processing}
                 className='flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
               >
-                {processing ? 'Processing...' : 'Propose Reject'}
+                {processing ? 'Processing...' : 'Reject'}
               </button>
             </div>
           </>

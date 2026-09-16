@@ -98,18 +98,10 @@ export default function AttendanceChangeRequestReviewForm({
         />
       </div>
 
-      {/* Info */}
-      <div className='bg-yellow-900/20 border border-yellow-700/30 rounded-lg p-3'>
-        <p className='text-xs text-yellow-300'>
-          <strong>Note:</strong> This submits your decision for another admin to confirm — the
-          attendance record is only created/updated once a <em>different</em> admin approves it.
-        </p>
-      </div>
-
       {/* Submit Button */}
       <div className='flex gap-2'>
         <Button type='submit' variant='primary' className='flex-1'>
-          Submit for Approval
+          Submit Decision
         </Button>
       </div>
     </form>
