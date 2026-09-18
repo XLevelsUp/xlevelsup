@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth';
+import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getClients, getClientFinancialSummaries } from '@/lib/erp/clients';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
@@ -11,6 +11,11 @@ export default async function ClientsPage() {
   }
   if (session.role === 'employee') {
     redirect('/erp/dashboard');
+  }
+  // Accountants are invoice-only.
+  const denied = erpPageRedirect(session);
+  if (denied) {
+    redirect(denied);
   }
 
   const [clients, summaries] = await Promise.all([

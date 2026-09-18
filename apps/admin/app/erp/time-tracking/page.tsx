@@ -3,7 +3,7 @@
  * Full page view with more detailed controls and history
  */
 
-import { getSession } from '@/lib/auth';
+import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import {
@@ -25,6 +25,11 @@ export default async function TimeTrackingPage() {
   const session = await getSession();
   if (!session) {
     redirect('/erp/login');
+  }
+  // Accountants are invoice-only; every other role keeps its existing access.
+  const denied = erpPageRedirect(session);
+  if (denied) {
+    redirect(denied);
   }
 
   const employeesTimeStatus = await getAllEmployeesTimeStatus();

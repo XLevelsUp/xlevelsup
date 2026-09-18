@@ -124,3 +124,57 @@ export function hasRole(
   if (!session) return false;
   return roles.includes(session.role);
 }
+
+/**
+ * The accountant role is invoice-read-only.
+ *
+ * WHY THIS EXISTS AS A NAMED HELPER: most ERP pages gate access with
+ * `if (session.role === 'employee') redirect(...)`. An accountant is not an
+ * employee, so every one of those checks would silently admit it — granting a
+ * bookkeeper payroll, employee records and the finance ledger. Any page that is
+ * not invoice history must therefore deny accountants EXPLICITLY, which is what
+ * `assertErpPageAccess` below does.
+ */
+export function isAccountant(session: SessionPayload | null): boolean {
+  return session?.role === 'accountant';
+}
+
+/**
+ * Roles allowed to reach a general ERP page (anything except invoice history).
+ *
+ * Deliberately an allow-list. Adding a future role must be a conscious decision
+ * at this one site rather than an accident of `!== 'employee'` checks scattered
+ * across pages.
+ */
+export const ERP_FULL_ACCESS_ROLES: UserRole[] = ['admin', 'hr'];
+
+/**
+ * Roles permitted to read invoices (view + download).
+ * Accountants are read-only here; creating and editing invoices stays with
+ * admin/hr via the requireRole guards in actions/erp/billing.ts.
+ */
+export const INVOICE_READ_ROLES: UserRole[] = ['admin', 'hr', 'accountant'];
+
+/**
+ * Page-level guard for every ERP screen that is NOT invoice history.
+ *
+ * Returns the session when the caller may proceed, or a redirect target when
+ * it may not. Pages call it instead of hand-rolling `role === 'employee'`,
+ * which is what let a new role through by default.
+ *
+ *   const session = await getSession();
+ *   const denied = erpPageRedirect(session);
+ *   if (denied) redirect(denied);
+ *
+ * Accountants are sent to billing history — their only screen — rather than to
+ * the dashboard, which would show them an empty shell.
+ */
+export function erpPageRedirect(session: SessionPayload | null): string | null {
+  if (!session) return '/erp/login';
+  // Accountants only. Deliberately does NOT change what employees can reach —
+  // several of these pages were already open to them and tightening that here
+  // would be an unrelated permissions change.
+  if (session.role === 'accountant') return '/erp/billing?tab=history';
+  return null;
+}
+

@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth';
+import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getHolidaysForYear } from '@/lib/erp/holidays';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
@@ -15,6 +15,11 @@ export default async function HolidaysPage({
   }
   if (session.role === 'employee') {
     redirect('/erp/dashboard');
+  }
+  // Accountants are invoice-only.
+  const denied = erpPageRedirect(session);
+  if (denied) {
+    redirect(denied);
   }
 
   const params = await searchParams;

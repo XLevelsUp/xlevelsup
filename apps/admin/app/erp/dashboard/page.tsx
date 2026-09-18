@@ -16,6 +16,12 @@ export default async function DashboardPage() {
   if (!session) {
     redirect('/erp/login');
   }
+  // The dashboard is the redirect TARGET for employees, so it must not use
+  // erpPageRedirect — that would bounce them straight back here in a loop.
+  // Accountants are still denied: invoice history is their only screen.
+  if (session.role === 'accountant') {
+    redirect('/erp/billing?tab=history');
+  }
 
   const stats = await getDashboardStats();
   const employeesTimeStatus = await getAllEmployeesTimeStatus();

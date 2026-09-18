@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'hr', 'employee')),
+    -- 'accountant' is invoice-read-only; see types/erp.ts UserRole.
+    role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'hr', 'employee', 'accountant')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

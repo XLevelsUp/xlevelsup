@@ -2,7 +2,7 @@
  * ERP Admin - Leave Management Page
  */
 
-import { getSession } from '@/lib/auth';
+import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllLeaveRequests } from '@/lib/erp/leave-requests';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
@@ -12,6 +12,11 @@ export default async function LeaveManagementPage() {
   const session = await getSession();
   if (!session) {
     redirect('/erp/login');
+  }
+  // Accountants are invoice-only; every other role keeps its existing access.
+  const denied = erpPageRedirect(session);
+  if (denied) {
+    redirect(denied);
   }
 
   // Get all leave requests
