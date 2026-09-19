@@ -20,8 +20,18 @@ export default async function BillingPage({
     redirect('/erp/dashboard');
   }
 
+  // Accountants may read invoice history but never create or edit one, so the
+  // "New Invoice" tab does not exist for them — including via a hand-typed
+  // ?tab=new. The server actions behind that form are separately guarded by
+  // requireRole(['admin','hr']), so this is presentation, not the only defence.
+  const isReadOnly = session.role === 'accountant';
+
   const params = await searchParams;
-  const activeTab = params.tab === 'history' ? 'history' : 'new';
+  const activeTab = isReadOnly
+    ? 'history'
+    : params.tab === 'history'
+      ? 'history'
+      : 'new';
   // `month` is absent on first load (defaults to the current month), but an
   // explicitly empty value means the user cleared the filter to see every
   // invoice — those two cases must stay distinguishable.
@@ -37,16 +47,18 @@ export default async function BillingPage({
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
       <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         <div className='flex gap-1 mb-6 bg-[#0a0a0a] p-1 rounded-lg w-fit'>
-          <a
-            href='?tab=new'
-            className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${
-              activeTab === 'new'
-                ? 'bg-[var(--cyan)] text-black'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            🧾 New Invoice
-          </a>
+          {!isReadOnly && (
+            <a
+              href='?tab=new'
+              className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${
+                activeTab === 'new'
+                  ? 'bg-[var(--cyan)] text-black'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              🧾 New Invoice
+            </a>
+          )}
           <a
             href='?tab=history'
             className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${

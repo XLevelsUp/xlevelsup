@@ -3,7 +3,7 @@
  * Review and approve/reject employee attendance change requests
  */
 
-import { getSession } from '@/lib/auth';
+import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllAttendanceChangeRequests } from '@/lib/erp/attendance-change-requests';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
@@ -13,6 +13,11 @@ export default async function AttendanceChangeRequestsPage() {
   const session = await getSession();
   if (!session) {
     redirect('/erp/login');
+  }
+  // Accountants are invoice-only; every other role keeps its existing access.
+  const denied = erpPageRedirect(session);
+  if (denied) {
+    redirect(denied);
   }
 
   const allRequests = await getAllAttendanceChangeRequests();

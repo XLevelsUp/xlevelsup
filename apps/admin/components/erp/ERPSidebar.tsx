@@ -141,8 +141,14 @@ export default function ERPSidebar({
     return activeTab === tabParam;
   };
 
+  // Accountants get exactly one destination: invoice history. Filtering the
+  // assembled list below — rather than adding `userRole !== 'accountant'` to
+  // each entry — means a nav item added later cannot accidentally become
+  // visible to them.
+  const isAccountant = userRole === 'accountant';
+
   // Finance sub-items (admin and HR only)
-  const financeItems = userRole === 'employee' ? [] : [
+  const financeItems = userRole === 'employee' || isAccountant ? [] : [
           {
             href: '/erp/finances?tab=overview',
             label: 'Overview',
@@ -201,7 +207,7 @@ export default function ERPSidebar({
 
   // "My Workspace" — self-service pages for admins/HR who are also staff
   // members (e.g. the CEO/CTO/CFO), reached via their existing admin login.
-  const myWorkspaceItems = userRole === 'employee' ? [] : [
+  const myWorkspaceItems = userRole === 'employee' || isAccountant ? [] : [
           {
             href: '/employee/dashboard',
             label: 'My Dashboard',
@@ -273,7 +279,10 @@ export default function ERPSidebar({
 
       {/* Nav Items */}
       <div className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
-        {navItems.map((item) => {
+        {(isAccountant
+          ? navItems.filter((item) => item.href === '/erp/billing')
+          : navItems
+        ).map((item) => {
           const isActive = isActivePath(item.href);
           return (
             <Link

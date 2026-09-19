@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "init-erp": "tsx scripts/init-erp.ts",
     "create-employee-logins": "tsx scripts/create-employee-logins.ts",
+    "create-accountant": "tsx scripts/create-accountant.ts",
     "init-leave-balances": "tsx scripts/init-leave-balances.ts",
     "update-leave-balances": "tsx scripts/update-leave-balances-by-joining-date.ts",
     "backfill-attendance": "tsx scripts/backfill-attendance-from-time-logs.ts"

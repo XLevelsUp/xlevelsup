@@ -134,7 +134,15 @@ export default function ERPLayoutWrapper({
       : []),
   ];
 
-  const mobileFinanceItems = userRole === 'employee' ? [] : [
+  // Accountants get exactly one destination. Filtering the assembled list here
+  // — rather than adding `userRole !== 'accountant'` to each entry above —
+  // means a nav item added later cannot accidentally become visible to them.
+  const isAccountant = userRole === 'accountant';
+  const visibleNavItems = isAccountant
+    ? navItems.filter((item) => item.href === '/erp/billing')
+    : navItems;
+
+  const mobileFinanceItems = userRole === 'employee' || isAccountant ? [] : [
           {
             href: '/erp/finances?tab=overview',
             label: 'Overview',
@@ -163,7 +171,7 @@ export default function ERPLayoutWrapper({
 
   // "My Workspace" — self-service pages for admins/HR who are also staff
   // members (e.g. the CEO/CTO/CFO), reached via their existing admin login.
-  const myWorkspaceItems = userRole === 'employee' ? [] : [
+  const myWorkspaceItems = userRole === 'employee' || isAccountant ? [] : [
           { href: '/employee/dashboard', label: 'My Dashboard' },
           { href: '/employee/attendance', label: 'My Attendance' },
           { href: '/employee/leave', label: 'My Leave Requests' },
@@ -254,7 +262,7 @@ export default function ERPLayoutWrapper({
 
               {/* Navigation list */}
               <div className="flex-grow overflow-y-auto py-4 space-y-2">
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const isActive = isActivePath(item.href);
                   return (
                     <Link

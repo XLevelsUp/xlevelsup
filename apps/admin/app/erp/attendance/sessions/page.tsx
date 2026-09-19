@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth';
+import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllEmployees } from '@/lib/erp/employees';
 import { getAllTimeLogs } from '@/lib/erp/time-logs';
@@ -14,6 +14,11 @@ export default async function AttendanceSessionsPage({
   const session = await getSession();
   if (!session) {
     redirect('/erp/login');
+  }
+  // Accountants are invoice-only; every other role keeps its existing access.
+  const denied = erpPageRedirect(session);
+  if (denied) {
+    redirect(denied);
   }
 
   const params = await searchParams;

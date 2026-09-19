@@ -1,6 +1,16 @@
 // ERP Type Definitions
 
-export type UserRole = 'admin' | 'hr' | 'employee';
+/**
+ * ERP access roles.
+ *
+ * `accountant` is deliberately the narrowest role: it exists to let a
+ * bookkeeper pull invoices without seeing payroll, employee records or the
+ * finance ledger. Guards must therefore ALLOW-LIST it rather than rely on the
+ * older `role === 'employee'` redirects — an accountant is not an employee, so
+ * those checks let it through. See `isAccountant` / `assertCanAccess` in
+ * lib/auth.ts.
+ */
+export type UserRole = 'admin' | 'hr' | 'employee' | 'accountant';
 
 export type EmploymentType =
   | 'full-time'
