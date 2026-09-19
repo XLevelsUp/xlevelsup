@@ -281,62 +281,66 @@ export default function ERPLayoutWrapper({
                   );
                 })}
 
-                {/* Finances Group (mobile) */}
+                {/* Finances Group (mobile) — hidden when empty, same as the
+                    desktop sidebar. Accountants have no finance children, and
+                    an expandable row that opens to nothing is worse than no row. */}
+                {mobileFinanceItems.length > 0 && (
                 <div>
-                  <button
-                    onClick={() => setIsMobileFinancesOpen(!isMobileFinancesOpen)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 ${
-                      pathname?.startsWith('/erp/finances')
-                        ? 'bg-cyan/10 text-cyan border border-cyan/20'
-                        : 'hover:bg-gray-800/40 text-gray-300'
-                    }`}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span className="font-medium text-sm flex-1 text-left">Finances</span>
-                    <svg
-                      className={`w-4 h-4 transition-transform duration-200 ${isMobileFinancesOpen ? 'rotate-180' : ''}`}
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                    <button
+                      onClick={() => setIsMobileFinancesOpen(!isMobileFinancesOpen)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 ${
+                        pathname?.startsWith('/erp/finances')
+                          ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                          : 'hover:bg-gray-800/40 text-gray-300'
+                      }`}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <AnimatePresence>
-                    {isMobileFinancesOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="font-medium text-sm flex-1 text-left">Finances</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${isMobileFinancesOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
                       >
-                        <div className="pl-4 border-l border-gray-800/80 ml-4 mt-1 space-y-1">
-                          {mobileFinanceItems.map((item) => {
-                            const url = new URL(item.href, 'http://localhost');
-                            const tabParam = url.searchParams.get('tab');
-                            const activeTab = searchParams.get('tab') || 'overview';
-                            const isActive = pathname === url.pathname && activeTab === tabParam;
-                            return (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setIsMobileMenuOpen(false)}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                                  isActive
-                                    ? 'bg-cyan/10 text-cyan border border-cyan/20'
-                                    : 'hover:bg-gray-800/40 text-gray-300'
-                                }`}
-                              >
-                                <span className="font-medium text-sm">{item.label}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <AnimatePresence>
+                      {isMobileFinancesOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-4 border-l border-gray-800/80 ml-4 mt-1 space-y-1">
+                            {mobileFinanceItems.map((item) => {
+                              const url = new URL(item.href, 'http://localhost');
+                              const tabParam = url.searchParams.get('tab');
+                              const activeTab = searchParams.get('tab') || 'overview';
+                              const isActive = pathname === url.pathname && activeTab === tabParam;
+                              return (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  onClick={() => setIsMobileMenuOpen(false)}
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                    isActive
+                                      ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                                      : 'hover:bg-gray-800/40 text-gray-300'
+                                  }`}
+                                >
+                                  <span className="font-medium text-sm">{item.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
 
                 {/* My Workspace Group (mobile) — self-service access for admin/HR who are also staff */}
                 {myWorkspaceItems.length > 0 && (

@@ -11,6 +11,8 @@
  *
  * Usage:
  *   npm run create-accountant -w @xlu/admin -- <email> <password>
+ *
+ * Password must be 8+ chars with upper, lower, and a number or symbol.
  */
 import dotenv from 'dotenv';
 import * as path from 'path';
@@ -32,8 +34,31 @@ async function main() {
     process.exit(1);
   }
 
-  if (password.length < 12) {
-    console.error('❌ Password must be at least 12 characters.');
+  // Password policy.
+  //
+  // Aligned with the employee-portal rule in actions/erp/employee-auth.ts
+  // (min 8, mixed case) with one deliberate difference: that rule demands a
+  // DIGIT specifically, which rejects otherwise-strong passphrases whose only
+  // non-letter is a symbol. Here a digit OR a symbol satisfies the same intent.
+  //
+  // This replaces a flat 12-character minimum. Composition is checked instead
+  // of length alone, so the bar on raw length is lower than it was — for an
+  // account that can read every invoice, prefer something longer than the
+  // minimum and rotate it after handover.
+  const rules: { ok: boolean; message: string }[] = [
+    { ok: password.length >= 8, message: 'be at least 8 characters' },
+    { ok: /[a-z]/.test(password), message: 'contain a lowercase letter' },
+    { ok: /[A-Z]/.test(password), message: 'contain an uppercase letter' },
+    {
+      ok: /[\d\W_]/.test(password),
+      message: 'contain a number or a symbol',
+    },
+  ];
+
+  const failed = rules.filter((r) => !r.ok);
+  if (failed.length > 0) {
+    console.error('❌ Password must:');
+    for (const rule of failed) console.error(`   • ${rule.message}`);
     process.exit(1);
   }
 

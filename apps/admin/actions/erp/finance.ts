@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireAuth, requireRole } from '@/lib/auth';
+import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES } from '@/lib/auth';
 import {
   getLedgerEntries,
   getLedgerEntryById,
@@ -146,7 +146,17 @@ export async function createLedgerEntryAction(
       receipt_path: null as string | null,
     };
 
-    // Role restrictions
+    // Role restrictions.
+    //
+    // Deny-by-default: only admin, hr and employee may write to the ledger, and
+    // employees are clamped to their own pending reimbursements below. Before
+    // this, anything that was not literally 'employee' fell through with
+    // unrestricted create rights — which handed the invoice-only accountant the
+    // ability to post arbitrary company transactions.
+    if (!ERP_FULL_ACCESS_ROLES.includes(session.role) && session.role !== 'employee') {
+      return { success: false, error: 'Forbidden - Insufficient permissions' };
+    }
+
     if (session.role === 'employee') {
       const employeeId = await getEmployeeIdFromUserId(session.userId);
       if (!employeeId) {
@@ -288,7 +298,10 @@ export async function approveLedgerEntryAction(
  */
 export async function getReceiptUrlAction(path: string): Promise<{ url: string | null }> {
   try {
-    await requireAuth();
+    // Only reached from the admin finance screen. Was requireAuth(), which
+    // handed a signed receipt URL to any authenticated role — including the
+    // invoice-only accountant, and any role added later.
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     const url = await getReceiptSignedUrl(path);
     return { url };
   } catch (error) {
@@ -303,7 +316,10 @@ export async function getReceiptUrlAction(path: string): Promise<{ url: string |
  */
 export async function getPayslipUrlAction(path: string): Promise<{ url: string | null }> {
   try {
-    await requireAuth();
+    // Payslips carry salary figures. Same fix as getReceiptUrlAction above:
+    // this was open to every authenticated role. The employee portal does not
+    // call it, so restricting it here takes nothing away from staff.
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     const url = await getPayslipSignedUrl(path);
     return { url };
   } catch (error) {

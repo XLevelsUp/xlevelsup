@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAuth } from '@/lib/auth';
+import { requireRole, ERP_FULL_ACCESS_ROLES } from '@/lib/auth';
 import {
   getCompanyAccounts,
   getAccountBalance,
@@ -20,7 +20,7 @@ export interface CompanyAccountActionResult {
  */
 export async function getCompanyAccountsAction(): Promise<CompanyAccount[]> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getCompanyAccounts();
   } catch (error) {
     console.error('Get company accounts error:', error);
@@ -39,7 +39,7 @@ export async function getAccountBalanceAction(accountId: number): Promise<{
   pendingOutflow: number;
 } | null> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getAccountBalance(accountId);
   } catch (error) {
     console.error('Get account balance error:', error);
@@ -55,7 +55,7 @@ export async function getAccountTransactionsAction(
   filters?: { month?: string; type?: string },
 ): Promise<FinancialLedgerEntry[]> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getAccountTransactions(accountId, filters);
   } catch (error) {
     console.error('Get account transactions error:', error);

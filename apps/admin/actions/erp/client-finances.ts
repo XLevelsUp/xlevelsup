@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireRole, requireAuth } from '@/lib/auth';
+import { requireRole, ERP_FULL_ACCESS_ROLES } from '@/lib/auth';
 import {
   getAllClientTransactions,
   getClientTransactionById,
@@ -50,7 +50,7 @@ export async function getClientTransactionsAction(filters?: {
   month?: string;
 }): Promise<ClientTransaction[]> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getAllClientTransactions(filters);
   } catch (error) {
     console.error('Get client transactions error:', error);
@@ -65,7 +65,7 @@ export async function createClientTransactionAction(
   formData: FormData,
 ): Promise<ClientTransactionActionResult> {
   try {
-    const session = await requireAuth();
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
 
     const paymentStatus = formData.get('payment_status') as string;
     const amountStr = formData.get('amount') as string;
@@ -191,7 +191,7 @@ export async function deleteClientTransactionAction(
  */
 export async function getAllClientsAction(): Promise<string[]> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getAllClients();
   } catch (error) {
     console.error('Get clients error:', error);
