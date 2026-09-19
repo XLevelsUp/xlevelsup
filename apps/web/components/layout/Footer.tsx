@@ -4,7 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { m as motion, useReducedMotion } from 'framer-motion';
 import { springDefault, revealViewport } from '@/components/marketing/motion';
-import { adminUrl } from '@/lib/admin-url';
 
 /**
  * Footer — restyled onto the XLU token system.
@@ -19,7 +18,9 @@ import { adminUrl } from '@/lib/admin-url';
  * the whole footer fades up once on scroll into view. Nothing loops, nothing
  * demands attention — a footer is not a stage.
  *
- * Copy, links, hrefs and structure are all unchanged.
+ * The Employee/Admin portal links that used to sit beside the copyright were
+ * removed when logins moved to admin.xlevelsup.com — that subdomain's root now
+ * serves the portal chooser, so the marketing site no longer advertises them.
  */
 
 const SOLUTIONS = [
@@ -220,7 +221,7 @@ export default function Footer() {
                     </div>
                 </motion.div>
 
-                {/* Copyright and portals */}
+                {/* Copyright */}
                 <motion.div
                     variants={fadeUp}
                     className='flex flex-col items-center justify-between gap-6 text-sm md:flex-row'
@@ -229,53 +230,6 @@ export default function Footer() {
                     <p className='order-2 md:order-1'>
                         © {currentYear} XLEVELSUP. Built with Next.js & Passion.
                     </p>
-                    <div className='order-1 flex flex-wrap items-center justify-center gap-6 md:order-2'>
-                        {/* Portal links cross to admin.xlevelsup.com — plain
-                            anchors, not next/link, since a client-side
-                            navigation would 404 on this origin. */}
-                        <a
-                            href={adminUrl('/employee/login')}
-                            className='group flex items-center gap-2 text-sm transition-colors duration-[var(--xlu-dur-base)] hover:text-[var(--xlu-ink)]'
-                            style={{ color: 'var(--xlu-ink-faint)' }}
-                        >
-                            <span
-                                className='rounded-md border p-1.5 transition-colors duration-[var(--xlu-dur-base)] group-hover:border-[color-mix(in_srgb,var(--xlu-brand)_45%,transparent)]'
-                                style={{ borderColor: 'var(--xlu-hairline)', background: 'rgba(255,255,255,0.03)' }}
-                            >
-                                <svg
-                                    className='h-4 w-4 transition-colors duration-[var(--xlu-dur-base)] group-hover:text-[var(--xlu-brand-1)]'
-                                    fill='none'
-                                    viewBox='0 0 24 24'
-                                    stroke='currentColor'
-                                    strokeWidth='2'
-                                >
-                                    <path strokeLinecap='round' strokeLinejoin='round' d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' />
-                                </svg>
-                            </span>
-                            <span className='font-medium'>Employee Login</span>
-                        </a>
-                        <a
-                            href={adminUrl('/erp/login')}
-                            className='group flex items-center gap-2 text-sm transition-colors duration-[var(--xlu-dur-base)] hover:text-[var(--xlu-ink)]'
-                            style={{ color: 'var(--xlu-ink-faint)' }}
-                        >
-                            <span
-                                className='rounded-md border p-1.5 transition-colors duration-[var(--xlu-dur-base)] group-hover:border-[color-mix(in_srgb,var(--xlu-brand)_45%,transparent)]'
-                                style={{ borderColor: 'var(--xlu-hairline)', background: 'rgba(255,255,255,0.03)' }}
-                            >
-                                <svg
-                                    className='h-4 w-4 transition-colors duration-[var(--xlu-dur-base)] group-hover:text-[var(--xlu-brand-1)]'
-                                    fill='none'
-                                    viewBox='0 0 24 24'
-                                    stroke='currentColor'
-                                    strokeWidth='2'
-                                >
-                                    <path strokeLinecap='round' strokeLinejoin='round' d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' />
-                                </svg>
-                            </span>
-                            <span className='font-medium'>Admin Login</span>
-                        </a>
-                    </div>
                 </motion.div>
             </motion.div>
         </footer>
