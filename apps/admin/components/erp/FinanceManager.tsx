@@ -22,6 +22,7 @@ import {
   getReceiptUrlAction,
   getPayslipUrlAction,
   uploadLedgerReceiptAction,
+  deleteLedgerReceiptAction,
   toggleGstClaimAction,
 } from '@/actions/erp/finance';
 import { getOrCreateInvoiceForTransactionAction } from '@/actions/erp/billing';
@@ -55,6 +56,9 @@ interface FinanceManagerProps {
    * affected by the period filter. See app/erp/finances/page.tsx. */
   trueNetBalance: number;
 }
+
+// Company Accounts tab is hidden for everyone; the code is kept intact.
+const SHOW_COMPANY_ACCOUNTS_TAB = false;
 
 export default function FinanceManager({
   initialEntries,
@@ -210,6 +214,7 @@ export default function FinanceManager({
 
   const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
+  const [deletingReceiptId, setDeletingReceiptId] = useState<number | null>(null);
   const [togglingGstId, setTogglingGstId] = useState<number | null>(null);
   const [detailsEntry, setDetailsEntry] = useState<FinancialLedgerEntry | null>(null);
   const [invoiceReceipt, setInvoiceReceipt] = useState<ReceiptData | null>(null);
@@ -237,20 +242,45 @@ export default function FinanceManager({
   // "View" when an entry has no receipt_path) sits behind. Picking a file
   // uploads it immediately — no separate confirm step, matching how little
   // friction the rest of this table's row actions already have.
-  const handleUploadReceipt = async (entryId: number, file: File) => {
+  // `isReplace` only changes the toast wording — the write path is identical
+  // either way (uploadLedgerReceiptAction handles "already has a receipt"
+  // itself). Also fires from the details modal's Replace/Upload controls, so
+  // it re-syncs `detailsEntry` when that's the entry being touched:
+  // `detailsEntry` is a snapshot captured on open, not derived from
+  // `initialEntries`, so router.refresh() alone would leave the OPEN modal
+  // showing stale receipt state until it was closed and reopened.
+  const handleUploadReceipt = async (entryId: number, file: File, isReplace = false) => {
     setUploadingReceiptId(entryId);
     try {
       const formData = new FormData();
       formData.set('receipt', file);
       const result = await uploadLedgerReceiptAction(entryId, formData);
       if (result.success) {
-        toast.success('Receipt uploaded');
+        toast.success(isReplace ? 'Receipt replaced' : 'Receipt uploaded');
+        if (result.entry && detailsEntry?.id === entryId) setDetailsEntry(result.entry);
         router.refresh();
       } else {
         toast.error(result.error || 'Failed to upload receipt');
       }
     } finally {
       setUploadingReceiptId(null);
+    }
+  };
+
+  const handleDeleteReceipt = async (entry: FinancialLedgerEntry) => {
+    if (!confirm('Delete this receipt? This cannot be undone.')) return;
+    setDeletingReceiptId(entry.id);
+    try {
+      const result = await deleteLedgerReceiptAction(entry.id);
+      if (result.success) {
+        toast.success('Receipt deleted');
+        if (result.entry && detailsEntry?.id === entry.id) setDetailsEntry(result.entry);
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Failed to delete receipt');
+      }
+    } finally {
+      setDeletingReceiptId(null);
     }
   };
 
@@ -447,7 +477,7 @@ export default function FinanceManager({
     { id: 'income', name: 'Client Income' },
     { id: 'expenses', name: 'Expenses' },
     { id: 'investments', name: 'Capital Inflow' },
-    { id: 'accounts', name: 'Company Accounts' },
+    ...(SHOW_COMPANY_ACCOUNTS_TAB ? [{ id: 'accounts', name: 'Company Accounts' }] : []),
     { id: 'reports', name: 'Analytics' },
   ];
 
@@ -990,7 +1020,8 @@ export default function FinanceManager({
       )}
 
       {/* Company Accounts Tab */}
-      {currentTab === 'accounts' && userRole !== 'employee' && (
+      {/* Hidden for everyone; flip SHOW_COMPANY_ACCOUNTS_TAB to restore */}
+      {SHOW_COMPANY_ACCOUNTS_TAB && currentTab === 'accounts' && userRole !== 'employee' && (
         <CompanyAccountManager
           accounts={accounts}
           transactions={accountTransactions}
@@ -1184,26 +1215,95 @@ export default function FinanceManager({
               </Button>
             )}
 
-            {detailsEntry.receipt_path && (
-              <Button
-                type='button'
-                variant='secondary'
-                className='w-full'
-                onClick={() =>
-                  handleViewReceipt(
-                    detailsEntry.id,
-                    detailsEntry.receipt_path!,
-                    detailsEntry.transaction_type === 'payroll',
-                  )
-                }
-                disabled={viewingReceiptId === detailsEntry.id}
-              >
-                {viewingReceiptId === detailsEntry.id
-                  ? 'Opening…'
-                  : detailsEntry.transaction_type === 'payroll'
-                  ? '📄 View Payslip'
-                  : '📎 View Receipt'}
-              </Button>
+            {detailsEntry.transaction_type === 'payroll' ? (
+              // Payslips are generated by the payroll run itself
+              // (getPayslipSignedUrl) — view-only here, same reasoning as the
+              // listing table excluding payroll rows from the Upload button.
+              detailsEntry.receipt_path && (
+                <Button
+                  type='button'
+                  variant='secondary'
+                  className='w-full'
+                  onClick={() => handleViewReceipt(detailsEntry.id, detailsEntry.receipt_path!, true)}
+                  disabled={viewingReceiptId === detailsEntry.id}
+                >
+                  {viewingReceiptId === detailsEntry.id ? 'Opening…' : '📄 View Payslip'}
+                </Button>
+              )
+            ) : (
+              <div>
+                <p className='text-[11px] text-gray-500 uppercase tracking-wide mb-2'>Receipt</p>
+                <div className='flex flex-wrap items-center gap-2'>
+                  {detailsEntry.receipt_path ? (
+                    <>
+                      <button
+                        type='button'
+                        onClick={() => handleViewReceipt(detailsEntry.id, detailsEntry.receipt_path!, false)}
+                        disabled={viewingReceiptId === detailsEntry.id}
+                        className='px-3 py-1.5 rounded text-xs font-bold uppercase bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-colors disabled:opacity-50'
+                      >
+                        {viewingReceiptId === detailsEntry.id ? 'Opening…' : '📎 View'}
+                      </button>
+                      {/* Replace and Delete are admin/hr-only server-side
+                          (see uploadLedgerReceiptAction / deleteLedgerReceiptAction)
+                          — hidden rather than disabled for the employee role,
+                          which can reach this modal for its own reimbursement
+                          rows but would only see a control that fails. */}
+                      {userRole !== 'employee' && (
+                        <>
+                          <label
+                            className={`px-3 py-1.5 rounded text-xs font-bold uppercase bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer ${
+                              uploadingReceiptId === detailsEntry.id ? 'opacity-50 pointer-events-none' : ''
+                            }`}
+                          >
+                            {uploadingReceiptId === detailsEntry.id ? 'Uploading…' : '🔄 Replace'}
+                            <input
+                              type='file'
+                              className='sr-only'
+                              accept='image/jpeg,image/png,image/webp,image/heic,application/pdf'
+                              disabled={uploadingReceiptId === detailsEntry.id}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = '';
+                                if (file) handleUploadReceipt(detailsEntry.id, file, true);
+                              }}
+                            />
+                          </label>
+                          <button
+                            type='button'
+                            onClick={() => handleDeleteReceipt(detailsEntry)}
+                            disabled={deletingReceiptId === detailsEntry.id}
+                            className='px-3 py-1.5 rounded text-xs font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50'
+                          >
+                            {deletingReceiptId === detailsEntry.id ? 'Deleting…' : '🗑️ Delete'}
+                          </button>
+                        </>
+                      )}
+                    </>
+                  ) : userRole !== 'employee' ? (
+                    <label
+                      className={`px-3 py-1.5 rounded text-xs font-bold uppercase bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer ${
+                        uploadingReceiptId === detailsEntry.id ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                    >
+                      {uploadingReceiptId === detailsEntry.id ? 'Uploading…' : '📤 Upload Receipt'}
+                      <input
+                        type='file'
+                        className='sr-only'
+                        accept='image/jpeg,image/png,image/webp,image/heic,application/pdf'
+                        disabled={uploadingReceiptId === detailsEntry.id}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (file) handleUploadReceipt(detailsEntry.id, file);
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <span className='text-xs text-gray-600'>No receipt attached</span>
+                  )}
+                </div>
+              </div>
             )}
 
             <div className='pt-3 border-t border-gray-800 text-[11px] text-gray-600 space-y-1'>

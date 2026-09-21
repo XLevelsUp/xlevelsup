@@ -12,7 +12,7 @@ import {
   getFinanceSummary,
   getEmployeeIdFromUserId,
 } from '@/lib/erp/finance';
-import { uploadReceiptFile, getReceiptSignedUrl } from '@/lib/erp/receipts';
+import { uploadReceiptFile, getReceiptSignedUrl, deleteReceiptFile } from '@/lib/erp/receipts';
 import type {
   FinanceTransactionType,
   FinanceDirection,
@@ -241,16 +241,17 @@ export async function updateLedgerEntryAction(
 }
 
 /**
- * Attach a receipt to a ledger entry that does not have one yet — the
- * "Upload" button the Finance > Expenses listing shows in place of the
- * "View" button when `receipt_path` is empty.
+ * Attach a receipt to a ledger entry — the "Upload" button the Finance >
+ * Expenses listing shows in place of "View" when `receipt_path` is empty,
+ * and also the "Replace" control in the transaction details modal for an
+ * entry that already has one.
  *
  * Deliberately its own action rather than routed through
  * updateLedgerEntryAction: that action re-validates and rewrites the entire
- * entry via ledgerEntrySchema, which the listing table has no reason to
- * resend just to attach one file. Reuses uploadReceiptFile — the same
- * validation (type, 5MB limit) that create-time uploads already go through —
- * and updateLedgerEntryById for the write, so nothing new is duplicated.
+ * entry via ledgerEntrySchema, which attaching one file has no reason to
+ * trigger. Reuses uploadReceiptFile — the same validation (type, 5MB limit)
+ * that create-time uploads already go through — and updateLedgerEntryById
+ * for the write, so nothing new is duplicated.
  */
 export async function uploadLedgerReceiptAction(
   id: number,
@@ -264,8 +265,23 @@ export async function uploadLedgerReceiptAction(
       return { success: false, error: 'No file selected' };
     }
 
+    // Replace case: this entry already points at a file. Upload the new one
+    // and confirm the row now points at it BEFORE touching the old object —
+    // if either of those two steps fails, the entry is left with the
+    // original receipt still valid rather than none at all. Removing the old
+    // file afterward is cleanup, not the operation's result, so a failure
+    // there is logged but does not fail the user-visible replace.
+    const existing = await getLedgerEntryById(id);
+    const previousPath = existing?.receipt_path || null;
+
     const receipt_path = await uploadReceiptFile(file);
     const entry = await updateLedgerEntryById(id, { receipt_path }, session.userId);
+
+    if (previousPath && previousPath !== receipt_path) {
+      await deleteReceiptFile(previousPath).catch((err) => {
+        console.error('Failed to remove replaced receipt from storage:', err);
+      });
+    }
 
     revalidatePath('/erp/finances');
     return { success: true, entry };
@@ -276,6 +292,36 @@ export async function uploadLedgerReceiptAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to upload receipt',
+    };
+  }
+}
+
+/**
+ * Delete a ledger entry's receipt — both the Storage object and the
+ * `receipt_path` pointer. Unlike the Replace case in
+ * uploadLedgerReceiptAction, there is no fallback state here: the file is
+ * gone once this succeeds, so the delete must succeed before the pointer is
+ * cleared, not after.
+ */
+export async function deleteLedgerReceiptAction(id: number): Promise<FinanceActionResult> {
+  try {
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
+
+    const existing = await getLedgerEntryById(id);
+    if (!existing?.receipt_path) {
+      return { success: false, error: 'This entry has no receipt to delete' };
+    }
+
+    await deleteReceiptFile(existing.receipt_path);
+    const entry = await updateLedgerEntryById(id, { receipt_path: null }, session.userId);
+
+    revalidatePath('/erp/finances');
+    return { success: true, entry };
+  } catch (error) {
+    console.error('Delete ledger receipt error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete receipt',
     };
   }
 }
