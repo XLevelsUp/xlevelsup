@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES } from '@/lib/auth';
+import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES, FINANCE_READ_ROLES } from '@/lib/auth';
 import {
   getLedgerEntries,
   getLedgerEntryById,
@@ -405,10 +405,11 @@ export async function approveLedgerEntryAction(
  */
 export async function getReceiptUrlAction(path: string): Promise<{ url: string | null }> {
   try {
-    // Only reached from the admin finance screen. Was requireAuth(), which
-    // handed a signed receipt URL to any authenticated role — including the
-    // invoice-only accountant, and any role added later.
-    await requireRole(ERP_FULL_ACCESS_ROLES);
+    // Only reached from the finance screen. Was requireAuth(), which handed a
+    // signed receipt URL to any authenticated role, including ones added
+    // later. This is a read, so the read-only accountant is allowed; the
+    // payslip action below is not, since payslips carry salary detail.
+    await requireRole(FINANCE_READ_ROLES);
     const url = await getReceiptSignedUrl(path);
     return { url };
   } catch (error) {

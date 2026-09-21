@@ -180,7 +180,7 @@ export default function CompanyAccountManager({
           {/* Quick Actions + Filter row */}
           <div className='flex flex-wrap items-center justify-between gap-4'>
             <div className='flex gap-2 flex-wrap'>
-              {userRole !== 'employee' && (
+              {(userRole === 'admin' || userRole === 'hr') && (
                 <>
                   <Button
                     variant='primary'

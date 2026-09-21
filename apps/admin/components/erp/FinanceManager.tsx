@@ -77,6 +77,15 @@ export default function FinanceManager({
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
 
+  // Who may change anything on this screen. Mirrors ERP_FULL_ACCESS_ROLES in
+  // lib/auth.ts, which is server-only and cannot be imported into a client
+  // component — keep the two in step. The write actions enforce the same rule
+  // server-side; this only decides which controls are worth showing.
+  const canManage = userRole === 'admin' || userRole === 'hr';
+  // The accountant reads the whole Finances area but cannot create, edit,
+  // approve, delete or attach anything.
+  const isAccountant = userRole === 'accountant';
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalType, setModalType] = useState<'income' | 'expense' | 'investment'>('expense');
 
@@ -676,7 +685,7 @@ export default function FinanceManager({
           </p>
         </div>
         <div className='flex gap-2.5 flex-wrap'>
-          {userRole !== 'employee' && (
+          {canManage && (
             <>
               <Button variant='primary' onClick={() => handleOpenAddModal('income')} className='whitespace-nowrap'>
                 + Client Income
@@ -802,9 +811,11 @@ export default function FinanceManager({
             {initialEntries.length === 0 ? (
               <div className='text-center py-16'>
                 <p className='text-gray-400 mb-4'>No ledger transactions found</p>
-                <Button variant='primary' onClick={() => handleOpenAddModal('expense')}>
-                  Log First Ledger Entry
-                </Button>
+                {canManage && (
+                  <Button variant='primary' onClick={() => handleOpenAddModal('expense')}>
+                    Log First Ledger Entry
+                  </Button>
+                )}
               </div>
             ) : (
               <Table
@@ -886,7 +897,12 @@ export default function FinanceManager({
                     </TableCell>
                     <TableCell className='font-bold text-white whitespace-nowrap'><SensitiveValue>{formatCurrency(entry.amount)}</SensitiveValue></TableCell>
                     <TableCell>
-                      {entry.receipt_path ? (
+                      {/* Payslips carry per-employee salary detail beyond the
+                          ledger row, so getPayslipUrlAction stays admin/hr —
+                          an accountant gets the plain dash instead of a
+                          button that would only fail. Expense receipts are
+                          fine for them to open. */}
+                      {entry.receipt_path && !(isAccountant && entry.transaction_type === 'payroll') ? (
                         <button
                           onClick={() =>
                             handleViewReceipt(entry.id, entry.receipt_path!, entry.transaction_type === 'payroll')
@@ -906,12 +922,13 @@ export default function FinanceManager({
                         // missing one here means payroll hasn't produced it
                         // yet, not that someone forgot to upload a file.
                         <span className='text-xs text-gray-600'>—</span>
-                      ) : userRole === 'employee' ? (
+                      ) : !canManage ? (
                         // Matches the actions below: uploading a receipt for
                         // an existing entry is admin/hr only (see
                         // uploadLedgerReceiptAction), so an employee viewing
-                        // their own reimbursement row gets the plain dash
-                        // rather than a button that would fail server-side.
+                        // their own reimbursement row, or the read-only
+                        // accountant, gets the plain dash rather than a
+                        // button that would fail server-side.
                         <span className='text-xs text-gray-600'>—</span>
                       ) : (
                         <label
@@ -941,11 +958,11 @@ export default function FinanceManager({
                         <input
                           type='checkbox'
                           checked={entry.gst_claim}
-                          disabled={togglingGstId === entry.id || userRole === 'employee'}
+                          disabled={togglingGstId === entry.id || !canManage}
                           onChange={() => handleToggleGstClaim(entry)}
                           title={
-                            userRole === 'employee'
-                              ? 'Only admin/hr can change this'
+                            !canManage
+                              ? 'Read-only — only admin/hr can change this'
                               : entry.gst_claim
                               ? 'Claimed as GST input tax credit'
                               : 'Mark as claimed for GST input tax credit'
@@ -961,6 +978,7 @@ export default function FinanceManager({
                     <TableCell>
                       <div className='flex items-center gap-2'>
                         {entry.approval_status === 'pending' &&
+                          !isAccountant &&
                           (entry.transaction_type !== 'income' || userRole === 'admin') && (
                             <>
                               <button
@@ -979,7 +997,7 @@ export default function FinanceManager({
                               </button>
                             </>
                           )}
-                        {entry.transaction_type === 'income' && userRole !== 'employee' && (
+                        {entry.transaction_type === 'income' && canManage && (
                           <button
                             onClick={() => handleGenerateInvoice(entry.id)}
                             disabled={generatingInvoiceId === entry.id}
@@ -1203,7 +1221,7 @@ export default function FinanceManager({
               </div>
             )}
 
-            {detailsEntry.transaction_type === 'income' && userRole !== 'employee' && (
+            {detailsEntry.transaction_type === 'income' && canManage && (
               <Button
                 type='button'
                 variant='secondary'
@@ -1219,7 +1237,7 @@ export default function FinanceManager({
               // Payslips are generated by the payroll run itself
               // (getPayslipSignedUrl) — view-only here, same reasoning as the
               // listing table excluding payroll rows from the Upload button.
-              detailsEntry.receipt_path && (
+              detailsEntry.receipt_path && !isAccountant && (
                 <Button
                   type='button'
                   variant='secondary'
@@ -1246,10 +1264,11 @@ export default function FinanceManager({
                       </button>
                       {/* Replace and Delete are admin/hr-only server-side
                           (see uploadLedgerReceiptAction / deleteLedgerReceiptAction)
-                          — hidden rather than disabled for the employee role,
-                          which can reach this modal for its own reimbursement
-                          rows but would only see a control that fails. */}
-                      {userRole !== 'employee' && (
+                          — hidden rather than disabled for the employee role
+                          (own reimbursement rows) and the read-only accountant,
+                          who can both open this modal but would only see a
+                          control that fails. */}
+                      {canManage && (
                         <>
                           <label
                             className={`px-3 py-1.5 rounded text-xs font-bold uppercase bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer ${
@@ -1280,7 +1299,7 @@ export default function FinanceManager({
                         </>
                       )}
                     </>
-                  ) : userRole !== 'employee' ? (
+                  ) : canManage ? (
                     <label
                       className={`px-3 py-1.5 rounded text-xs font-bold uppercase bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer ${
                         uploadingReceiptId === detailsEntry.id ? 'opacity-50 pointer-events-none' : ''

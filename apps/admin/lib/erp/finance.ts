@@ -53,11 +53,14 @@ export async function getLedgerEntries(
     //
     // This chain is deny-by-default: anything not named below returns nothing.
     // It used to fall through to the UNFILTERED query, which meant every role
-    // that was not literally 'employee' received the entire ledger — so adding
-    // the invoice-only 'accountant' role silently granted it company-wide
-    // finances, the exact thing that role exists to withhold.
-    if (userRole === 'admin') {
-      // Full ledger. No additional scoping.
+    // that was not literally 'employee' received the entire ledger — so a new
+    // role silently gained company-wide finances. Roles are now granted read
+    // access by being named here, on purpose.
+    if (userRole === 'admin' || userRole === 'accountant') {
+      // Full ledger. No additional scoping. The accountant is listed here for
+      // READ access only — this function only reads, and every write to the
+      // ledger is rejected for that role in actions/erp/finance.ts, so being
+      // in this branch grants no ability to change anything.
     } else if (userRole === 'employee') {
       const employeeId = await getEmployeeIdFromUserId(userId);
       if (employeeId) {
