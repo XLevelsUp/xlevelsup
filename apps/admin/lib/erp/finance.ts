@@ -48,8 +48,16 @@ export async function getLedgerEntries(
   try {
     let query = supabase.from('financial_ledger').select('*');
 
-    // Access Control: Employee can only see their own reimbursements
-    if (userRole === 'employee') {
+    // Access Control.
+    //
+    // This chain is deny-by-default: anything not named below returns nothing.
+    // It used to fall through to the UNFILTERED query, which meant every role
+    // that was not literally 'employee' received the entire ledger — so adding
+    // the invoice-only 'accountant' role silently granted it company-wide
+    // finances, the exact thing that role exists to withhold.
+    if (userRole === 'admin') {
+      // Full ledger. No additional scoping.
+    } else if (userRole === 'employee') {
       const employeeId = await getEmployeeIdFromUserId(userId);
       if (employeeId) {
         query = query
@@ -59,7 +67,10 @@ export async function getLedgerEntries(
         // Fallback: If no employee record is linked, return nothing for safety
         return [];
       }
-    } else if (userRole === 'hr') {
+    } else if (userRole !== 'hr') {
+      // Unknown or invoice-only role (e.g. accountant). No ledger access.
+      return [];
+    } else {
       // HR can view expenses, payroll, and reimbursements (all outflows or operational data)
       // but cannot view client investments or company-wide profit/loss client fees unless specified.
       // However, we can allow HR to query them but filter to outflows/reimbursements in the UI.

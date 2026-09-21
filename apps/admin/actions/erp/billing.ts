@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireAuth, requireRole } from '@/lib/auth';
+import { requireRole, INVOICE_READ_ROLES } from '@/lib/auth';
 import {
   createOrder,
   createOrderItems,
@@ -308,7 +308,7 @@ export async function getOrdersAction(filters?: {
   clientName?: string;
 }): Promise<Order[]> {
   try {
-    await requireAuth();
+    await requireRole(INVOICE_READ_ROLES);
     return await getOrders(filters);
   } catch (error) {
     console.error('Get orders error:', error);
@@ -328,7 +328,7 @@ export interface GetOrderReceiptResult {
  */
 export async function getOrderReceiptAction(orderId: number): Promise<GetOrderReceiptResult> {
   try {
-    await requireAuth();
+    await requireRole(INVOICE_READ_ROLES);
 
     const result = await getOrderWithItems(orderId);
     if (!result) {

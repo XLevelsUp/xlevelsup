@@ -158,16 +158,20 @@ export default function ERPHeader({
                   <p className="text-xs text-gray-400 capitalize">{userRole} Portal</p>
                 </div>
                 
-                <Link
-                  href="/erp/employees"
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors"
-                  onClick={() => setShowProfileDropdown(false)}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  <span>Team Directory</span>
-                </Link>
+                {/* Links to /erp/employees, which accountants cannot reach —
+                    erpPageRedirect() bounces them straight back to billing. */}
+                {userRole !== 'accountant' && (
+                  <Link
+                    href="/erp/employees"
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors"
+                    onClick={() => setShowProfileDropdown(false)}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>Team Directory</span>
+                  </Link>
+                )}
 
                 <button
                   onClick={() => {

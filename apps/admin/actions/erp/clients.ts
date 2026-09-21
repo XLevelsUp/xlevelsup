@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireAuth, requireRole } from '@/lib/auth';
+import { requireRole, ERP_FULL_ACCESS_ROLES } from '@/lib/auth';
 import {
   getClients,
   getClientFinancialSummaries,
@@ -45,7 +45,7 @@ function fieldFromFormData(formData: FormData, key: string): string | null {
 
 export async function getClientsAction(): Promise<Client[]> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getClients();
   } catch (error) {
     console.error('Get clients error:', error);
@@ -55,7 +55,7 @@ export async function getClientsAction(): Promise<Client[]> {
 
 export async function getClientSummariesAction(): Promise<Record<string, ClientFinancialSummary>> {
   try {
-    await requireAuth();
+    await requireRole(ERP_FULL_ACCESS_ROLES);
     return await getClientFinancialSummaries();
   } catch (error) {
     console.error('Get client summaries error:', error);
