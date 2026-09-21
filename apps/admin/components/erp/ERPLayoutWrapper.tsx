@@ -134,15 +134,16 @@ export default function ERPLayoutWrapper({
       : []),
   ];
 
-  // Accountants get exactly one destination. Filtering the assembled list here
-  // — rather than adding `userRole !== 'accountant'` to each entry above —
-  // means a nav item added later cannot accidentally become visible to them.
+  // Accountants get Billing plus the (read-only) Finances group. Filtering the
+  // assembled list here — rather than adding `userRole !== 'accountant'` to
+  // each entry above — means a nav item added later cannot accidentally become
+  // visible to them.
   const isAccountant = userRole === 'accountant';
   const visibleNavItems = isAccountant
     ? navItems.filter((item) => item.href === '/erp/billing')
     : navItems;
 
-  const mobileFinanceItems = userRole === 'employee' || isAccountant ? [] : [
+  const mobileFinanceItems = userRole === 'employee' ? [] : [
           {
             href: '/erp/finances?tab=overview',
             label: 'Overview',

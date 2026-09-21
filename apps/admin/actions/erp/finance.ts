@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES } from '@/lib/auth';
+import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES, FINANCE_READ_ROLES } from '@/lib/auth';
 import {
   getLedgerEntries,
   getLedgerEntryById,
@@ -12,7 +12,7 @@ import {
   getFinanceSummary,
   getEmployeeIdFromUserId,
 } from '@/lib/erp/finance';
-import { uploadReceiptFile, getReceiptSignedUrl } from '@/lib/erp/receipts';
+import { uploadReceiptFile, getReceiptSignedUrl, deleteReceiptFile } from '@/lib/erp/receipts';
 import type {
   FinanceTransactionType,
   FinanceDirection,
@@ -241,6 +241,113 @@ export async function updateLedgerEntryAction(
 }
 
 /**
+ * Attach a receipt to a ledger entry — the "Upload" button the Finance >
+ * Expenses listing shows in place of "View" when `receipt_path` is empty,
+ * and also the "Replace" control in the transaction details modal for an
+ * entry that already has one.
+ *
+ * Deliberately its own action rather than routed through
+ * updateLedgerEntryAction: that action re-validates and rewrites the entire
+ * entry via ledgerEntrySchema, which attaching one file has no reason to
+ * trigger. Reuses uploadReceiptFile — the same validation (type, 5MB limit)
+ * that create-time uploads already go through — and updateLedgerEntryById
+ * for the write, so nothing new is duplicated.
+ */
+export async function uploadLedgerReceiptAction(
+  id: number,
+  formData: FormData,
+): Promise<FinanceActionResult> {
+  try {
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
+
+    const file = formData.get('receipt');
+    if (!(file instanceof File) || file.size === 0) {
+      return { success: false, error: 'No file selected' };
+    }
+
+    // Replace case: this entry already points at a file. Upload the new one
+    // and confirm the row now points at it BEFORE touching the old object —
+    // if either of those two steps fails, the entry is left with the
+    // original receipt still valid rather than none at all. Removing the old
+    // file afterward is cleanup, not the operation's result, so a failure
+    // there is logged but does not fail the user-visible replace.
+    const existing = await getLedgerEntryById(id);
+    const previousPath = existing?.receipt_path || null;
+
+    const receipt_path = await uploadReceiptFile(file);
+    const entry = await updateLedgerEntryById(id, { receipt_path }, session.userId);
+
+    if (previousPath && previousPath !== receipt_path) {
+      await deleteReceiptFile(previousPath).catch((err) => {
+        console.error('Failed to remove replaced receipt from storage:', err);
+      });
+    }
+
+    revalidatePath('/erp/finances');
+    return { success: true, entry };
+  } catch (error) {
+    console.error('Upload ledger receipt error:', error);
+    // uploadReceiptFile throws user-facing messages (wrong type, too large);
+    // surface those instead of the generic fallback.
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to upload receipt',
+    };
+  }
+}
+
+/**
+ * Delete a ledger entry's receipt — both the Storage object and the
+ * `receipt_path` pointer. Unlike the Replace case in
+ * uploadLedgerReceiptAction, there is no fallback state here: the file is
+ * gone once this succeeds, so the delete must succeed before the pointer is
+ * cleared, not after.
+ */
+export async function deleteLedgerReceiptAction(id: number): Promise<FinanceActionResult> {
+  try {
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
+
+    const existing = await getLedgerEntryById(id);
+    if (!existing?.receipt_path) {
+      return { success: false, error: 'This entry has no receipt to delete' };
+    }
+
+    await deleteReceiptFile(existing.receipt_path);
+    const entry = await updateLedgerEntryById(id, { receipt_path: null }, session.userId);
+
+    revalidatePath('/erp/finances');
+    return { success: true, entry };
+  } catch (error) {
+    console.error('Delete ledger receipt error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete receipt',
+    };
+  }
+}
+
+/**
+ * Toggle whether a ledger entry has been claimed as GST input tax credit.
+ * One checkbox click on the Finance > Expenses listing = one save, scoped to
+ * this single field — same reasoning as uploadLedgerReceiptAction above for
+ * not going through the general update action.
+ */
+export async function toggleGstClaimAction(
+  id: number,
+  claimed: boolean,
+): Promise<FinanceActionResult> {
+  try {
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
+    const entry = await updateLedgerEntryById(id, { gst_claim: claimed }, session.userId);
+    revalidatePath('/erp/finances');
+    return { success: true, entry };
+  } catch (error) {
+    console.error('Toggle GST claim error:', error);
+    return { success: false, error: 'Failed to update GST claim status' };
+  }
+}
+
+/**
  * Delete a ledger entry
  */
 export async function deleteLedgerEntryAction(
@@ -298,10 +405,11 @@ export async function approveLedgerEntryAction(
  */
 export async function getReceiptUrlAction(path: string): Promise<{ url: string | null }> {
   try {
-    // Only reached from the admin finance screen. Was requireAuth(), which
-    // handed a signed receipt URL to any authenticated role — including the
-    // invoice-only accountant, and any role added later.
-    await requireRole(ERP_FULL_ACCESS_ROLES);
+    // Only reached from the finance screen. Was requireAuth(), which handed a
+    // signed receipt URL to any authenticated role, including ones added
+    // later. This is a read, so the read-only accountant is allowed; the
+    // payslip action below is not, since payslips carry salary detail.
+    await requireRole(FINANCE_READ_ROLES);
     const url = await getReceiptSignedUrl(path);
     return { url };
   } catch (error) {

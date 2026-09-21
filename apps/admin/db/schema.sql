@@ -244,6 +244,13 @@ CREATE TABLE IF NOT EXISTS financial_ledger (
     approval_status VARCHAR(20) DEFAULT 'approved' CHECK (approval_status IN ('pending', 'approved', 'rejected', 'paid')),
     approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     approved_at TIMESTAMP,
+
+    -- Both added via migration on the original table (see
+    -- db/migrations/add-financial-ledger-receipt.sql and add-gst-claim.sql)
+    -- and folded in here so a fresh database created from this file alone
+    -- ends up with the same columns as the live one.
+    receipt_path TEXT,
+    gst_claim BOOLEAN NOT NULL DEFAULT false,
     
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,

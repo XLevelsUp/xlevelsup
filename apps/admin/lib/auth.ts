@@ -156,6 +156,16 @@ export const ERP_FULL_ACCESS_ROLES: UserRole[] = ['admin', 'hr'];
 export const INVOICE_READ_ROLES: UserRole[] = ['admin', 'hr', 'accountant'];
 
 /**
+ * Roles permitted to READ the Finances area — ledger, company accounts,
+ * summaries and receipt files. Accountants get this so they can review the
+ * books; every write in that area stays on ERP_FULL_ACCESS_ROLES (or a
+ * narrower guard), so this list must only ever be applied to read actions.
+ * Payslips are deliberately not covered: they carry per-employee salary
+ * detail beyond what the ledger rows show.
+ */
+export const FINANCE_READ_ROLES: UserRole[] = ['admin', 'hr', 'accountant'];
+
+/**
  * Page-level guard for every ERP screen that is NOT invoice history.
  *
  * Returns the session when the caller may proceed, or a redirect target when
@@ -169,12 +179,21 @@ export const INVOICE_READ_ROLES: UserRole[] = ['admin', 'hr', 'accountant'];
  * Accountants are sent to billing history — their only screen — rather than to
  * the dashboard, which would show them an empty shell.
  */
-export function erpPageRedirect(session: SessionPayload | null): string | null {
+export function erpPageRedirect(
+  session: SessionPayload | null,
+  options?: { allowAccountant?: boolean },
+): string | null {
   if (!session) return '/erp/login';
   // Accountants only. Deliberately does NOT change what employees can reach —
   // several of these pages were already open to them and tightening that here
   // would be an unrelated permissions change.
-  if (session.role === 'accountant') return '/erp/billing?tab=history';
+  //
+  // `allowAccountant` exists for the one non-invoice area they may read: the
+  // Finances page. It is opt-in per page, so a new page stays denied to
+  // accountants by default instead of relying on someone remembering to block it.
+  if (session.role === 'accountant' && !options?.allowAccountant) {
+    return '/erp/billing?tab=history';
+  }
   return null;
 }
 

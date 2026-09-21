@@ -58,3 +58,21 @@ export async function getReceiptSignedUrl(path: string): Promise<string | null> 
   }
   return data?.signedUrl ?? null;
 }
+
+/**
+ * Delete a stored receipt file from Storage.
+ *
+ * Used two ways: explicitly, from the transaction details modal's Delete
+ * button; and internally, when a Replace upload's new file has been saved
+ * and the file it superseded is no longer referenced by anything.
+ *
+ * Throws with a user-facing message on failure — an explicit delete request
+ * that silently no-ops would leave the caller believing a file is gone when
+ * it is not.
+ */
+export async function deleteReceiptFile(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(RECEIPT_BUCKET).remove([path]);
+  if (error) {
+    throw new Error(`Failed to delete receipt: ${error.message}`);
+  }
+}

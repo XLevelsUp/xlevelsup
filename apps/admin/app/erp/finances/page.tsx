@@ -23,14 +23,18 @@ export default async function FinancesPage({
     client?: string;
     employeeId?: string;
     payee?: string;
+    /** 'claimed' | 'unclaimed' — GST input-tax-credit claim filter. */
+    gst?: string;
   }>;
 }) {
   const session = await getSession();
   if (!session) {
     redirect('/erp/login');
   }
-  // Accountants are invoice-only; every other role keeps its existing access.
-  const denied = erpPageRedirect(session);
+  // Accountants may READ this page (read-only — FinanceManager hides every
+  // write control for them and the write actions reject them server-side).
+  // Every other role keeps its existing access.
+  const denied = erpPageRedirect(session, { allowAccountant: true });
   if (denied) {
     redirect(denied);
   }
@@ -87,11 +91,21 @@ export default async function FinancesPage({
     client: params.client || undefined,
     employeeId: params.employeeId ? parseInt(params.employeeId, 10) : undefined,
     payee: params.payee || undefined,
+    // gst_claim is a boolean column, so this can't be the usual `x || undefined`
+    // — `false` is a legitimate filter value ("Not Claimed"), not an absent one.
+    gstClaim:
+      params.gst === 'claimed' ? true : params.gst === 'unclaimed' ? false : undefined,
   };
 
   const [initialEntries, employees, accounts, clients, financeSummary] = await Promise.all([
     getLedgerEntries(session.userId, session.role, filters),
-    getAllEmployees({ status: 'active' }),
+    // Not fetched for accountants. getAllEmployees is `select('*')`, so each
+    // row carries salary, phone, date of birth and the password hash, and the
+    // whole array is serialized into this page's payload for the client
+    // component. Accountants are read-only here and only ever needed the list
+    // to fill the create forms they cannot open — the cost is that employee
+    // names in the details modal fall back to "#id" for them.
+    session.role === 'accountant' ? Promise.resolve([]) : getAllEmployees({ status: 'active' }),
     getCompanyAccounts(),
     getClients(),
     // Deliberately unfiltered — the actual account balance the company has,

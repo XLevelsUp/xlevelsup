@@ -54,7 +54,10 @@ export async function createExpenseAction(
   formData: FormData,
 ): Promise<ExpenseActionResult> {
   try {
-    const session = await requireAuth();
+    // Was requireAuth(), which admitted every signed-in role — including the
+    // read-only accountant. Named roles only, matching the ledger's create
+    // action: admin/hr create expenses, employees raise their own.
+    const session = await requireRole(['admin', 'hr', 'employee']);
 
     const rawData = {
       date: formData.get('date') as string,

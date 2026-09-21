@@ -43,6 +43,7 @@ export async function getLedgerEntries(
     employeeId?: number;
     payee?: string;
     accountId?: number;
+    gstClaim?: boolean;
   },
 ): Promise<FinancialLedgerEntry[]> {
   try {
@@ -52,11 +53,14 @@ export async function getLedgerEntries(
     //
     // This chain is deny-by-default: anything not named below returns nothing.
     // It used to fall through to the UNFILTERED query, which meant every role
-    // that was not literally 'employee' received the entire ledger — so adding
-    // the invoice-only 'accountant' role silently granted it company-wide
-    // finances, the exact thing that role exists to withhold.
-    if (userRole === 'admin') {
-      // Full ledger. No additional scoping.
+    // that was not literally 'employee' received the entire ledger — so a new
+    // role silently gained company-wide finances. Roles are now granted read
+    // access by being named here, on purpose.
+    if (userRole === 'admin' || userRole === 'accountant') {
+      // Full ledger. No additional scoping. The accountant is listed here for
+      // READ access only — this function only reads, and every write to the
+      // ledger is rejected for that role in actions/erp/finance.ts, so being
+      // in this branch grants no ability to change anything.
     } else if (userRole === 'employee') {
       const employeeId = await getEmployeeIdFromUserId(userId);
       if (employeeId) {
@@ -90,6 +94,12 @@ export async function getLedgerEntries(
     if (filters?.payment_status) {
       query = query.eq('payment_status', filters.payment_status);
     }
+    // Was declared on the filters type and passed in from the Mode dropdown
+    // on the Finances page, but never actually applied here — the filter was
+    // a silent no-op regardless of what the user picked.
+    if (filters?.payment_mode) {
+      query = query.eq('payment_mode', filters.payment_mode);
+    }
     if (filters?.approval_status) {
       query = query.eq('approval_status', filters.approval_status);
     }
@@ -105,7 +115,11 @@ export async function getLedgerEntries(
     if (filters?.accountId) {
       query = query.eq('account_id', filters.accountId);
     }
-
+    // Boolean, so this must be checked with `!== undefined` — `if (filters?.gstClaim)`
+    // would silently drop the "Not Claimed" (false) option of the filter.
+    if (filters?.gstClaim !== undefined) {
+      query = query.eq('gst_claim', filters.gstClaim);
+    }
 
     if (filters?.month) {
       const startDate = `${filters.month}-01`;

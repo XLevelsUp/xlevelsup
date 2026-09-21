@@ -141,14 +141,14 @@ export default function ERPSidebar({
     return activeTab === tabParam;
   };
 
-  // Accountants get exactly one destination: invoice history. Filtering the
-  // assembled list below — rather than adding `userRole !== 'accountant'` to
-  // each entry — means a nav item added later cannot accidentally become
-  // visible to them.
+  // Accountants get two destinations: invoice history, and the Finances group
+  // (read-only — see FinanceManager). Filtering the assembled top-level list
+  // below — rather than adding `userRole !== 'accountant'` to each entry —
+  // means a nav item added later cannot accidentally become visible to them.
   const isAccountant = userRole === 'accountant';
 
-  // Finance sub-items (admin and HR only)
-  const financeItems = userRole === 'employee' || isAccountant ? [] : [
+  // Finance sub-items (admin, HR and the read-only accountant)
+  const financeItems = userRole === 'employee' ? [] : [
           {
             href: '/erp/finances?tab=overview',
             label: 'Overview',
