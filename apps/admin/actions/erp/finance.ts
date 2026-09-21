@@ -241,6 +241,67 @@ export async function updateLedgerEntryAction(
 }
 
 /**
+ * Attach a receipt to a ledger entry that does not have one yet — the
+ * "Upload" button the Finance > Expenses listing shows in place of the
+ * "View" button when `receipt_path` is empty.
+ *
+ * Deliberately its own action rather than routed through
+ * updateLedgerEntryAction: that action re-validates and rewrites the entire
+ * entry via ledgerEntrySchema, which the listing table has no reason to
+ * resend just to attach one file. Reuses uploadReceiptFile — the same
+ * validation (type, 5MB limit) that create-time uploads already go through —
+ * and updateLedgerEntryById for the write, so nothing new is duplicated.
+ */
+export async function uploadLedgerReceiptAction(
+  id: number,
+  formData: FormData,
+): Promise<FinanceActionResult> {
+  try {
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
+
+    const file = formData.get('receipt');
+    if (!(file instanceof File) || file.size === 0) {
+      return { success: false, error: 'No file selected' };
+    }
+
+    const receipt_path = await uploadReceiptFile(file);
+    const entry = await updateLedgerEntryById(id, { receipt_path }, session.userId);
+
+    revalidatePath('/erp/finances');
+    return { success: true, entry };
+  } catch (error) {
+    console.error('Upload ledger receipt error:', error);
+    // uploadReceiptFile throws user-facing messages (wrong type, too large);
+    // surface those instead of the generic fallback.
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to upload receipt',
+    };
+  }
+}
+
+/**
+ * Toggle whether a ledger entry has been claimed as GST input tax credit.
+ * One checkbox click on the Finance > Expenses listing = one save, scoped to
+ * this single field — same reasoning as uploadLedgerReceiptAction above for
+ * not going through the general update action.
+ */
+export async function toggleGstClaimAction(
+  id: number,
+  claimed: boolean,
+): Promise<FinanceActionResult> {
+  try {
+    const session = await requireRole(ERP_FULL_ACCESS_ROLES);
+    const entry = await updateLedgerEntryById(id, { gst_claim: claimed }, session.userId);
+    revalidatePath('/erp/finances');
+    return { success: true, entry };
+  } catch (error) {
+    console.error('Toggle GST claim error:', error);
+    return { success: false, error: 'Failed to update GST claim status' };
+  }
+}
+
+/**
  * Delete a ledger entry
  */
 export async function deleteLedgerEntryAction(

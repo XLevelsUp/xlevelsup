@@ -21,6 +21,8 @@ import {
   approveLedgerEntryAction,
   getReceiptUrlAction,
   getPayslipUrlAction,
+  uploadLedgerReceiptAction,
+  toggleGstClaimAction,
 } from '@/actions/erp/finance';
 import { getOrCreateInvoiceForTransactionAction } from '@/actions/erp/billing';
 
@@ -90,6 +92,10 @@ export default function FinanceManager({
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || '');
   const [filterMode, setFilterMode] = useState(searchParams.get('mode') || '');
   const [filterPayee, setFilterPayee] = useState(searchParams.get('payee') || '');
+  // 'claimed' | 'unclaimed' | '' — kept as this three-state string, not a
+  // boolean, so "no filter applied" and "filter set to false" stay distinct
+  // both in this state and in the ?gst= URL param it mirrors.
+  const [filterGst, setFilterGst] = useState(searchParams.get('gst') || '');
 
   const yearOptions = Array.from({ length: 6 }, (_, i) => String(Number(defaultYear) - i));
 
@@ -106,6 +112,7 @@ export default function FinanceManager({
     status: string;
     mode: string;
     payee: string;
+    gst: string;
   }>) => {
     const next = {
       type: filterType,
@@ -116,6 +123,7 @@ export default function FinanceManager({
       status: filterStatus,
       mode: filterMode,
       payee: filterPayee,
+      gst: filterGst,
       ...overrides,
     };
     const params = new URLSearchParams();
@@ -132,6 +140,7 @@ export default function FinanceManager({
     if (next.status) params.set('status', next.status);
     if (next.mode) params.set('mode', next.mode);
     if (next.payee) params.set('payee', next.payee);
+    if (next.gst) params.set('gst', next.gst);
     router.push(`/erp/finances?${params.toString()}`);
   };
 
@@ -149,6 +158,7 @@ export default function FinanceManager({
     setFilterStatus('');
     setFilterMode('');
     setFilterPayee('');
+    setFilterGst('');
     setPeriodType('month');
     setFilterMonth(defaultMonth);
     setFilterYear(defaultYear);
@@ -199,6 +209,8 @@ export default function FinanceManager({
   };
 
   const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
+  const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
+  const [togglingGstId, setTogglingGstId] = useState<number | null>(null);
   const [detailsEntry, setDetailsEntry] = useState<FinancialLedgerEntry | null>(null);
   const [invoiceReceipt, setInvoiceReceipt] = useState<ReceiptData | null>(null);
   const [generatingInvoiceId, setGeneratingInvoiceId] = useState<number | null>(null);
@@ -218,6 +230,41 @@ export default function FinanceManager({
       }
     } finally {
       setViewingReceiptId(null);
+    }
+  };
+
+  // Fires from the hidden file input the "Upload" button (shown in place of
+  // "View" when an entry has no receipt_path) sits behind. Picking a file
+  // uploads it immediately — no separate confirm step, matching how little
+  // friction the rest of this table's row actions already have.
+  const handleUploadReceipt = async (entryId: number, file: File) => {
+    setUploadingReceiptId(entryId);
+    try {
+      const formData = new FormData();
+      formData.set('receipt', file);
+      const result = await uploadLedgerReceiptAction(entryId, formData);
+      if (result.success) {
+        toast.success('Receipt uploaded');
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Failed to upload receipt');
+      }
+    } finally {
+      setUploadingReceiptId(null);
+    }
+  };
+
+  const handleToggleGstClaim = async (entry: FinancialLedgerEntry) => {
+    setTogglingGstId(entry.id);
+    try {
+      const result = await toggleGstClaimAction(entry.id, !entry.gst_claim);
+      if (result.success) {
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Failed to update GST claim status');
+      }
+    } finally {
+      setTogglingGstId(null);
     }
   };
 
@@ -549,6 +596,26 @@ export default function FinanceManager({
             </select>
           </div>
         )}
+        {/* GST claim is an outflow concept (input tax credit on a purchase) —
+            same condition as Status above, which is hidden on the Income
+            tab for the same reason. */}
+        {currentTab !== 'income' && (
+          <div>
+            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>GST Claim</label>
+            <select
+              value={filterGst}
+              onChange={(e) => {
+                setFilterGst(e.target.value);
+                applyFilters({ gst: e.target.value });
+              }}
+              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+            >
+              <option value=''>All</option>
+              <option value='claimed'>Claimed</option>
+              <option value='unclaimed'>Not Claimed</option>
+            </select>
+          </div>
+        )}
         <div>
           <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Payee / Vendor</label>
           <input
@@ -716,12 +783,13 @@ export default function FinanceManager({
                   'Type',
                   'Category',
                   'Inflow/Outflow',
-                  'Party / Details',
+                  'Payee',
                   'Description',
                   'Mode',
                   'Status',
                   'Amount',
                   'Receipt',
+                  'GST Claim',
                   'Actions',
                 ]}
               >
@@ -752,9 +820,21 @@ export default function FinanceManager({
                       {entry.payee_name && (
                         <div className='text-xs text-gray-400'>Payee: {entry.payee_name}</div>
                       )}
+                      {/* vendor_name has a column in the DB and a field in the
+                          create/edit form, but was never rendered anywhere in
+                          this table — an expense entered with only a vendor
+                          name (no payee_name) showed a blank cell here. */}
+                      {entry.vendor_name && (
+                        <div className='text-xs text-gray-400'>Vendor: {entry.vendor_name}</div>
+                      )}
                       {entry.payer_name && (
                         <div className='text-xs text-gray-400'>Source: {entry.payer_name}</div>
                       )}
+                      {!entry.client_name &&
+                        !entry.project_name &&
+                        !entry.payee_name &&
+                        !entry.vendor_name &&
+                        !entry.payer_name && <span className='text-xs text-gray-600'>—</span>}
                     </TableCell>
                     <TableCell className='max-w-[200px] truncate text-xs text-gray-400'>
                       <div className="truncate" title={entry.description || ''}>
@@ -790,7 +870,61 @@ export default function FinanceManager({
                             ? '📄 Payslip'
                             : '📎 View'}
                         </button>
+                      ) : entry.transaction_type === 'payroll' ? (
+                        // Payslips are generated by the payroll run itself
+                        // (getPayslipSignedUrl), not attached by hand — a
+                        // missing one here means payroll hasn't produced it
+                        // yet, not that someone forgot to upload a file.
+                        <span className='text-xs text-gray-600'>—</span>
+                      ) : userRole === 'employee' ? (
+                        // Matches the actions below: uploading a receipt for
+                        // an existing entry is admin/hr only (see
+                        // uploadLedgerReceiptAction), so an employee viewing
+                        // their own reimbursement row gets the plain dash
+                        // rather than a button that would fail server-side.
+                        <span className='text-xs text-gray-600'>—</span>
                       ) : (
+                        <label
+                          className={`inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer ${
+                            uploadingReceiptId === entry.id ? 'opacity-50 pointer-events-none' : ''
+                          }`}
+                        >
+                          {uploadingReceiptId === entry.id ? 'Uploading…' : '📤 Upload'}
+                          <input
+                            type='file'
+                            className='sr-only'
+                            accept='image/jpeg,image/png,image/webp,image/heic,application/pdf'
+                            disabled={uploadingReceiptId === entry.id}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              // Reset so picking the same filename again after
+                              // a failed upload still fires onChange.
+                              e.target.value = '';
+                              if (file) handleUploadReceipt(entry.id, file);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {entry.direction === 'outflow' ? (
+                        <input
+                          type='checkbox'
+                          checked={entry.gst_claim}
+                          disabled={togglingGstId === entry.id || userRole === 'employee'}
+                          onChange={() => handleToggleGstClaim(entry)}
+                          title={
+                            userRole === 'employee'
+                              ? 'Only admin/hr can change this'
+                              : entry.gst_claim
+                              ? 'Claimed as GST input tax credit'
+                              : 'Mark as claimed for GST input tax credit'
+                          }
+                          className='w-4 h-4 rounded border-gray-700 bg-dark-800 text-cyan accent-cyan cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
+                        />
+                      ) : (
+                        // Not an outflow — there's nothing to claim GST
+                        // input tax credit on for money coming IN.
                         <span className='text-xs text-gray-600'>—</span>
                       )}
                     </TableCell>

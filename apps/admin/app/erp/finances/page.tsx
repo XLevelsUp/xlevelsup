@@ -23,6 +23,8 @@ export default async function FinancesPage({
     client?: string;
     employeeId?: string;
     payee?: string;
+    /** 'claimed' | 'unclaimed' — GST input-tax-credit claim filter. */
+    gst?: string;
   }>;
 }) {
   const session = await getSession();
@@ -87,6 +89,10 @@ export default async function FinancesPage({
     client: params.client || undefined,
     employeeId: params.employeeId ? parseInt(params.employeeId, 10) : undefined,
     payee: params.payee || undefined,
+    // gst_claim is a boolean column, so this can't be the usual `x || undefined`
+    // — `false` is a legitimate filter value ("Not Claimed"), not an absent one.
+    gstClaim:
+      params.gst === 'claimed' ? true : params.gst === 'unclaimed' ? false : undefined,
   };
 
   const [initialEntries, employees, accounts, clients, financeSummary] = await Promise.all([

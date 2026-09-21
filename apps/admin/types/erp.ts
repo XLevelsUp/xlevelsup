@@ -468,6 +468,11 @@ export interface FinancialLedgerEntry {
   /** Supabase Storage object path (bucket: expense-receipts), not a public URL. */
   receipt_path?: string | null;
 
+  /** GST input-tax-credit claim status. NOT NULL in the DB (default false),
+   * so this is a plain boolean here, never optional/nullable like the rest
+   * of this interface's amendable-after-creation fields. */
+  gst_claim: boolean;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at?: string;
@@ -501,6 +506,10 @@ export interface LedgerFormData {
   notes?: string | null;
   approval_status?: string | null;
   receipt_path?: string | null;
+
+  /** Only set by the dedicated toggle action (see toggleGstClaimAction) —
+   * not part of the create/edit form. */
+  gst_claim?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

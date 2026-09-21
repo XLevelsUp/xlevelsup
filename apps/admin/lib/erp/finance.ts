@@ -43,6 +43,7 @@ export async function getLedgerEntries(
     employeeId?: number;
     payee?: string;
     accountId?: number;
+    gstClaim?: boolean;
   },
 ): Promise<FinancialLedgerEntry[]> {
   try {
@@ -90,6 +91,12 @@ export async function getLedgerEntries(
     if (filters?.payment_status) {
       query = query.eq('payment_status', filters.payment_status);
     }
+    // Was declared on the filters type and passed in from the Mode dropdown
+    // on the Finances page, but never actually applied here — the filter was
+    // a silent no-op regardless of what the user picked.
+    if (filters?.payment_mode) {
+      query = query.eq('payment_mode', filters.payment_mode);
+    }
     if (filters?.approval_status) {
       query = query.eq('approval_status', filters.approval_status);
     }
@@ -105,7 +112,11 @@ export async function getLedgerEntries(
     if (filters?.accountId) {
       query = query.eq('account_id', filters.accountId);
     }
-
+    // Boolean, so this must be checked with `!== undefined` — `if (filters?.gstClaim)`
+    // would silently drop the "Not Claimed" (false) option of the filter.
+    if (filters?.gstClaim !== undefined) {
+      query = query.eq('gst_claim', filters.gstClaim);
+    }
 
     if (filters?.month) {
       const startDate = `${filters.month}-01`;
