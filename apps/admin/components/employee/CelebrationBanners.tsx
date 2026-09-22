@@ -125,7 +125,7 @@ export default function CelebrationBanners({
       : `You're sharing the spotlight with ${joinNames(
           birthdayNames.filter((n, i) => birthdays[i].id !== currentEmployeeId),
         )} today — happy birthday to you both! 🎉`
-    : `Take a moment to wish ${joinNames(birthdayNames)} a very happy birthday today! 🎈`;
+    : `Wishing ${joinNames(birthdayNames)} a birthday full of good food, great company and well-earned cake! 🎂`;
 
   const anniversaryMessage = anniversaries
     .map((a) => `${a.name} completes ${a.years} year${a.years === 1 ? '' : 's'} with us today`)

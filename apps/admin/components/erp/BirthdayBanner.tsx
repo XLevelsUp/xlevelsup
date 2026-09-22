@@ -69,7 +69,7 @@ export default function BirthdayBanner({
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-white">{`Happy Birthday, ${joinNames(names)}!`}</p>
         <p className="text-sm text-gray-300">
-          {`Take a moment to wish ${joinNames(names)} a very happy birthday today! 🎈`}
+          {`Wishing ${joinNames(names)} a birthday full of good food, great company and well-earned cake! 🎂`}
         </p>
       </div>
       <button
