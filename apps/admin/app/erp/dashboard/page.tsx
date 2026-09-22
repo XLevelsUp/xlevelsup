@@ -6,8 +6,10 @@ import {
   getAllEmployeesTimeStatus,
   getTimeTrackingStats,
 } from '@/lib/erp/time-tracking-admin';
+import { getTodaysBirthdays } from '@/lib/erp/employees';
 import TimeTrackingOverview from '@/components/erp/admin/TimeTrackingOverview';
-import { formatCurrency, formatDuration } from '@/lib/erp/utils';
+import BirthdayBanner from '@/components/erp/BirthdayBanner';
+import { formatCurrency, formatDuration, getTodayIST } from '@/lib/erp/utils';
 import Link from 'next/link';
 import SensitiveValue from '@/components/erp/SensitiveValue';
 
@@ -26,10 +28,15 @@ export default async function DashboardPage() {
   const stats = await getDashboardStats();
   const employeesTimeStatus = await getAllEmployeesTimeStatus();
   const timeTrackingStats = await getTimeTrackingStats();
+  const birthdays = await getTodaysBirthdays();
+  const { year, month, day } = getTodayIST();
+  const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
       <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
+        <BirthdayBanner dateKey={dateKey} birthdays={birthdays} />
+
         {/* Header */}
         <div className='mb-8'>
           <h1 className='text-3xl font-bold gradient-text'>ERP Dashboard</h1>
