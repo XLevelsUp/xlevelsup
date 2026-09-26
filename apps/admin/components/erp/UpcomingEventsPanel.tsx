@@ -7,40 +7,8 @@ import {
   getUpcomingEventsAction,
   getMonthEventsAction,
   type UpcomingEvent,
-  type UpcomingEventType,
 } from '@/actions/erp/events';
-
-const EVENT_META: Record<
-  UpcomingEventType,
-  { icon: string; badge: string }
-> = {
-  birthday: { icon: '🎂', badge: 'bg-pink-500/20 text-pink-400' },
-  anniversary: { icon: '🎉', badge: 'bg-purple-500/20 text-purple-400' },
-  'holiday-public': { icon: '🏛️', badge: 'bg-red-500/20 text-red-400' },
-  'holiday-floater': { icon: '🎈', badge: 'bg-amber-500/20 text-amber-400' },
-  'holiday-other': { icon: '📅', badge: 'bg-blue-500/20 text-blue-400' },
-};
-
-function formatWhen(daysUntil: number, date: string) {
-  if (daysUntil === 0) return 'Today';
-  if (daysUntil === 1) return 'Tomorrow';
-  if (daysUntil === -1) return 'Yesterday';
-  const d = new Date(`${date}T00:00:00Z`);
-  const label = d.toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    month: 'short',
-    day: 'numeric',
-  });
-  return daysUntil < 0 ? `${label} (past)` : label;
-}
-
-function monthLabel(year: number, month: number) {
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    month: 'long',
-    year: 'numeric',
-  });
-}
+import { EVENT_META, formatWhen, monthLabel } from './eventDisplayHelpers';
 
 export default function UpcomingEventsPanel() {
   const [isOpen, setIsOpen] = useState(false);

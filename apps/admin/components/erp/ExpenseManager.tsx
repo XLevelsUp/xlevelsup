@@ -17,6 +17,7 @@ import {
   deleteExpenseAction,
   markExpenseReimbursedAction,
 } from '@/actions/erp/expenses';
+import DeleteConfirmButton from './DeleteConfirmButton';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -73,8 +74,6 @@ export default function ExpenseManager({
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
-
     const result = await deleteExpenseAction(id);
     if (result.success) {
       toast.success('Expense deleted successfully');
@@ -406,14 +405,15 @@ export default function ExpenseManager({
                   )}
                 </TableCell>
                 <TableCell>
-                  <button
-                    onClick={() => handleDelete(expense.id)}
+                  <DeleteConfirmButton
+                    onConfirm={() => handleDelete(expense.id)}
+                    message='Are you sure you want to delete this expense?'
                     title='Delete'
-                    aria-label='Delete'
+                    ariaLabel='Delete'
                     className='text-red-400 hover:text-red-300 transition-colors'
                   >
                     <DeleteIcon />
-                  </button>
+                  </DeleteConfirmButton>
                 </TableCell>
               </TableRow>
             ))}

@@ -14,6 +14,7 @@ import { formatDisplayDate, getMonthName, formatDuration } from '@/lib/erp/utils
 import toast from 'react-hot-toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
 import { getEmployeeLeaveBalanceAction } from '@/actions/erp/leave-requests';
+import DeleteConfirmButton from './DeleteConfirmButton';
 import Link from 'next/link';
 
 interface AttendanceManagerProps {
@@ -100,12 +101,6 @@ export default function AttendanceManager({
   };
 
   const handleDelete = async (record: Attendance) => {
-    if (
-      !confirm('Delete this attendance record?')
-    ) {
-      return;
-    }
-
     const result = await deleteAttendanceAction(
       record.employee_id,
       record.date,
@@ -500,14 +495,15 @@ export default function AttendanceManager({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <button
-                        onClick={() => handleDelete(record)}
+                      <DeleteConfirmButton
+                        onConfirm={() => handleDelete(record)}
+                        message='Delete this attendance record?'
                         title='Delete'
-                        aria-label='Delete'
+                        ariaLabel='Delete'
                         className='text-red-400 hover:text-red-300 transition-colors'
                       >
                         <DeleteIcon />
-                      </button>
+                      </DeleteConfirmButton>
                     </TableCell>
                   </TableRow>
                 );

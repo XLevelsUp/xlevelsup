@@ -11,6 +11,7 @@ import InvoiceReceiptModal from './InvoiceReceiptModal';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
+import DeleteConfirmButton from './DeleteConfirmButton';
 import { StatTile, BarBreakdown, TrendChart, type BarBreakdownItem } from './charts/FinanceCharts';
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import type { ReceiptData } from '@/types/billing';
@@ -195,8 +196,6 @@ export default function FinanceManager({
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to permanently delete this financial ledger entry?')) return;
-
     const result = await deleteLedgerEntryAction(id);
     if (result.success) {
       toast.success('Ledger entry deleted');
@@ -277,7 +276,6 @@ export default function FinanceManager({
   };
 
   const handleDeleteReceipt = async (entry: FinancialLedgerEntry) => {
-    if (!confirm('Delete this receipt? This cannot be undone.')) return;
     setDeletingReceiptId(entry.id);
     try {
       const result = await deleteLedgerReceiptAction(entry.id);
@@ -1008,14 +1006,15 @@ export default function FinanceManager({
                           </button>
                         )}
                         {userRole === 'admin' && (
-                          <button
-                            onClick={() => handleDelete(entry.id)}
+                          <DeleteConfirmButton
+                            onConfirm={() => handleDelete(entry.id)}
+                            message='Are you sure you want to permanently delete this financial ledger entry?'
                             title='Delete'
-                            aria-label='Delete'
+                            ariaLabel='Delete'
                             className='text-red-400 hover:text-red-300 transition-colors'
                           >
                             <DeleteIcon />
-                          </button>
+                          </DeleteConfirmButton>
                         )}
                         <button
                           onClick={() => setDetailsEntry(entry)}
@@ -1288,14 +1287,14 @@ export default function FinanceManager({
                               }}
                             />
                           </label>
-                          <button
-                            type='button'
-                            onClick={() => handleDeleteReceipt(detailsEntry)}
+                          <DeleteConfirmButton
+                            onConfirm={() => handleDeleteReceipt(detailsEntry)}
+                            message='Delete this receipt? This cannot be undone.'
                             disabled={deletingReceiptId === detailsEntry.id}
                             className='px-3 py-1.5 rounded text-xs font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50'
                           >
                             {deletingReceiptId === detailsEntry.id ? 'Deleting…' : '🗑️ Delete'}
-                          </button>
+                          </DeleteConfirmButton>
                         </>
                       )}
                     </>

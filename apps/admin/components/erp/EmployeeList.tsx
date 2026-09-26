@@ -15,6 +15,7 @@ import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteEmployeeAction } from '@/actions/erp/employees';
 import { getEmployeeCareerHistoryAction } from '@/actions/erp/employee-career';
+import DeleteConfirmButton from './DeleteConfirmButton';
 
 interface EmployeeListProps {
   employees: Employee[];
@@ -63,8 +64,6 @@ export default function EmployeeList({
   };
 
   const handleDelete = async (employee: Employee) => {
-    if (!confirm(`Are you sure you want to delete ${employee.name}?`)) return;
-
     const result = await deleteEmployeeAction(employee.id);
     if (result.success) {
       toast.success('Employee deleted successfully');
@@ -275,14 +274,15 @@ export default function EmployeeList({
                         >
                           <EditIcon className='w-3.5 h-3.5' />
                         </button>
-                        <button
-                          onClick={() => handleDelete(employee)}
+                        <DeleteConfirmButton
+                          onConfirm={() => handleDelete(employee)}
+                          message={`Are you sure you want to delete ${employee.name}?`}
                           title='Delete'
-                          aria-label='Delete'
+                          ariaLabel='Delete'
                           className='text-red-400 hover:text-red-300 transition-colors'
                         >
                           <DeleteIcon className='w-3.5 h-3.5' />
-                        </button>
+                        </DeleteConfirmButton>
                       </div>
                       {/* Bottom row: career actions */}
                       <div className='flex gap-1.5 flex-wrap'>

@@ -11,6 +11,7 @@ import { EditIcon, DeleteIcon } from './ActionIcons';
 import SensitiveValue from './SensitiveValue';
 import { createClientAction, updateClientAction, deleteClientAction } from '@/actions/erp/clients';
 import type { Client, ClientFinancialSummary } from '@/types/erp';
+import DeleteConfirmButton from './DeleteConfirmButton';
 
 interface ClientManagerProps {
   clients: Client[];
@@ -188,8 +189,6 @@ export default function ClientManager({ clients, summaries, userRole }: ClientMa
   };
 
   const handleDelete = async (client: Client) => {
-    if (!confirm(`Delete client "${client.name}"? This cannot be undone.`)) return;
-
     const result = await deleteClientAction(client.id);
     if (result.success) {
       toast.success('Client deleted');
@@ -277,14 +276,15 @@ export default function ClientManager({ clients, summaries, userRole }: ClientMa
                         </button>
                       )}
                       {canDelete && (
-                        <button
-                          onClick={() => handleDelete(client)}
+                        <DeleteConfirmButton
+                          onConfirm={() => handleDelete(client)}
+                          message={`Delete client "${client.name}"? This cannot be undone.`}
                           title='Delete'
-                          aria-label='Delete'
+                          ariaLabel='Delete'
                           className='text-red-400 hover:text-red-300 transition-colors'
                         >
                           <DeleteIcon />
-                        </button>
+                        </DeleteConfirmButton>
                       )}
                     </div>
                   </TableCell>

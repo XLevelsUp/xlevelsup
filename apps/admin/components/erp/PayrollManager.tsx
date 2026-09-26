@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
+import DeleteConfirmButton from './DeleteConfirmButton';
 import type { PayrollWithEmployee } from '@/types/erp';
 import { formatCurrency, getMonthName } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -118,9 +119,6 @@ export default function PayrollManager({
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this payroll record?'))
-      return;
-
     const result = await deletePayrollAction(id);
     if (result.success) {
       toast.success('Payroll deleted successfully');
@@ -130,28 +128,25 @@ export default function PayrollManager({
     }
   };
 
-  const handleDeleteMonth = async () => {
+  // Gates the confirmation popover itself: clicking "Delete Payroll for
+  // Month" with nothing selected should surface the existing validation
+  // toast, not a confirmation for a month that isn't chosen yet.
+  const canDeleteMonth = () => {
     if (!deleteMonthValue) {
       toast.error('Select a month');
-      return;
+      return false;
     }
+    return true;
+  };
 
-    const monthLabel = getMonthName(deleteMonthValue);
-    if (
-      !confirm(
-        `This will permanently delete ALL payroll records (draft, approved, and paid) for ${monthLabel}. Any linked financial ledger entries will be unlinked, not deleted. This cannot be undone. Continue?`,
-      )
-    ) {
-      return;
-    }
-
+  const handleDeleteMonth = async () => {
     setDeletingMonth(true);
     const result = await deletePayrollForMonthAction(deleteMonthValue);
     setDeletingMonth(false);
 
     if (result.success) {
       toast.success(
-        `Deleted ${result.payroll?.deletedCount ?? 0} payroll record(s) for ${monthLabel}. You can now generate fresh ones for this month.`,
+        `Deleted ${result.payroll?.deletedCount ?? 0} payroll record(s) for ${getMonthName(deleteMonthValue)}. You can now generate fresh ones for this month.`,
         { duration: 4000 },
       );
       setShowDeleteMonthModal(false);
@@ -343,14 +338,15 @@ export default function PayrollManager({
                   </select>
                 </TableCell>
                 <TableCell>
-                  <button
-                    onClick={() => handleDelete(record.id)}
+                  <DeleteConfirmButton
+                    onConfirm={() => handleDelete(record.id)}
+                    message='Are you sure you want to delete this payroll record?'
                     title='Delete'
-                    aria-label='Delete'
+                    ariaLabel='Delete'
                     className='text-red-400 hover:text-red-300 transition-colors'
                   >
                     <DeleteIcon />
-                  </button>
+                  </DeleteConfirmButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -410,15 +406,22 @@ export default function PayrollManager({
               required
             />
           </div>
-          <Button
-            type='button'
-            variant='secondary'
+          <DeleteConfirmButton
+            variant='button'
+            onConfirm={handleDeleteMonth}
+            onBeforeOpen={canDeleteMonth}
+            message={
+              deleteMonthValue
+                ? `This will permanently delete ALL payroll records (draft, approved, and paid) for ${getMonthName(deleteMonthValue)}. Any linked financial ledger entries will be unlinked, not deleted. This cannot be undone. Continue?`
+                : ''
+            }
+            confirmLabel='Delete'
+            confirmingLabel='Deleting...'
             className='w-full !text-red-400 !outline-red-500/60 hover:!outline-red-400'
             disabled={deletingMonth}
-            onClick={handleDeleteMonth}
           >
-            {deletingMonth ? 'Deleting...' : 'Delete Payroll for Month'}
-          </Button>
+            Delete Payroll for Month
+          </DeleteConfirmButton>
         </div>
       </Modal>
 

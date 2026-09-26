@@ -7,8 +7,10 @@ import {
   getTimeTrackingStats,
 } from '@/lib/erp/time-tracking-admin';
 import { getTodaysBirthdays } from '@/lib/erp/employees';
+import { getMonthEventsAction } from '@/actions/erp/events';
 import TimeTrackingOverview from '@/components/erp/admin/TimeTrackingOverview';
 import BirthdayBanner from '@/components/erp/BirthdayBanner';
+import UpcomingEventsSidebar from '@/components/erp/UpcomingEventsSidebar';
 import { formatCurrency, formatDuration, getTodayIST } from '@/lib/erp/utils';
 import Link from 'next/link';
 import SensitiveValue from '@/components/erp/SensitiveValue';
@@ -31,12 +33,20 @@ export default async function DashboardPage() {
   const birthdays = await getTodaysBirthdays();
   const { year, month, day } = getTodayIST();
   const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  // Feeds the sidebar's mini calendar with this month's data server-side, so
+  // it paints with real content on first load instead of an empty grid that
+  // fills in a moment later; navigating months re-fetches client-side.
+  const monthEvents = await getMonthEventsAction(year, month);
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
+      {/* Widened from max-w-7xl: the sidebar column needs room alongside the
+          existing 4-column stat grid without squeezing it. */}
+      <main className='max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
         <BirthdayBanner dateKey={dateKey} birthdays={birthdays} />
 
+        <div className='grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start'>
+          <div className='min-w-0'>
         {/* Header */}
         <div className='mb-8'>
           <h1 className='text-3xl font-bold gradient-text'>ERP Dashboard</h1>
@@ -322,6 +332,10 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+          </div>
+
+          <UpcomingEventsSidebar initialEvents={monthEvents} year={year} month={month} />
+        </div>
       </main>
     </ERPLayoutWrapper>
   );
