@@ -7,6 +7,7 @@ import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { EditIcon, DeleteIcon } from './ActionIcons';
+import DeleteConfirmButton from './DeleteConfirmButton';
 import type { CompanyHoliday } from '@/lib/erp/holidays';
 import {
   createHolidayAction,
@@ -141,13 +142,6 @@ export default function HolidaysManager({
   };
 
   const handleDelete = async (holiday: CompanyHoliday) => {
-    if (
-      !confirm(
-        `Permanently delete "${holiday.name}" (${holiday.date})? This cannot be undone — consider archiving instead.`,
-      )
-    ) {
-      return;
-    }
     const result = await deleteHolidayAction(holiday.id);
     if (result.success) {
       toast.success('Holiday permanently deleted');
@@ -251,14 +245,15 @@ export default function HolidaysManager({
                         {holiday.is_active ? 'Archive' : 'Reactivate'}
                       </button>
                       {canHardDelete && (
-                        <button
-                          onClick={() => handleDelete(holiday)}
+                        <DeleteConfirmButton
+                          onConfirm={() => handleDelete(holiday)}
+                          message={`Permanently delete "${holiday.name}" (${holiday.date})? This cannot be undone — consider archiving instead.`}
                           title='Delete permanently'
-                          aria-label='Delete permanently'
+                          ariaLabel='Delete permanently'
                           className='text-red-400 hover:text-red-300 transition-colors'
                         >
                           <DeleteIcon />
-                        </button>
+                        </DeleteConfirmButton>
                       )}
                     </div>
                   </TableCell>

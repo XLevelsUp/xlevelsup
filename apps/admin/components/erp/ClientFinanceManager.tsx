@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import { deleteClientTransactionAction, recordTransactionPaymentAction } from '@/actions/erp/client-finances';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types/finance';
+import DeleteConfirmButton from './DeleteConfirmButton';
 
 interface ClientFinanceManagerProps {
   transactions: ClientTransaction[];
@@ -76,8 +77,6 @@ export default function ClientFinanceManager({
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this transaction?')) return;
-
     const result = await deleteClientTransactionAction(id);
     if (result.success) {
       toast.success('Transaction deleted successfully');
@@ -493,14 +492,15 @@ export default function ClientFinanceManager({
                     >
                       <EditIcon className='w-3.5 h-3.5' />
                     </button>
-                    <button
-                      onClick={() => handleDelete(transaction.id)}
+                    <DeleteConfirmButton
+                      onConfirm={() => handleDelete(transaction.id)}
+                      message='Are you sure you want to delete this transaction?'
                       title='Delete'
-                      aria-label='Delete'
+                      ariaLabel='Delete'
                       className='text-red-400 hover:text-red-300 transition-colors bg-red-500/10 p-1.5 rounded border border-red-500/20 hover:border-red-500/30'
                     >
                       <DeleteIcon className='w-3.5 h-3.5' />
-                    </button>
+                    </DeleteConfirmButton>
                   </div>
                 </TableCell>
               </TableRow>
