@@ -25,10 +25,38 @@ export async function getEmployeeSession(): Promise<EmployeeSession | null> {
 
   if (token) {
     const session = await verifyEmployeeSession(token);
-    if (session) return session;
+    if (session) return withLiveAccountFlags(session);
   }
 
   return getBridgedEmployeeSession();
+}
+
+/**
+ * The JWT snapshots account flags at login and lives for 7 days, so an
+ * admin setting `require_password_change` (or suspending the account)
+ * afterwards would go unnoticed. Always take these from the DB instead.
+ */
+async function withLiveAccountFlags(
+  session: EmployeeSession,
+): Promise<EmployeeSession | null> {
+  const { data: employee, error } = await supabase
+    .from('employees')
+    .select('require_password_change, status, account_status')
+    .eq('id', session.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load employee account flags:', error.message);
+    return null;
+  }
+  if (!employee) return null;
+  if (employee.status !== 'active') return null;
+  if (employee.account_status === 'suspended' || employee.account_status === 'locked') return null;
+
+  return {
+    ...session,
+    require_password_change: employee.require_password_change ?? false,
+  };
 }
 
 async function getBridgedEmployeeSession(): Promise<EmployeeSession | null> {
