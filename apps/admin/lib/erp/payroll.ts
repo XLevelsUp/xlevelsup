@@ -356,3 +356,94 @@ export async function getPayrollStats(month?: string): Promise<{
     paid_count: records.filter((r) => r.status === 'paid').length,
   };
 }
+
+/**
+ * A financial_ledger payroll-payout row as PostgREST returns it from the
+ * joined select below, with the linked payroll row nested under `payroll`
+ * rather than flattened.
+ */
+interface PayslipLedgerRow {
+  id: number;
+  transaction_date: string;
+  receipt_path: string | null;
+  payroll: { month: string; net_salary: number } | null;
+}
+
+export interface EmployeePayslip {
+  /** financial_ledger row id — a stable React key, not what's needed to
+   * fetch the file (that's receipt_path, via getPayslipUrlAction). */
+  id: number;
+  month: string;
+  net_salary: number;
+  /** When it was actually paid (financial_ledger.transaction_date) — not
+   * necessarily the same month as `month` if a payroll run was paid late. */
+  paid_at: string;
+  receipt_path: string;
+}
+
+/**
+ * An employee's own generated payslips, newest paid first.
+ *
+ * Reads financial_ledger rather than payroll directly: that's where
+ * receipt_path (the payslip PDF) lives — see markPayrollPaid above, which
+ * writes the payslip onto the ledger entry it creates, not onto the payroll
+ * row itself. Scoped to rows where receipt_path is set: a payroll month can
+ * be marked paid with no payslip if PDF generation failed at pay time (see
+ * the non-fatal try/catch in markPayrollPaid), and there is nothing to show
+ * for those — no broken "download" link for a file that was never created.
+ */
+export async function getEmployeePayslips(employeeId: number): Promise<EmployeePayslip[]> {
+  const { data, error } = await supabase
+    .from('financial_ledger')
+    .select('id, transaction_date, receipt_path, payroll:payroll_id(month, net_salary)')
+    .eq('employee_id', employeeId)
+    .eq('transaction_type', 'payroll')
+    .not('receipt_path', 'is', null)
+    .order('transaction_date', { ascending: false });
+
+  if (error) throw error;
+
+  // Cast, not a type-narrowing annotation: without generated Database types,
+  // postgrest-js's string-parsed inference can't tell this FK is many-to-one
+  // (financial_ledger.payroll_id -> payroll.id) and defaults the embed to an
+  // array. Verified against a real row that PostgREST actually returns
+  // `payroll` as a single object at runtime, matching every other to-one
+  // embed already typed this way in this file (see PayrollJoinedRow above).
+  const rows = (data || []) as unknown as PayslipLedgerRow[];
+
+  return rows
+    .filter((row) => row.payroll && row.receipt_path)
+    .map((row) => ({
+      id: row.id,
+      month: row.payroll!.month,
+      net_salary: row.payroll!.net_salary,
+      paid_at: row.transaction_date,
+      receipt_path: row.receipt_path!,
+    }));
+}
+
+/**
+ * The storage path for ONE of an employee's own payslips, or null if that
+ * ledger row doesn't exist, isn't theirs, or has no payslip attached.
+ *
+ * Ownership is enforced in the WHERE clause (employee_id = employeeId), not
+ * by trusting a client-supplied path or id — the action that calls this
+ * (getMyPayslipUrlAction) takes only the ledger row id from the client, so
+ * there is nothing here for a tampered request to redirect at someone
+ * else's file.
+ */
+export async function getEmployeePayslipPath(
+  ledgerEntryId: number,
+  employeeId: number,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('financial_ledger')
+    .select('receipt_path')
+    .eq('id', ledgerEntryId)
+    .eq('employee_id', employeeId)
+    .eq('transaction_type', 'payroll')
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.receipt_path ?? null;
+}

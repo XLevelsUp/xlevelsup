@@ -153,7 +153,7 @@ export default async function EmployeeDashboardPage() {
         {/* Quick Actions */}
         <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6'>
           <h2 className='text-xl font-bold text-white mb-4'>Quick Actions</h2>
-          <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+          <div className='grid grid-cols-1 md:grid-cols-5 gap-4'>
             <Link
               href='/employee/profile'
               className='block p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg hover:bg-orange-500/20 transition-colors'
@@ -192,6 +192,15 @@ export default async function EmployeeDashboardPage() {
               </h3>
               <p className='text-sm text-gray-400'>
                 Mandatory, floater, and company holidays
+              </p>
+            </Link>
+            <Link
+              href='/employee/payslips'
+              className='block p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 transition-colors'
+            >
+              <h3 className='font-semibold text-white mb-1'>💰 Payslips</h3>
+              <p className='text-sm text-gray-400'>
+                View and download your monthly payslips
               </p>
             </Link>
           </div>
