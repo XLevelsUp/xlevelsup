@@ -375,6 +375,16 @@ export async function reviewLeaveRequest(
   if (!existingRequest)
     throw new Error('Leave request not found or already reviewed');
 
+  if (status === 'approved') {
+    const balanceError = await checkLeaveBalanceAvailable(
+      existingRequest.employee_id,
+      existingRequest.leave_type,
+      existingRequest.start_date,
+      Number(existingRequest.total_days),
+    );
+    if (balanceError) throw new Error(balanceError);
+  }
+
   // Update the leave request status
   const { data: leaveRequest, error } = await supabase
     .from('leave_requests')
@@ -450,6 +460,81 @@ export async function getEmployeeLeaveBalance(
 
   if (error) throw error;
   return data || [];
+}
+
+/**
+ * Leave types drawn from a `leave_balances` allocation. A missing balance row
+ * for one of these means nothing was allocated (e.g. interns get no floater or
+ * sick leave), not that the type is unlimited.
+ */
+const BALANCE_LIMITED_LEAVE_TYPES = ['casual', 'sick', 'floater', 'earned'];
+
+const formatDays = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
+/**
+ * Check that `days` more of `leaveType` fits in the employee's remaining
+ * balance for the year of `date`. Returns an error message when it would go
+ * negative, or null when it fits (or the type isn't balance-limited).
+ *
+ * With `includePending`, days already requested in other pending leave
+ * requests count against the balance too, so several pending requests can't
+ * add up to more than is left. `excludeRequestId` leaves out the request being
+ * edited.
+ */
+export async function checkLeaveBalanceAvailable(
+  employeeId: number,
+  leaveType: string,
+  date: string,
+  days: number,
+  options: { includePending?: boolean; excludeRequestId?: number } = {},
+): Promise<string | null> {
+  if (!BALANCE_LIMITED_LEAVE_TYPES.includes(leaveType)) return null;
+
+  const year = new Date(date).getFullYear();
+  const label = leaveType.charAt(0).toUpperCase() + leaveType.slice(1);
+
+  const { data: balance, error } = await supabase
+    .from('leave_balances')
+    .select('total_allocated, used_days')
+    .eq('employee_id', employeeId)
+    .eq('year', year)
+    .eq('leave_type', leaveType)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  const allocated = Number(balance?.total_allocated ?? 0);
+  const used = Number(balance?.used_days ?? 0);
+
+  let pending = 0;
+  if (options.includePending) {
+    let query = supabase
+      .from('leave_requests')
+      .select('total_days')
+      .eq('employee_id', employeeId)
+      .eq('leave_type', leaveType)
+      .eq('status', 'pending')
+      .gte('start_date', `${year}-01-01`)
+      .lte('start_date', `${year}-12-31`);
+    if (options.excludeRequestId) {
+      query = query.neq('id', options.excludeRequestId);
+    }
+    const { data: pendingRequests, error: pendingError } = await query;
+    if (pendingError) throw pendingError;
+    pending = (pendingRequests || []).reduce(
+      (sum, r) => sum + Number(r.total_days),
+      0,
+    );
+  }
+
+  const available = allocated - used - pending;
+  if (days <= available) return null;
+
+  if (allocated === 0) {
+    return `No ${label} leave is allocated for ${year}.`;
+  }
+  const pendingNote = pending > 0 ? ` (${formatDays(pending)} already pending approval)` : '';
+  return `Insufficient ${label} leave balance: ${formatDays(Math.max(0, available))} available${pendingNote}, ${formatDays(days)} requested.`;
 }
 
 /**

@@ -14,7 +14,8 @@ import {
   hasPendingRequestForDate,
   fetchAttendanceByEmployeeAndDate,
 } from '@/lib/erp/attendance-change-requests';
-import { requireRole } from '@/lib/auth';
+import { checkLeaveBalanceAvailable } from '@/lib/erp/leave-requests';
+import { requireApprover } from '@/lib/erp/approver';
 import type { AttendanceStatus, AttendanceRegularisationType } from '@/types/erp';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,6 +217,19 @@ export async function createAttendanceChangeRequestAction(
       };
     }
 
+    if (validated.requested_status === 'paid-leave' && validated.leave_type) {
+      const balanceError = await checkLeaveBalanceAvailable(
+        employeeId,
+        validated.leave_type,
+        validated.request_date,
+        1,
+        { includePending: true },
+      );
+      if (balanceError) {
+        return { success: false, error: balanceError };
+      }
+    }
+
     await createAttendanceChangeRequest(employeeId, {
       request_date: validated.request_date,
       requested_status: validated.requested_status as AttendanceStatus,
@@ -343,7 +357,7 @@ export async function reviewAttendanceChangeRequestAction(
   reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const rawData = {
       status,

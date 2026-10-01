@@ -2,24 +2,35 @@
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
+import { requireApprover } from '@/lib/erp/approver';
 import {
   getAllPayroll,
   getPayrollById,
   getPayrollByEmployeeMonth,
   createPayroll,
   updatePayrollAdjustments,
+  updatePayrollDeductions,
   updatePayrollStatus,
   markPayrollPaid,
   deletePayroll,
   deletePayrollByMonth,
+  getEmployeePayrollHistory,
+  getPayrollPayslipPath,
+  renderPayslipForPayroll,
+  regeneratePaidPayslip,
+  type EmployeePayrollHistoryRow,
 } from '@/lib/erp/payroll';
+import { getEffectiveSalaryStructure, getDefaultSalaryTemplate } from '@/lib/erp/salary-structure';
+import { getFullTimeConversionDate } from '@/lib/erp/employee-career';
 import { getAllEmployees } from '@/lib/erp/employees';
+import { getPayslipSignedUrl } from '@/lib/erp/payslips';
 import { getMonthlyAttendanceByEmployeeDate } from '@/lib/erp/attendance';
 import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
 import {
   getWorkingDayDatesInMonth,
   calculatePayroll,
   getMonthDateRange,
+  splitGrossByTemplate,
   type PayrollAttendanceStatus,
 } from '@/lib/erp/utils';
 import { revalidatePath } from 'next/cache';
@@ -35,6 +46,8 @@ export interface PayrollBulkSummary {
   skipped?: number;
   errors?: string[];
   deletedCount?: number;
+  /** Paid (finalized) records a month delete left in place. */
+  keptPaidCount?: number;
 }
 
 /**
@@ -80,8 +93,14 @@ export async function generatePayrollAction(
       return { success: false, error: 'Invalid month format' };
     }
 
-    // Get all active employees
-    const employees = await getAllEmployees({ status: 'active' });
+    // Get all active employees — or only the ones picked in the Generate
+    // dialog, when a selection was sent.
+    const selectedIds = new Set(
+      formData.getAll('employee_ids').map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0),
+    );
+    const employees = (await getAllEmployees({ status: 'active' })).filter(
+      (e) => selectedIds.size === 0 || selectedIds.has(e.id),
+    );
 
     if (employees.length === 0) {
       return { success: false, error: 'No active employees found' };
@@ -101,12 +120,22 @@ export async function generatePayrollAction(
 
     // One query for the whole run, rather than one per employee.
     const attendanceByEmployee = await getMonthlyAttendanceByEmployeeDate(month);
+    const defaultTemplate = await getDefaultSalaryTemplate();
 
     let generatedCount = 0;
     let skippedCount = 0;
     const errors: string[] = [];
 
     for (const employee of employees) {
+      // Interns and freelancers never get a payslip through this system —
+      // interns are on a stipend (not a salary), and freelancers are paid
+      // through the hourly flow. This holds even if one of them happens to
+      // have a monthly_salary value set.
+      if (employee.employment_type === 'intern' || employee.employment_type === 'freelancer') {
+        skippedCount++;
+        continue;
+      }
+
       // Check if payroll already exists
       const existing = await getPayrollByEmployeeMonth(employee.id, month);
       if (existing) {
@@ -114,11 +143,31 @@ export async function generatePayrollAction(
         continue;
       }
 
-      // No monthly salary configured — hourly freelancers, who are paid
-      // through the hourly flow rather than monthly payroll, and anyone whose
-      // pay hasn't been set up yet. A zero row can't be approved or paid, so
-      // it would only be noise on the payroll screen.
-      if (!employee.monthly_salary) {
+      // Full-time employees may have a structured salary configured — if so,
+      // its gross_salary and Basic/HRA/Special/Other breakdown are used and
+      // snapshotted onto the payroll row instead of the flat monthly_salary.
+      // Falls back to today's flat behavior when none exists yet (e.g. every
+      // full-time employee before this feature was configured for them).
+      const structure =
+        employee.employment_type === 'full-time'
+          ? await getEffectiveSalaryStructure(employee.id, endDate)
+          : null;
+      const effectiveGrossSalary = structure?.gross_salary ?? employee.monthly_salary;
+
+      // A full-time employee with no structure of their own yet still gets
+      // the standard Basic/HRA/Special/Other components on their payslip:
+      // their flat gross split by the default template, snapshotted onto the
+      // row like a real structure's would be (salary_structure_id stays null).
+      const components =
+        structure ??
+        (employee.employment_type === 'full-time' && defaultTemplate && effectiveGrossSalary
+          ? splitGrossByTemplate(effectiveGrossSalary, defaultTemplate)
+          : null);
+
+      // No monthly salary (or structure) configured — anyone whose pay
+      // hasn't been set up yet. A zero row can't be approved or paid, so it
+      // would only be noise on the payroll screen.
+      if (!effectiveGrossSalary) {
         skippedCount++;
         continue;
       }
@@ -127,12 +176,23 @@ export async function generatePayrollAction(
         attendanceByEmployee.get(employee.id) ||
         new Map<string, PayrollAttendanceStatus>();
 
+      // A converted intern is only salaried from the conversion date — the
+      // days before it were internship (stipend), so they're outside the
+      // salaried window: prorated out of the conversion month, and a month
+      // wholly before it gets no salary payslip at all (skipped below).
+      const conversionDate =
+        employee.employment_type === 'full-time' ? await getFullTimeConversionDate(employee.id) : null;
+      const salariedFrom =
+        conversionDate && (!employee.joining_date || conversionDate > employee.joining_date)
+          ? conversionDate
+          : employee.joining_date;
+
       // Calculate payroll
       const calculation = calculatePayroll(
-        employee.monthly_salary || 0,
+        effectiveGrossSalary,
         workingDayDates,
         attendanceByDate,
-        { from: employee.joining_date, to: employee.end_date },
+        { from: salariedFrom, to: employee.end_date },
       );
 
       // Not employed for a single working day of this month — someone hired
@@ -170,6 +230,16 @@ export async function generatePayrollAction(
           approved_at: null,
           paid_by: null,
           paid_at: null,
+          salary_structure_id: structure?.id ?? null,
+          basic_salary: components?.basic_salary ?? null,
+          hra: components?.hra ?? null,
+          special_allowance: components?.special_allowance ?? null,
+          other_allowance: components?.other_allowance ?? null,
+          pf_deduction: 0,
+          esi_deduction: 0,
+          professional_tax_deduction: 0,
+          tds_deduction: 0,
+          other_structured_deduction: 0,
         });
         generatedCount++;
       } catch (error) {
@@ -213,7 +283,55 @@ export async function updatePayrollAdjustmentsAction(
     return { success: true, payroll };
   } catch (error) {
     console.error('Update payroll adjustments error:', error);
-    return { success: false, error: 'Failed to update payroll' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update payroll',
+    };
+  }
+}
+
+const deductionsSchema = z.object({
+  pf_deduction: z.number().min(0).default(0),
+  esi_deduction: z.number().min(0).default(0),
+  professional_tax_deduction: z.number().min(0).default(0),
+  tds_deduction: z.number().min(0).default(0),
+  other_structured_deduction: z.number().min(0).default(0),
+});
+
+/**
+ * Update the structured deductions (PF/ESI/Professional Tax/TDS/Other) on a
+ * payroll row. Every field defaults to 0 — nothing here is ever auto-applied;
+ * an admin must explicitly enter an amount. Blocked once the record is paid
+ * (see updatePayrollDeductions).
+ */
+export async function updatePayrollDeductionsAction(
+  id: number,
+  formData: FormData,
+): Promise<PayrollActionResult<Payroll>> {
+  try {
+    await requireRole(['admin', 'hr']);
+
+    const validated = deductionsSchema.parse({
+      pf_deduction: parseFloat(formData.get('pf_deduction') as string) || 0,
+      esi_deduction: parseFloat(formData.get('esi_deduction') as string) || 0,
+      professional_tax_deduction: parseFloat(formData.get('professional_tax_deduction') as string) || 0,
+      tds_deduction: parseFloat(formData.get('tds_deduction') as string) || 0,
+      other_structured_deduction: parseFloat(formData.get('other_structured_deduction') as string) || 0,
+    });
+
+    const payroll = await updatePayrollDeductions(id, validated);
+
+    revalidatePath('/erp/payroll');
+    return { success: true, payroll };
+  } catch (error) {
+    console.error('Update payroll deductions error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update deductions',
+    };
   }
 }
 
@@ -228,17 +346,7 @@ export async function updatePayrollStatusAction(
   status: 'draft' | 'approved',
 ): Promise<PayrollActionResult<Payroll>> {
   try {
-    const session = await requireRole(['admin', 'hr']);
-
-    if (status === 'approved') {
-      const existing = await getPayrollById(id);
-      if (!existing) {
-        return { success: false, error: 'Payroll record not found' };
-      }
-      if (existing.generated_by === session.userId) {
-        return { success: false, error: 'You cannot approve/mark-paid a payroll run you generated yourself' };
-      }
-    }
+    const session = await requireApprover();
 
     const payroll = await updatePayrollStatus(id, status, session.userId);
 
@@ -246,7 +354,10 @@ export async function updatePayrollStatusAction(
     return { success: true, payroll };
   } catch (error) {
     console.error('Update payroll status error:', error);
-    return { success: false, error: 'Failed to update payroll status' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update payroll status',
+    };
   }
 }
 
@@ -264,16 +375,13 @@ export async function markPayrollPaidAction(
   referenceNumber: string,
 ): Promise<PayrollActionResult<Payroll>> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const validated = markPaidSchema.parse({ reference_number: referenceNumber });
 
     const existing = await getPayrollById(id);
     if (!existing) {
       return { success: false, error: 'Payroll record not found' };
-    }
-    if (existing.generated_by === session.userId) {
-      return { success: false, error: 'You cannot approve/mark-paid a payroll run you generated yourself' };
     }
 
     const payroll = await markPayrollPaid(id, validated.reference_number, session.userId);
@@ -307,7 +415,10 @@ export async function deletePayrollAction(
     return { success: true };
   } catch (error) {
     console.error('Delete payroll error:', error);
-    return { success: false, error: 'Failed to delete payroll' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete payroll',
+    };
   }
 }
 
@@ -324,12 +435,89 @@ export async function deletePayrollForMonthAction(
       return { success: false, error: 'Invalid month format' };
     }
 
-    const deletedCount = await deletePayrollByMonth(month);
+    const { deleted, keptPaid } = await deletePayrollByMonth(month);
 
     revalidatePath('/erp/payroll');
-    return { success: true, payroll: { deletedCount } };
+    return { success: true, payroll: { deletedCount: deleted, keptPaidCount: keptPaid } };
   } catch (error) {
     console.error('Delete payroll for month error:', error);
     return { success: false, error: 'Failed to delete payroll for month' };
+  }
+}
+
+/**
+ * One employee's full payroll history (every month, any status) for the
+ * admin payslip list on the Employees page.
+ */
+export async function getEmployeePayrollHistoryAction(
+  employeeId: number,
+): Promise<EmployeePayrollHistoryRow[]> {
+  try {
+    await requireRole(['admin', 'hr']);
+    return await getEmployeePayrollHistory(employeeId);
+  } catch (error) {
+    console.error('Get employee payroll history error:', error);
+    return [];
+  }
+}
+
+/**
+ * Open a payroll row's payslip. A paid month returns a signed URL to the
+ * finalized PDF stored at payment time; any other month is rendered on the
+ * fly from its current figures as a watermarked PREVIEW (returned as base64,
+ * never stored), so it can be checked before it is approved and paid.
+ */
+export async function getPayslipForPayrollAction(payrollId: number): Promise<{
+  success: boolean;
+  error?: string;
+  url?: string;
+  previewBase64?: string;
+  fileName?: string;
+}> {
+  try {
+    await requireRole(['admin', 'hr']);
+
+    const record = await getPayrollById(payrollId);
+    if (!record) return { success: false, error: 'Payroll record not found' };
+
+    if (record.status === 'paid') {
+      const path = await getPayrollPayslipPath(payrollId);
+      if (!path) {
+        return {
+          success: false,
+          error: 'No payslip PDF was stored for this paid month. Use "Regenerate PDF" to create it.',
+        };
+      }
+      const url = await getPayslipSignedUrl(path);
+      return url ? { success: true, url } : { success: false, error: 'Could not open payslip' };
+    }
+
+    const rendered = await renderPayslipForPayroll(record, { preview: true });
+    if (!rendered) return { success: false, error: 'Employee record not found' };
+    return {
+      success: true,
+      previewBase64: Buffer.from(rendered.pdf).toString('base64'),
+      fileName: `Payslip-Preview-${rendered.employeeIdDisplay}-${record.month}.pdf`,
+    };
+  } catch (error) {
+    console.error('Get payslip for payroll error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to open payslip' };
+  }
+}
+
+/**
+ * Re-render a paid month's payslip PDF from its frozen snapshot, original
+ * payment date and reference — the figures cannot change.
+ */
+export async function regeneratePayslipAction(payrollId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireRole(['admin', 'hr']);
+    await regeneratePaidPayslip(payrollId);
+    revalidatePath('/erp/payroll');
+    revalidatePath('/erp/finances');
+    return { success: true };
+  } catch (error) {
+    console.error('Regenerate payslip error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to regenerate payslip' };
   }
 }

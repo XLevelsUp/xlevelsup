@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { requireRole, requireAuth } from '@/lib/auth';
+import { requireApprover } from '@/lib/erp/approver';
 import {
   getAllExpenses,
   getExpenseById,
@@ -126,14 +127,11 @@ export async function updateExpenseStatusAction(
   rejectionReason?: string,
 ): Promise<ExpenseActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const existing = await getExpenseById(id);
     if (!existing) {
       return { success: false, error: 'Expense not found' };
-    }
-    if (existing.submitted_by === session.userId) {
-      return { success: false, error: 'You cannot approve/reject an expense you submitted yourself' };
     }
 
     const expense = await updateExpenseStatus(
@@ -147,7 +145,10 @@ export async function updateExpenseStatusAction(
     return { success: true, expense };
   } catch (error) {
     console.error('Update expense status error:', error);
-    return { success: false, error: 'Failed to update expense status' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update expense status',
+    };
   }
 }
 
@@ -175,14 +176,11 @@ export async function markExpenseReimbursedAction(
   id: number,
 ): Promise<ExpenseActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const existing = await getExpenseById(id);
     if (!existing) {
       return { success: false, error: 'Expense not found' };
-    }
-    if (existing.submitted_by === session.userId) {
-      return { success: false, error: 'You cannot mark your own expense as reimbursed' };
     }
 
     const { data: expense, error } = await supabase
@@ -206,6 +204,9 @@ export async function markExpenseReimbursedAction(
     return { success: true, expense };
   } catch (error) {
     console.error('Mark reimbursed error:', error);
-    return { success: false, error: 'Failed to mark expense as reimbursed' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to mark expense as reimbursed',
+    };
   }
 }

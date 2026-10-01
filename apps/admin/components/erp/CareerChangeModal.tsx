@@ -11,15 +11,28 @@ import { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { createCareerChangeAction } from '@/actions/erp/employee-career';
+import { getSalaryTemplatesAction } from '@/actions/erp/salary-structure';
 import toast from 'react-hot-toast';
 import type {
   Employee,
   EmployeeCareerChangeType,
   CareerChangeFormData,
+  SalaryTemplate,
 } from '@/types/erp';
 import { CAREER_CHANGE_TYPE_LABELS } from '@/types/erp';
 import { formatCurrency } from '@/lib/erp/utils';
 import SensitiveValue from './SensitiveValue';
+
+const emptyBreakdown = { basic_salary: '', hra: '', special_allowance: '', other_allowance: '' };
+
+function sumBreakdown(b: typeof emptyBreakdown): number {
+  return (
+    (parseFloat(b.basic_salary) || 0) +
+    (parseFloat(b.hra) || 0) +
+    (parseFloat(b.special_allowance) || 0) +
+    (parseFloat(b.other_allowance) || 0)
+  );
+}
 
 interface CareerChangeModalProps {
   isOpen: boolean;
@@ -103,6 +116,8 @@ export default function CareerChangeModal({
   const [newSalary, setNewSalary] = useState<string>(
     employee.monthly_salary != null ? String(employee.monthly_salary) : '',
   );
+  const [breakdown, setBreakdown] = useState(emptyBreakdown);
+  const [templates, setTemplates] = useState<SalaryTemplate[]>([]);
   const [effectiveDate, setEffectiveDate] = useState(
     new Date().toISOString().split('T')[0],
   );
@@ -113,6 +128,41 @@ export default function CareerChangeModal({
   const fields = getFieldVisibility(changeType);
   const isFutureDate = effectiveDate > new Date().toISOString().split('T')[0];
 
+  // A salary breakdown only makes sense once the change results in a
+  // full-time employee — intern_conversion can target any employment type,
+  // salary_revision/promotion never change it, so it's just the employee's
+  // current type for those two.
+  const resultingEmploymentType =
+    changeType === 'intern_conversion' ? newEmploymentType : employee.employment_type;
+  const showBreakdown = fields.showSalary && resultingEmploymentType === 'full-time';
+
+  useEffect(() => {
+    if (showBreakdown && templates.length === 0) {
+      getSalaryTemplatesAction().then(setTemplates);
+    }
+  }, [showBreakdown, templates.length]);
+
+  // Keep the flat newSalary in sync with the breakdown total, since new_salary
+  // is still what's shown in the audit trail and validated server-side to
+  // equal the sum of components.
+  useEffect(() => {
+    if (showBreakdown) {
+      const total = sumBreakdown(breakdown);
+      setNewSalary(total > 0 ? String(total) : '');
+    }
+  }, [showBreakdown, breakdown]);
+
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find((t) => String(t.id) === templateId);
+    if (!template) return;
+    setBreakdown({
+      basic_salary: String(template.basic_salary),
+      hra: String(template.hra),
+      special_allowance: String(template.special_allowance),
+      other_allowance: String(template.other_allowance),
+    });
+  };
+
   // Reset state when employee changes or modal opens
   useEffect(() => {
     if (isOpen) {
@@ -121,6 +171,7 @@ export default function CareerChangeModal({
       setNewDepartment(employee.department || '');
       setNewSalaryType(employee.salary_type || 'monthly');
       setNewSalary(employee.monthly_salary != null ? String(employee.monthly_salary) : '');
+      setBreakdown(emptyBreakdown);
       setEffectiveDate(new Date().toISOString().split('T')[0]);
       setReason('');
       setNotes('');
@@ -152,6 +203,12 @@ export default function CareerChangeModal({
       ...(fields.showSalary && salaryNum !== null && {
         new_salary_type: newSalaryType,
         new_salary: salaryNum,
+      }),
+      ...(showBreakdown && {
+        new_basic_salary: parseFloat(breakdown.basic_salary) || 0,
+        new_hra: parseFloat(breakdown.hra) || 0,
+        new_special_allowance: parseFloat(breakdown.special_allowance) || 0,
+        new_other_allowance: parseFloat(breakdown.other_allowance) || 0,
       }),
 
       effective_date: effectiveDate,
@@ -345,7 +402,7 @@ export default function CareerChangeModal({
                   )}
 
                   {/* New Salary */}
-                  {fields.showSalary && (
+                  {fields.showSalary && !showBreakdown && (
                     <div className="space-y-1.5">
                       <select
                         value={newSalaryType}
@@ -368,6 +425,66 @@ export default function CareerChangeModal({
                         className={inputClass}
                         required={changeType === 'salary_revision'}
                       />
+                    </div>
+                  )}
+
+                  {/* Structured salary breakdown — full-time only */}
+                  {showBreakdown && (
+                    <div className="space-y-1.5">
+                      {templates.length > 0 && (
+                        <select
+                          onChange={(e) => applyTemplate(e.target.value)}
+                          defaultValue=""
+                          className={inputClass}
+                        >
+                          <option value="">Custom</option>
+                          {templates.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <input
+                        type="number"
+                        placeholder="Basic Salary"
+                        min="0"
+                        step="0.01"
+                        value={breakdown.basic_salary}
+                        onChange={(e) => setBreakdown({ ...breakdown, basic_salary: e.target.value })}
+                        className={inputClass}
+                        required={changeType === 'salary_revision'}
+                      />
+                      <input
+                        type="number"
+                        placeholder="HRA"
+                        min="0"
+                        step="0.01"
+                        value={breakdown.hra}
+                        onChange={(e) => setBreakdown({ ...breakdown, hra: e.target.value })}
+                        className={inputClass}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Special Allowance"
+                        min="0"
+                        step="0.01"
+                        value={breakdown.special_allowance}
+                        onChange={(e) => setBreakdown({ ...breakdown, special_allowance: e.target.value })}
+                        className={inputClass}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Other Allowance"
+                        min="0"
+                        step="0.01"
+                        value={breakdown.other_allowance}
+                        onChange={(e) => setBreakdown({ ...breakdown, other_allowance: e.target.value })}
+                        className={inputClass}
+                      />
+                      <p className="text-xs text-gray-500">
+                        Gross: <SensitiveValue>{formatCurrency(sumBreakdown(breakdown))}</SensitiveValue>
+                      </p>
                     </div>
                   )}
                 </div>

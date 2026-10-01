@@ -3,10 +3,11 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import { computeNetSalary, formatDate, getMonthName } from '@/lib/erp/utils';
+import { computeNetSalary, formatDate, getMonthName, splitGrossByTemplate } from '@/lib/erp/utils';
 import { insertLedgerEntry } from '@/lib/erp/finance';
 import { getEmployeeById } from '@/lib/erp/employees';
 import { generatePayslipPdf, uploadPayslipPdf } from '@/lib/erp/payslips';
+import { getDefaultSalaryTemplate } from '@/lib/erp/salary-structure';
 import type { Payroll, PayrollWithEmployee, LedgerFormData } from '@/types/erp';
 
 /**
@@ -140,6 +141,19 @@ export async function createPayroll(
       status: data.status,
       notes: data.notes || null,
       generated_by: data.generated_by || null,
+      // Structured breakdown — only set for full-time employees with an
+      // effective employee_salary_structure at generation time; left null
+      // otherwise, matching every payroll row that predates this feature.
+      salary_structure_id: data.salary_structure_id ?? null,
+      basic_salary: data.basic_salary ?? null,
+      hra: data.hra ?? null,
+      special_allowance: data.special_allowance ?? null,
+      other_allowance: data.other_allowance ?? null,
+      pf_deduction: data.pf_deduction || 0,
+      esi_deduction: data.esi_deduction || 0,
+      professional_tax_deduction: data.professional_tax_deduction || 0,
+      tds_deduction: data.tds_deduction || 0,
+      other_structured_deduction: data.other_structured_deduction || 0,
     })
     .select()
     .single();
@@ -165,6 +179,13 @@ export async function updatePayrollAdjustments(
     .single();
 
   if (fetchError) throw fetchError;
+  // A finalized (paid) payslip is an immutable snapshot — if a later salary
+  // or attendance correction needs to happen, it belongs in a fresh payroll
+  // run, never a silent edit to a record an employee has already been paid
+  // (and downloaded a PDF for) against.
+  if (payroll.status === 'paid') {
+    throw new Error('Cannot modify a finalized (paid) payroll record');
+  }
 
   // Must go through computeNetSalary: gross_salary is the full contracted
   // salary, so a plain `gross + bonus - deduction` here would silently drop
@@ -176,6 +197,11 @@ export async function updatePayrollAdjustments(
     gross_salary: payroll.gross_salary,
     bonus,
     deduction,
+    pf_deduction: payroll.pf_deduction,
+    esi_deduction: payroll.esi_deduction,
+    professional_tax_deduction: payroll.professional_tax_deduction,
+    tds_deduction: payroll.tds_deduction,
+    other_structured_deduction: payroll.other_structured_deduction,
   });
 
   const { data, error } = await supabase
@@ -185,6 +211,61 @@ export async function updatePayrollAdjustments(
       deduction,
       net_salary: netSalary,
       notes: notes || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Update the structured deductions (PF/ESI/Professional Tax/TDS/Other) on a
+ * payroll row. None of these are ever auto-applied — every field defaults to
+ * 0 (see createPayroll) and only changes when an admin explicitly sets one
+ * here. Blocked once the record is paid, same as updatePayrollAdjustments.
+ */
+export async function updatePayrollDeductions(
+  id: number,
+  deductions: {
+    pf_deduction: number;
+    esi_deduction: number;
+    professional_tax_deduction: number;
+    tds_deduction: number;
+    other_structured_deduction: number;
+  },
+): Promise<Payroll> {
+  const { data: payroll, error: fetchError } = await supabase
+    .from('payroll')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (payroll.status === 'paid') {
+    throw new Error('Cannot modify a finalized (paid) payroll record');
+  }
+  for (const [label, value] of Object.entries(deductions)) {
+    if (value < 0) throw new Error(`${label} cannot be negative`);
+  }
+
+  const { net_salary: netSalary } = computeNetSalary({
+    total_working_days: payroll.total_working_days,
+    payable_days: payroll.payable_days,
+    per_day_salary: payroll.per_day_salary,
+    gross_salary: payroll.gross_salary,
+    bonus: payroll.bonus,
+    deduction: payroll.deduction,
+    ...deductions,
+  });
+
+  const { data, error } = await supabase
+    .from('payroll')
+    .update({
+      ...deductions,
+      net_salary: netSalary,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -206,6 +287,16 @@ export async function updatePayrollStatus(
   status: 'draft' | 'approved',
   userId: number,
 ): Promise<Payroll> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('payroll')
+    .select('status')
+    .eq('id', id)
+    .single();
+  if (fetchError) throw fetchError;
+  if (existing.status === 'paid') {
+    throw new Error('Cannot modify a finalized (paid) payroll record');
+  }
+
   const updateData: Partial<Payroll> = {
     status,
     updated_at: new Date().toISOString(),
@@ -251,23 +342,13 @@ export async function markPayrollPaid(
   // its reference ID) is what matters most, the payslip is a convenience
   // attached alongside it.
   let receiptPath: string | null = null;
-  const employee = await getEmployeeById(record.employee_id);
-  if (employee) {
-    try {
-      const pdfBytes = generatePayslipPdf(
-        record,
-        {
-          name: record.employee_name,
-          employeeIdDisplay: employee.employee_id,
-          department: record.employee_department,
-          role: record.employee_role,
-        },
-        referenceNumber,
-      );
-      receiptPath = await uploadPayslipPdf(pdfBytes, employee.employee_id, record.month);
-    } catch (err) {
-      console.error('Failed to generate/upload payslip:', err);
+  try {
+    const rendered = await renderPayslipForPayroll(record, { preview: false });
+    if (rendered) {
+      receiptPath = await uploadPayslipPdf(rendered.pdf, rendered.employeeIdDisplay, record.month);
     }
+  } catch (err) {
+    console.error('Failed to generate/upload payslip:', err);
   }
 
   const ledgerEntry: LedgerFormData = {
@@ -294,6 +375,7 @@ export async function markPayrollPaid(
       status: 'paid',
       paid_by: userId,
       paid_at: new Date().toISOString(),
+      finalized_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -305,26 +387,145 @@ export async function markPayrollPaid(
 }
 
 /**
- * Delete payroll record
+ * Render the payslip PDF for a payroll row from its own snapshotted values —
+ * never from the employee's current salary, so a later revision can't change
+ * what an old month's payslip says. `preview` renders a watermarked preview
+ * of a row that hasn't been paid yet. Returns null if the employee record no
+ * longer exists.
+ *
+ * A full-time employee's row generated before they had any salary structure
+ * carries only a flat gross; its Basic/HRA/Special/Other are then shown as
+ * that gross split by the default salary template — same totals, just the
+ * components the payslip is expected to list.
  */
-export async function deletePayroll(id: number): Promise<void> {
-  const { error } = await supabase.from('payroll').delete().eq('id', id);
+export async function renderPayslipForPayroll(
+  record: PayrollWithEmployee,
+  { preview }: { preview: boolean },
+): Promise<{ pdf: Uint8Array; employeeIdDisplay: string } | null> {
+  const employee = await getEmployeeById(record.employee_id);
+  if (!employee) return null;
+
+  let structureEffectiveFrom: string | null = null;
+  if (record.salary_structure_id) {
+    const { data } = await supabase
+      .from('employee_salary_structure')
+      .select('effective_from')
+      .eq('id', record.salary_structure_id)
+      .maybeSingle();
+    structureEffectiveFrom = data?.effective_from ?? null;
+  }
+
+  let fallbackBreakdown = null;
+  if (record.basic_salary == null && employee.employment_type === 'full-time' && record.gross_salary > 0) {
+    const template = await getDefaultSalaryTemplate();
+    if (template) fallbackBreakdown = splitGrossByTemplate(record.gross_salary, template);
+  }
+
+  const pdf = generatePayslipPdf(
+    record,
+    {
+      name: record.employee_name,
+      employeeIdDisplay: employee.employee_id,
+      department: record.employee_department,
+      role: record.employee_role,
+    },
+    { preview, structureEffectiveFrom, fallbackBreakdown },
+  );
+  return { pdf, employeeIdDisplay: employee.employee_id };
+}
+
+/** The ledger payout entry a paid payroll row created (see markPayrollPaid). */
+async function getPayrollLedgerEntry(payrollId: number): Promise<{
+  id: number;
+  receipt_path: string | null;
+  transaction_date: string;
+} | null> {
+  const { data, error } = await supabase
+    .from('financial_ledger')
+    .select('id, receipt_path, transaction_date')
+    .eq('payroll_id', payrollId)
+    .eq('transaction_type', 'payroll')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/** Storage path of the finalized payslip PDF for a paid payroll row, if any. */
+export async function getPayrollPayslipPath(payrollId: number): Promise<string | null> {
+  return (await getPayrollLedgerEntry(payrollId))?.receipt_path ?? null;
+}
+
+/**
+ * Re-render a paid month's payslip PDF (e.g. after a layout change, or if
+ * generation failed at pay time) and attach it to the same ledger entry.
+ * Uses the payroll row's frozen snapshot — none of the figures can change. The previous file is kept in
+ * storage, only the ledger's pointer moves.
+ */
+export async function regeneratePaidPayslip(payrollId: number): Promise<void> {
+  const record = await getPayrollById(payrollId);
+  if (!record) throw new Error('Payroll record not found');
+  if (record.status !== 'paid') {
+    throw new Error('Only paid (finalized) payroll has a payslip to regenerate — use Preview for unpaid months');
+  }
+  const ledger = await getPayrollLedgerEntry(payrollId);
+  if (!ledger) throw new Error('No payment record found for this payroll month');
+
+  const rendered = await renderPayslipForPayroll(record, { preview: false });
+  if (!rendered) throw new Error('Employee record not found');
+
+  const path = await uploadPayslipPdf(rendered.pdf, rendered.employeeIdDisplay, record.month);
+  const { error } = await supabase
+    .from('financial_ledger')
+    .update({ receipt_path: path, updated_at: new Date().toISOString() })
+    .eq('id', ledger.id);
   if (error) throw error;
 }
 
 /**
- * Delete all payroll records for a given month (e.g. to regenerate from scratch).
- * Returns the number of records deleted.
+ * Delete a payroll record. Paid (finalized) records are permanent — they
+ * back a ledger payment and an issued payslip, and deleting one would let
+ * the month be generated and paid a second time.
  */
-export async function deletePayrollByMonth(month: string): Promise<number> {
+export async function deletePayroll(id: number): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('payroll')
+    .select('status')
+    .eq('id', id)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (existing?.status === 'paid') {
+    throw new Error('Cannot delete a finalized (paid) payroll record');
+  }
+
+  const { error } = await supabase.from('payroll').delete().eq('id', id).neq('status', 'paid');
+  if (error) throw error;
+}
+
+/**
+ * Delete all not-yet-paid payroll records for a given month (e.g. to
+ * regenerate from scratch). Paid records are always kept — see deletePayroll.
+ */
+export async function deletePayrollByMonth(
+  month: string,
+): Promise<{ deleted: number; keptPaid: number }> {
   const { data, error } = await supabase
     .from('payroll')
     .delete()
     .eq('month', month)
+    .neq('status', 'paid')
     .select('id');
-
   if (error) throw error;
-  return (data || []).length;
+
+  const { count, error: countError } = await supabase
+    .from('payroll')
+    .select('id', { count: 'exact', head: true })
+    .eq('month', month)
+    .eq('status', 'paid');
+  if (countError) throw countError;
+
+  return { deleted: (data || []).length, keptPaid: count || 0 };
 }
 
 /**
@@ -366,7 +567,20 @@ interface PayslipLedgerRow {
   id: number;
   transaction_date: string;
   receipt_path: string | null;
-  payroll: { month: string; net_salary: number } | null;
+  payroll: {
+    month: string;
+    gross_salary: number;
+    net_salary: number;
+    basic_salary: number | null;
+    hra: number | null;
+    special_allowance: number | null;
+    other_allowance: number | null;
+    pf_deduction: number;
+    esi_deduction: number;
+    professional_tax_deduction: number;
+    tds_deduction: number;
+    other_structured_deduction: number;
+  } | null;
 }
 
 export interface EmployeePayslip {
@@ -379,6 +593,22 @@ export interface EmployeePayslip {
    * necessarily the same month as `month` if a payroll run was paid late. */
   paid_at: string;
   receipt_path: string;
+  /** Structured breakdown — undefined for rows that predate the salary
+   * structure feature (no employee_salary_structure was configured at
+   * generation time), in which case only month/net_salary are shown. */
+  breakdown?: {
+    gross_salary: number;
+    basic_salary: number;
+    hra: number;
+    special_allowance: number;
+    other_allowance: number;
+    pf_deduction: number;
+    esi_deduction: number;
+    professional_tax_deduction: number;
+    tds_deduction: number;
+    other_structured_deduction: number;
+    total_deductions: number;
+  };
 }
 
 /**
@@ -395,7 +625,9 @@ export interface EmployeePayslip {
 export async function getEmployeePayslips(employeeId: number): Promise<EmployeePayslip[]> {
   const { data, error } = await supabase
     .from('financial_ledger')
-    .select('id, transaction_date, receipt_path, payroll:payroll_id(month, net_salary)')
+    .select(
+      'id, transaction_date, receipt_path, payroll:payroll_id(month, gross_salary, net_salary, basic_salary, hra, special_allowance, other_allowance, pf_deduction, esi_deduction, professional_tax_deduction, tds_deduction, other_structured_deduction)',
+    )
     .eq('employee_id', employeeId)
     .eq('transaction_type', 'payroll')
     .not('receipt_path', 'is', null)
@@ -413,13 +645,40 @@ export async function getEmployeePayslips(employeeId: number): Promise<EmployeeP
 
   return rows
     .filter((row) => row.payroll && row.receipt_path)
-    .map((row) => ({
-      id: row.id,
-      month: row.payroll!.month,
-      net_salary: row.payroll!.net_salary,
-      paid_at: row.transaction_date,
-      receipt_path: row.receipt_path!,
-    }));
+    .map((row) => {
+      const p = row.payroll!;
+      // basic_salary is only ever set alongside the rest of the breakdown
+      // (see createPayroll) — its presence alone is enough to tell a
+      // structured row apart from a legacy/flat one.
+      const hasBreakdown = p.basic_salary != null;
+      return {
+        id: row.id,
+        month: p.month,
+        net_salary: p.net_salary,
+        paid_at: row.transaction_date,
+        receipt_path: row.receipt_path!,
+        breakdown: hasBreakdown
+          ? {
+              gross_salary: p.gross_salary,
+              basic_salary: p.basic_salary!,
+              hra: p.hra || 0,
+              special_allowance: p.special_allowance || 0,
+              other_allowance: p.other_allowance || 0,
+              pf_deduction: p.pf_deduction || 0,
+              esi_deduction: p.esi_deduction || 0,
+              professional_tax_deduction: p.professional_tax_deduction || 0,
+              tds_deduction: p.tds_deduction || 0,
+              other_structured_deduction: p.other_structured_deduction || 0,
+              total_deductions:
+                (p.pf_deduction || 0) +
+                (p.esi_deduction || 0) +
+                (p.professional_tax_deduction || 0) +
+                (p.tds_deduction || 0) +
+                (p.other_structured_deduction || 0),
+            }
+          : undefined,
+      };
+    });
 }
 
 /**
@@ -446,4 +705,60 @@ export async function getEmployeePayslipPath(
 
   if (error) throw error;
   return data?.receipt_path ?? null;
+}
+
+export interface EmployeePayrollHistoryRow {
+  payroll_id: number;
+  month: string;
+  status: Payroll['status'];
+  /** Gross salary plus any bonus — the "Total Earnings" line on the payslip. */
+  total_earnings: number;
+  /** Loss of pay + statutory/other deductions + adjustment deduction. */
+  total_deductions: number;
+  net_salary: number;
+  /** A finalized PDF exists (paid months only). */
+  has_payslip: boolean;
+}
+
+/**
+ * Every payroll month for one employee, newest first, for the admin
+ * payslip history — including draft/approved months that have no final
+ * payslip yet (those can be previewed instead). Figures come from each row's
+ * own snapshot, and total_earnings - total_deductions always equals
+ * net_salary, matching the PDF.
+ */
+export async function getEmployeePayrollHistory(employeeId: number): Promise<EmployeePayrollHistoryRow[]> {
+  const { data, error } = await supabase
+    .from('payroll')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .order('month', { ascending: false });
+  if (error) throw error;
+  const rows = (data || []) as Payroll[];
+
+  const paidIds = rows.filter((r) => r.status === 'paid').map((r) => r.id);
+  const withPdf = new Set<number>();
+  if (paidIds.length > 0) {
+    const { data: ledger, error: ledgerError } = await supabase
+      .from('financial_ledger')
+      .select('payroll_id')
+      .in('payroll_id', paidIds)
+      .eq('transaction_type', 'payroll')
+      .not('receipt_path', 'is', null);
+    if (ledgerError) throw ledgerError;
+    for (const entry of ledger || []) withPdf.add(entry.payroll_id as number);
+  }
+
+  return rows.map((r) => {
+    const totalEarnings = r.gross_salary + (r.bonus || 0);
+    return {
+      payroll_id: r.id,
+      month: r.month,
+      status: r.status,
+      total_earnings: totalEarnings,
+      total_deductions: Math.round((totalEarnings - r.net_salary) * 100) / 100,
+      net_salary: r.net_salary,
+      has_payslip: withPdf.has(r.id),
+    };
+  });
 }

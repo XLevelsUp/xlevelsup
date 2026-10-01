@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
@@ -10,20 +11,59 @@ import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import DeleteConfirmButton from './DeleteConfirmButton';
 import type { PayrollWithEmployee } from '@/types/erp';
-import { formatCurrency, getMonthName } from '@/lib/erp/utils';
+import { formatCurrency, getMonthName, computeNetSalary } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import {
   generatePayrollAction,
   updatePayrollStatusAction,
+  updatePayrollDeductionsAction,
   markPayrollPaidAction,
   deletePayrollAction,
   deletePayrollForMonthAction,
+  getPayslipForPayrollAction,
 } from '@/actions/erp/payroll';
+
+/** An employee who can be included in a payroll run (not intern/freelancer). */
+export interface PayrollEligibleEmployee {
+  id: number;
+  name: string;
+  employee_id: string;
+  employment_type?: string;
+}
 
 interface PayrollManagerProps {
   payroll: PayrollWithEmployee[];
   initialMonth: string;
   initialStatus?: string;
+  eligibleEmployees: PayrollEligibleEmployee[];
+}
+
+/**
+ * Open a payroll row's payslip in a new tab: the stored final PDF for a paid
+ * month, or an on-the-fly watermarked preview otherwise.
+ */
+export async function openPayrollPayslip(payrollId: number): Promise<void> {
+  // Opened synchronously, before the await, so the browser treats it as a
+  // user-initiated popup rather than blocking it.
+  const tab = window.open('', '_blank');
+  const result = await getPayslipForPayrollAction(payrollId);
+  if (!result.success) {
+    tab?.close();
+    toast.error(result.error || 'Could not open payslip');
+    return;
+  }
+  let url = result.url;
+  if (!url && result.previewBase64) {
+    const bytes = Uint8Array.from(atob(result.previewBase64), (c) => c.charCodeAt(0));
+    url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  }
+  if (!url) {
+    tab?.close();
+    toast.error('Could not open payslip');
+    return;
+  }
+  if (tab) tab.location.href = url;
+  else window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 /**
@@ -37,13 +77,14 @@ function lopDaysOf(record: PayrollWithEmployee): number {
 
 /** Rupee value of those unpaid days — the gap between gross and net. */
 function lopDeductionOf(record: PayrollWithEmployee): number {
-  return record.per_day_salary * lopDaysOf(record);
+  return computeNetSalary(record).lop_deduction;
 }
 
 export default function PayrollManager({
   payroll,
   initialMonth,
   initialStatus,
+  eligibleEmployees,
 }: PayrollManagerProps) {
   const router = useRouter();
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -57,6 +98,29 @@ export default function PayrollManager({
   const [markPaidRecord, setMarkPaidRecord] = useState<PayrollWithEmployee | null>(null);
   const [referenceNumber, setReferenceNumber] = useState('');
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [deductionsRecord, setDeductionsRecord] = useState<PayrollWithEmployee | null>(null);
+  const [savingDeductions, setSavingDeductions] = useState(false);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(
+    () => new Set(eligibleEmployees.map((e) => e.id)),
+  );
+  const [openingPayslipId, setOpeningPayslipId] = useState<number | null>(null);
+
+  const toggleEmployee = (id: number) =>
+    setSelectedEmployeeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const handleOpenPayslip = async (id: number) => {
+    setOpeningPayslipId(id);
+    try {
+      await openPayrollPayslip(id);
+    } finally {
+      setOpeningPayslipId(null);
+    }
+  };
 
   const applyFilters = (overrides?: Partial<{ month: string; status: string }>) => {
     const next = { month, status, ...overrides };
@@ -69,9 +133,18 @@ export default function PayrollManager({
 
   const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (selectedEmployeeIds.size === 0) {
+      toast.error('Select at least one employee');
+      return;
+    }
     setGenerating(true);
 
     const formData = new FormData(e.currentTarget);
+    // All selected = no filter, so employees added later are never silently
+    // left out of a "generate everyone" run.
+    if (selectedEmployeeIds.size < eligibleEmployees.length) {
+      selectedEmployeeIds.forEach((id) => formData.append('employee_ids', String(id)));
+    }
     const result = await generatePayrollAction(formData);
 
     setGenerating(false);
@@ -145,9 +218,12 @@ export default function PayrollManager({
     setDeletingMonth(false);
 
     if (result.success) {
+      const kept = result.payroll?.keptPaidCount ?? 0;
       toast.success(
-        `Deleted ${result.payroll?.deletedCount ?? 0} payroll record(s) for ${getMonthName(deleteMonthValue)}. You can now generate fresh ones for this month.`,
-        { duration: 4000 },
+        `Deleted ${result.payroll?.deletedCount ?? 0} payroll record(s) for ${getMonthName(deleteMonthValue)}.` +
+          (kept > 0 ? ` ${kept} paid (finalized) record(s) were kept.` : '') +
+          ' You can now generate fresh ones for this month.',
+        { duration: 5000 },
       );
       setShowDeleteMonthModal(false);
       router.refresh();
@@ -156,7 +232,28 @@ export default function PayrollManager({
     }
   };
 
+  const handleSaveDeductions = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!deductionsRecord) return;
+    setSavingDeductions(true);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await updatePayrollDeductionsAction(deductionsRecord.id, formData);
+
+    setSavingDeductions(false);
+    if (result.success) {
+      toast.success('Deductions updated');
+      setDeductionsRecord(null);
+      router.refresh();
+    } else {
+      toast.error(result.error || 'Failed to update deductions');
+    }
+  };
+
   const totalPayable = payroll.reduce((sum, p) => sum + p.net_salary, 0);
+  const totalStructuredDeductionsOf = (record: PayrollWithEmployee) =>
+    record.pf_deduction + record.esi_deduction + record.professional_tax_deduction +
+    record.tds_deduction + record.other_structured_deduction;
 
   return (
     <div>
@@ -192,6 +289,19 @@ export default function PayrollManager({
             Generate Payroll
           </Button>
         </div>
+      </div>
+
+      {/* Tab Switcher */}
+      <div className='flex gap-2 mb-6 border-b border-gray-800'>
+        <div className='px-4 py-2.5 text-sm font-medium text-cyan border-b-2 border-cyan -mb-px'>
+          Payroll
+        </div>
+        <Link
+          href='/erp/payroll?tab=salary-structures'
+          className='px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors'
+        >
+          Salary Structures
+        </Link>
       </div>
 
       {/* Filters */}
@@ -299,26 +409,57 @@ export default function PayrollManager({
                       ` A:${lopDaysOf(record).toFixed(1)}`}
                   </div>
                 </TableCell>
-                <TableCell><SensitiveValue>{formatCurrency(record.gross_salary)}</SensitiveValue></TableCell>
+                <TableCell>
+                  <SensitiveValue>{formatCurrency(record.gross_salary)}</SensitiveValue>
+                  {record.basic_salary != null && (
+                    <div className='text-xs text-gray-500'>
+                      <SensitiveValue>
+                        B:{formatCurrency(record.basic_salary || 0)} H:{formatCurrency(record.hra || 0)} S:
+                        {formatCurrency(record.special_allowance || 0)} O:
+                        {formatCurrency(record.other_allowance || 0)}
+                      </SensitiveValue>
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className='font-medium text-white'>
                     <SensitiveValue>{formatCurrency(record.net_salary)}</SensitiveValue>
                   </div>
                   {(record.bonus > 0 ||
                     record.deduction > 0 ||
-                    lopDeductionOf(record) > 0) && (
+                    lopDeductionOf(record) > 0 ||
+                    totalStructuredDeductionsOf(record) > 0) && (
                     <div className='text-xs text-gray-500'>
                       <SensitiveValue>
                         {lopDeductionOf(record) > 0 &&
                           `-${formatCurrency(lopDeductionOf(record))} LOP `}
+                        {totalStructuredDeductionsOf(record) > 0 &&
+                          `-${formatCurrency(totalStructuredDeductionsOf(record))} deductions `}
                         {record.bonus > 0 && `+${formatCurrency(record.bonus)} `}
                         {record.deduction > 0 &&
                           `-${formatCurrency(record.deduction)}`}
                       </SensitiveValue>
                     </div>
                   )}
+                  {record.status !== 'paid' && (
+                    <button
+                      type='button'
+                      onClick={() => setDeductionsRecord(record)}
+                      className='text-xs text-cyan hover:text-cyan/80 transition-colors mt-1'
+                    >
+                      Edit Deductions
+                    </button>
+                  )}
                 </TableCell>
                 <TableCell>
+                  {record.status === 'paid' ? (
+                    <span
+                      className='inline-block px-2 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/30 whitespace-nowrap'
+                      title='Paid — the payslip is finalized and its figures can no longer change'
+                    >
+                      Paid · Finalized
+                    </span>
+                  ) : (
                   <select
                     value={record.status}
                     onChange={(e) => {
@@ -336,17 +477,35 @@ export default function PayrollManager({
                     <option value='approved'>Approved</option>
                     <option value='paid'>Paid</option>
                   </select>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <DeleteConfirmButton
-                    onConfirm={() => handleDelete(record.id)}
-                    message='Are you sure you want to delete this payroll record?'
-                    title='Delete'
-                    ariaLabel='Delete'
-                    className='text-red-400 hover:text-red-300 transition-colors'
-                  >
-                    <DeleteIcon />
-                  </DeleteConfirmButton>
+                  <div className='flex items-center gap-3'>
+                    <button
+                      type='button'
+                      onClick={() => handleOpenPayslip(record.id)}
+                      disabled={openingPayslipId === record.id}
+                      title={record.status === 'paid' ? 'View / download the final payslip' : 'Preview the payslip (not yet paid)'}
+                      className='text-cyan hover:text-cyan/80 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-50'
+                    >
+                      {openingPayslipId === record.id
+                        ? 'Opening…'
+                        : record.status === 'paid'
+                          ? 'Payslip'
+                          : 'Preview'}
+                    </button>
+                    {record.status !== 'paid' && (
+                      <DeleteConfirmButton
+                        onConfirm={() => handleDelete(record.id)}
+                        message='Are you sure you want to delete this payroll record?'
+                        title='Delete'
+                        ariaLabel='Delete'
+                        className='text-red-400 hover:text-red-300 transition-colors'
+                      >
+                        <DeleteIcon />
+                      </DeleteConfirmButton>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -362,12 +521,56 @@ export default function PayrollManager({
       >
         <form onSubmit={handleGenerate} className='space-y-4'>
           <p className='text-gray-300'>
-            This will generate payroll records for all active employees for the
-            selected month. Existing records will be skipped.
+            Generates a draft payroll record for each selected employee, using
+            the salary structure effective for that month. Employees who already
+            have a record for the month are skipped, so nothing is duplicated.
+            Interns and freelancers are never included.
           </p>
           <div>
             <label className='block text-sm font-medium mb-2'>Month *</label>
             <MonthPicker value={generateMonth} onChange={setGenerateMonth} name='month' required />
+          </div>
+          <div>
+            <div className='flex items-center justify-between mb-2'>
+              <span className='block text-sm font-medium'>
+                Employees ({selectedEmployeeIds.size}/{eligibleEmployees.length})
+              </span>
+              <button
+                type='button'
+                onClick={() =>
+                  setSelectedEmployeeIds(
+                    selectedEmployeeIds.size === eligibleEmployees.length
+                      ? new Set()
+                      : new Set(eligibleEmployees.map((e) => e.id)),
+                  )
+                }
+                className='text-xs text-cyan hover:text-cyan/80 transition-colors'
+              >
+                {selectedEmployeeIds.size === eligibleEmployees.length ? 'Clear all' : 'Select all'}
+              </button>
+            </div>
+            <div className='max-h-56 overflow-y-auto rounded-lg border border-gray-700 divide-y divide-gray-800'>
+              {eligibleEmployees.map((employee) => (
+                <label
+                  key={employee.id}
+                  className='flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-dark-800/60'
+                >
+                  <input
+                    type='checkbox'
+                    checked={selectedEmployeeIds.has(employee.id)}
+                    onChange={() => toggleEmployee(employee.id)}
+                    className='accent-cyan'
+                  />
+                  <span className='text-white'>{employee.name}</span>
+                  <span className='text-xs text-gray-500 ml-auto'>
+                    {employee.employee_id}
+                    {employee.employment_type && employee.employment_type !== 'full-time'
+                      ? ` · ${employee.employment_type}`
+                      : ''}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
           <Button
             type='submit'
@@ -388,15 +591,16 @@ export default function PayrollManager({
       >
         <div className='space-y-4'>
           <p className='text-gray-300'>
-            This permanently deletes every payroll record for the selected
-            month, regardless of status (draft, approved, or paid). Use this
-            when you need to re-run payroll for a month from scratch — after
-            deleting, use <span className='font-medium text-white'>Generate Payroll</span>{' '}
-            to create fresh records for the same month.
+            This permanently deletes the draft and approved payroll records for
+            the selected month. Use this when you need to re-run payroll for a
+            month from scratch — after deleting, use{' '}
+            <span className='font-medium text-white'>Generate Payroll</span> to
+            create fresh records for the same month.
           </p>
           <div className='bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300'>
-            This cannot be undone. Financial ledger entries linked to deleted
-            records will be unlinked, not deleted.
+            This cannot be undone. Paid records are finalized and are always
+            kept — they back an issued payslip and a ledger payment, and
+            deleting them would allow the month to be paid twice.
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Month *</label>
@@ -412,7 +616,7 @@ export default function PayrollManager({
             onBeforeOpen={canDeleteMonth}
             message={
               deleteMonthValue
-                ? `This will permanently delete ALL payroll records (draft, approved, and paid) for ${getMonthName(deleteMonthValue)}. Any linked financial ledger entries will be unlinked, not deleted. This cannot be undone. Continue?`
+                ? `This will permanently delete the draft and approved payroll records for ${getMonthName(deleteMonthValue)}. Paid records are kept. This cannot be undone. Continue?`
                 : ''
             }
             confirmLabel='Delete'
@@ -474,6 +678,49 @@ export default function PayrollManager({
               {markingPaid ? 'Marking as Paid...' : 'Confirm & Mark Paid'}
             </Button>
           </div>
+        )}
+      </Modal>
+
+      {/* Deductions Modal */}
+      <Modal
+        isOpen={!!deductionsRecord}
+        onClose={() => setDeductionsRecord(null)}
+        title='Edit Deductions'
+      >
+        {deductionsRecord && (
+          <form onSubmit={handleSaveDeductions} className='space-y-4'>
+            <div className='bg-dark-800/50 border border-gray-700 rounded-lg p-3'>
+              <p className='text-sm font-medium text-white'>{deductionsRecord.employee_name}</p>
+              <p className='text-xs text-gray-400'>{getMonthName(deductionsRecord.month)}</p>
+            </div>
+            <p className='text-sm text-gray-300'>
+              None of these apply automatically — leave any that don&apos;t apply to this employee at ₹0.
+            </p>
+            <div className='grid grid-cols-2 gap-3'>
+              {[
+                { name: 'pf_deduction', label: 'PF', value: deductionsRecord.pf_deduction },
+                { name: 'esi_deduction', label: 'ESI', value: deductionsRecord.esi_deduction },
+                { name: 'professional_tax_deduction', label: 'Professional Tax', value: deductionsRecord.professional_tax_deduction },
+                { name: 'tds_deduction', label: 'TDS', value: deductionsRecord.tds_deduction },
+                { name: 'other_structured_deduction', label: 'Other', value: deductionsRecord.other_structured_deduction },
+              ].map((field) => (
+                <div key={field.name}>
+                  <label className='block text-xs font-medium text-gray-400 mb-1'>{field.label}</label>
+                  <input
+                    type='number'
+                    name={field.name}
+                    min='0'
+                    step='0.01'
+                    defaultValue={field.value}
+                    className='w-full px-3 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white text-sm'
+                  />
+                </div>
+              ))}
+            </div>
+            <Button type='submit' variant='primary' className='w-full' disabled={savingDeductions}>
+              {savingDeductions ? 'Saving…' : 'Save Deductions'}
+            </Button>
+          </form>
         )}
       </Modal>
     </div>

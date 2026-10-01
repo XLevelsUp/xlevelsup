@@ -16,10 +16,12 @@ import {
   calculateLeaveDaysWithHolidays,
   getWfhDaysCountInMonth,
   getEmployeeLeaveBalance,
+  checkLeaveBalanceAvailable,
 } from '@/lib/erp/leave-requests';
 import { getFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { requireRole } from '@/lib/auth';
+import { requireApprover } from '@/lib/erp/approver';
 import { getTodayIST } from '@/lib/erp/utils';
 
 /**
@@ -234,6 +236,17 @@ export async function createLeaveRequestAction(
       }
     }
 
+    const balanceError = await checkLeaveBalanceAvailable(
+      employeeId,
+      validated.leave_type,
+      validated.start_date,
+      requestedDays,
+      { includePending: true },
+    );
+    if (balanceError) {
+      return { success: false, error: balanceError };
+    }
+
     // Create leave request
     await createLeaveRequest(employeeId, validated);
 
@@ -346,6 +359,17 @@ export async function updateLeaveRequestAction(
       }
     }
 
+    const balanceError = await checkLeaveBalanceAvailable(
+      employeeId,
+      validated.leave_type,
+      validated.start_date,
+      requestedDays,
+      { includePending: true, excludeRequestId: leaveRequestId },
+    );
+    if (balanceError) {
+      return { success: false, error: balanceError };
+    }
+
     // Update leave request
     await updateLeaveRequest(leaveRequestId, employeeId, validated);
 
@@ -409,7 +433,7 @@ export async function reviewLeaveRequestAction(
   reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const data = {
       status,
