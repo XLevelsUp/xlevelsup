@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal';
 import EmployeeForm from './EmployeeForm';
 import CareerChangeModal from './CareerChangeModal';
 import EmployeeCareerHistoryComponent from './EmployeeCareerHistory';
+import AdminEmployeePayslips from './AdminEmployeePayslips';
 import { EditIcon, DeleteIcon } from './ActionIcons';
 import SensitiveValue from './SensitiveValue';
 import type { Employee, EmployeeCareerHistory, EmployeeCareerChangeType } from '@/types/erp';
@@ -15,6 +16,8 @@ import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteEmployeeAction } from '@/actions/erp/employees';
 import { getEmployeeCareerHistoryAction } from '@/actions/erp/employee-career';
+import { getEmployeePayrollHistoryAction } from '@/actions/erp/payroll';
+import type { EmployeePayrollHistoryRow } from '@/lib/erp/payroll';
 import DeleteConfirmButton from './DeleteConfirmButton';
 
 interface EmployeeListProps {
@@ -42,6 +45,9 @@ export default function EmployeeList({
   const [careerChangeType, setCareerChangeType] = useState<EmployeeCareerChangeType | undefined>();
   const [careerHistory, setCareerHistory] = useState<EmployeeCareerHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showPayslipsModal, setShowPayslipsModal] = useState(false);
+  const [payslips, setPayslips] = useState<EmployeePayrollHistoryRow[]>([]);
+  const [loadingPayslips, setLoadingPayslips] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
 
   const handleFilterChange = (key: string, value: string) => {
@@ -91,6 +97,21 @@ export default function EmployeeList({
       setCareerHistory([]);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const handleViewPayslips = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowPayslipsModal(true);
+    setLoadingPayslips(true);
+    try {
+      const result = await getEmployeePayrollHistoryAction(employee.id);
+      setPayslips(result);
+    } catch {
+      toast.error('Failed to load payslips');
+      setPayslips([]);
+    } finally {
+      setLoadingPayslips(false);
     }
   };
 
@@ -316,6 +337,12 @@ export default function EmployeeList({
                         >
                           History
                         </button>
+                        <button
+                          onClick={() => handleViewPayslips(employee)}
+                          className='text-xs px-2 py-0.5 rounded bg-gray-700/60 text-gray-400 hover:bg-gray-700 transition-colors font-medium'
+                        >
+                          Payslips
+                        </button>
                       </div>
                     </div>
                   </TableCell>
@@ -451,6 +478,33 @@ export default function EmployeeList({
               employeeName={selectedEmployee?.name || ''}
             />
           </div>
+        )}
+      </Modal>
+
+      {/* Payslips Modal */}
+      <Modal
+        isOpen={showPayslipsModal}
+        onClose={() => {
+          setShowPayslipsModal(false);
+          setSelectedEmployee(null);
+          setPayslips([]);
+        }}
+        title={`Payslips — ${selectedEmployee?.name || ''}`}
+      >
+        {loadingPayslips ? (
+          <div className='text-center py-10'>
+            <div className='w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-3' />
+            <p className='text-gray-400 text-sm'>Loading payslips…</p>
+          </div>
+        ) : (
+          selectedEmployee && (
+            <div className='max-h-[70vh] overflow-y-auto pr-1'>
+              <AdminEmployeePayslips
+                history={payslips}
+                onChanged={() => getEmployeePayrollHistoryAction(selectedEmployee.id).then(setPayslips)}
+              />
+            </div>
+          )
         )}
       </Modal>
     </div>

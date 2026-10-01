@@ -2,7 +2,8 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { requireRole, requireAuth } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
+import { requireApprover } from '@/lib/erp/approver';
 import {
   getAllAttendance,
   getAttendance,
@@ -98,7 +99,7 @@ export async function saveAttendanceAction(
   formData: FormData,
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const overtimeValue = formData.get('overtime_hours') as string;
     const rawData = {
@@ -153,7 +154,7 @@ export async function bulkUpdateAttendanceAction(input: {
   skipWeekends?: boolean;
 }): Promise<BulkAttendanceActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const validated = bulkAttendanceSchema.parse({
       employee_ids: input.employeeIds,
@@ -227,7 +228,7 @@ export async function deleteAttendanceAction(
   date: string,
 ): Promise<AttendanceActionResult> {
   try {
-    await requireRole(['admin', 'hr']);
+    await requireApprover();
 
     await deleteAttendance(employeeId, date);
 

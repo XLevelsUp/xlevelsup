@@ -4,6 +4,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
+import { checkLeaveBalanceAvailable } from '@/lib/erp/leave-requests';
 import type {
   AttendanceChangeRequest,
   AttendanceChangeRequestWithEmployee,
@@ -346,6 +347,22 @@ export async function reviewAttendanceChangeRequest(
   if (fetchError) throw fetchError;
   if (!request) throw new Error('Request not found');
   if (request.status !== 'pending') throw new Error('Request has already been reviewed');
+
+  if (
+    status === 'approved' &&
+    (request.request_type || 'status_change') === 'status_change' &&
+    request.requested_status === 'paid-leave' &&
+    request.leave_type
+  ) {
+    // deductLeaveBalance charges one full day per approved request.
+    const balanceError = await checkLeaveBalanceAvailable(
+      request.employee_id,
+      request.leave_type,
+      request.request_date,
+      1,
+    );
+    if (balanceError) throw new Error(balanceError);
+  }
 
   // Update request status
   const { error: updateError } = await supabase

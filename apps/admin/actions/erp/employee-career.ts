@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
+import { requireApprover, isApprover } from '@/lib/erp/approver';
 import {
   insertEmployeeCareerHistory,
   fetchEmployeeCareerHistory,
@@ -50,6 +51,13 @@ const careerChangeSchema = z
     new_department: z.string().optional(),
     new_salary_type: z.string().optional(),
     new_salary: z.number().min(0).nullable().optional(),
+
+    // Structured breakdown — only meaningful when the resulting employment
+    // type is full-time (see CareerChangeModal.tsx). All four or none.
+    new_basic_salary: z.number().min(0).optional(),
+    new_hra: z.number().min(0).optional(),
+    new_special_allowance: z.number().min(0).optional(),
+    new_other_allowance: z.number().min(0).optional(),
 
     effective_date: z.string().min(1, 'Effective date is required'),
     reason: z.string().min(5, 'Reason must be at least 5 characters'),
@@ -110,6 +118,36 @@ const careerChangeSchema = z
           code: z.ZodIssueCode.custom,
           message: 'New employment type is required',
           path: ['new_employment_type'],
+        });
+      }
+    }
+
+    // Structured breakdown: all four fields or none, and the sum must match
+    // new_salary (which the form always sets to the computed gross for a
+    // full-time change) — this is the same "gross = sum of components"
+    // guarantee createSalaryStructure enforces, checked here too so a
+    // mismatch surfaces before the career-history row is even written.
+    const breakdownFields = [
+      data.new_basic_salary,
+      data.new_hra,
+      data.new_special_allowance,
+      data.new_other_allowance,
+    ];
+    const suppliedCount = breakdownFields.filter((v) => v !== undefined).length;
+    if (suppliedCount > 0 && suppliedCount < 4) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Basic, HRA, Special Allowance and Other Allowance must all be provided together',
+        path: ['new_basic_salary'],
+      });
+    } else if (suppliedCount === 4) {
+      const gross = breakdownFields.reduce((sum: number, v) => sum + (v ?? 0), 0);
+      const rounded = Math.round(gross * 100) / 100;
+      if (data.new_salary != null && Math.abs(rounded - data.new_salary) > 0.01) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Basic + HRA + Special + Other (${rounded}) must equal the new salary (${data.new_salary})`,
+          path: ['new_basic_salary'],
         });
       }
     }
@@ -186,6 +224,9 @@ export async function createCareerChangeAction(
       // `session.id` type-checked once cast, but at runtime the JWT carries only
       // userId/email/role — so this passed `undefined` as requested_by.
       session.userId,
+      // Only the approver's own changes take effect straight away; anyone
+      // else's wait as pending until the approver applies them.
+      { requesterIsApprover: await isApprover(session) },
     );
 
     revalidatePath('/erp/employees');
@@ -209,7 +250,7 @@ export async function applyCareerChangeAction(
   historyId: number,
 ): Promise<CareerChangeActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
     await applyCareerChangeById(historyId, session.userId);
     revalidatePath('/erp/employees');
     return { success: true };
@@ -229,7 +270,7 @@ export async function cancelCareerChangeAction(
   historyId: number,
 ): Promise<CareerChangeActionResult> {
   try {
-    await requireRole(['admin', 'hr']);
+    await requireApprover();
     await cancelCareerChangeById(historyId);
     revalidatePath('/erp/employees');
     return { success: true };

@@ -121,6 +121,28 @@ export interface Payroll {
   paid_at?: string | null;
   created_at: string;
   updated_at: string;
+
+  // Structured breakdown, present only for full-time employees generated
+  // from an effective employee_salary_structure. NULL on legacy rows and on
+  // any employee without a configured structure — those keep the flat
+  // gross_salary/net_salary behavior payroll has always had.
+  salary_structure_id?: number | null;
+  basic_salary?: number | null;
+  hra?: number | null;
+  special_allowance?: number | null;
+  other_allowance?: number | null;
+
+  // Structured deductions. Always default to 0 — never auto-applied; an
+  // admin must explicitly set one via updatePayrollDeductions.
+  pf_deduction: number;
+  esi_deduction: number;
+  professional_tax_deduction: number;
+  tds_deduction: number;
+  other_structured_deduction: number;
+
+  // Set when status flips to 'paid' — from that point the row is immutable
+  // (see updatePayrollAdjustments/updatePayrollStatus in lib/erp/payroll.ts).
+  finalized_at?: string | null;
 }
 
 export interface PayrollWithEmployee extends Payroll {
@@ -513,6 +535,61 @@ export interface LedgerFormData {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Salary Structure & Templates
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * An effective-dated salary structure for a full-time employee. "Current" is
+ * whichever row has the latest effective_from <= the date being looked up
+ * (see getEffectiveSalaryStructure in lib/erp/salary-structure.ts) — there is
+ * no effective_to column; history views derive a display range from
+ * ordering instead of stored/mutated state.
+ */
+export interface EmployeeSalaryStructure {
+  id: number;
+  employee_id: number;
+  basic_salary: number;
+  hra: number;
+  special_allowance: number;
+  other_allowance: number;
+  gross_salary: number;
+  effective_from: string; // YYYY-MM-DD
+  status: 'active' | 'cancelled';
+  source_career_history_id?: number | null;
+  created_by?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A structure row enriched with a display-only derived effective_to. */
+export interface EmployeeSalaryStructureWithRange extends EmployeeSalaryStructure {
+  effective_to: string | null; // next row's effective_from - 1 day, or null if current
+}
+
+/** A reusable, admin-configurable default structure (e.g. "Standard ₹35,000"). */
+export interface SalaryTemplate {
+  id: number;
+  name: string;
+  basic_salary: number;
+  hra: number;
+  special_allowance: number;
+  other_allowance: number;
+  gross_salary: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalaryStructureFormData {
+  employee_id: number;
+  basic_salary: number;
+  hra: number;
+  special_allowance: number;
+  other_allowance: number;
+  effective_from: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Employee Career & Promotion Management Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -623,6 +700,16 @@ export interface CareerChangeFormData {
   new_department?: string;
   new_salary_type?: string;
   new_salary?: number | null;
+
+  // Structured breakdown — only used when the resulting employment type is
+  // full-time and a breakdown was entered (see CareerChangeModal.tsx). When
+  // present, insertEmployeeCareerHistory also creates an
+  // employee_salary_structure row via createSalaryStructureFromCareerChange,
+  // in addition to the flat new_salary update above.
+  new_basic_salary?: number;
+  new_hra?: number;
+  new_special_allowance?: number;
+  new_other_allowance?: number;
 
   effective_date: string;
   reason: string;

@@ -50,6 +50,29 @@ export default function PayslipList({ payslips }: { payslips: EmployeePayslip[] 
             <p className='text-sm text-gray-400 mt-0.5'>
               Net Salary: {formatCurrency(payslip.net_salary)}
             </p>
+            {payslip.breakdown && (
+              <div className='text-xs text-gray-500 mt-1 space-y-0.5'>
+                <p>
+                  Gross: {formatCurrency(payslip.breakdown.gross_salary)} · Basic:{' '}
+                  {formatCurrency(payslip.breakdown.basic_salary)} · HRA:{' '}
+                  {formatCurrency(payslip.breakdown.hra)} · Special:{' '}
+                  {formatCurrency(payslip.breakdown.special_allowance)} · Other:{' '}
+                  {formatCurrency(payslip.breakdown.other_allowance)}
+                </p>
+                {payslip.breakdown.total_deductions > 0 && (
+                  <p>
+                    Deductions: {formatCurrency(payslip.breakdown.total_deductions)}
+                    {payslip.breakdown.pf_deduction > 0 && ` (PF ${formatCurrency(payslip.breakdown.pf_deduction)})`}
+                    {payslip.breakdown.esi_deduction > 0 && ` (ESI ${formatCurrency(payslip.breakdown.esi_deduction)})`}
+                    {payslip.breakdown.professional_tax_deduction > 0 &&
+                      ` (PT ${formatCurrency(payslip.breakdown.professional_tax_deduction)})`}
+                    {payslip.breakdown.tds_deduction > 0 && ` (TDS ${formatCurrency(payslip.breakdown.tds_deduction)})`}
+                    {payslip.breakdown.other_structured_deduction > 0 &&
+                      ` (Other ${formatCurrency(payslip.breakdown.other_structured_deduction)})`}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <button
             type='button'

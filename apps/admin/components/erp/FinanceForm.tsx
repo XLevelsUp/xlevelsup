@@ -64,8 +64,10 @@ export default function FinanceForm({
       formData.set('direction', isInflow ? 'inflow' : 'outflow');
       formData.set('transaction_type', type);
       
-      // Expense validation: either payee_name (Paid By) or account_id (Paid From Account) must be provided
-      if (type === 'expense') {
+      // Expense validation: either payee_name (Paid By) or account_id (Paid From Account) must be provided.
+      // Salary is exempt — its Payee is always the "Processed For" employee
+      // (enforced server-side, see resolveSalaryPayeeName), not this field.
+      if (type === 'expense' && !isSalaryExpense) {
         const payeeName = formData.get('payee_name');
         const accountId = formData.get('account_id');
         if (!payeeName && !accountId) {
@@ -324,7 +326,7 @@ export default function FinanceForm({
           </div>
         )}
 
-        {type === 'expense' && (
+        {type === 'expense' && !isSalaryExpense && (
           <>
             <div>
               <label htmlFor='payee_name' className='block text-sm font-medium mb-2'>
@@ -355,6 +357,14 @@ export default function FinanceForm({
                 className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
               />
             </div>
+          </>
+        )}
+
+        {/* Salary expenses: the Payee is always the employee picked above in
+            "Processed For" (see resolveSalaryPayeeName in actions/erp/finance.ts)
+            — no separate Paid By/Vendor fields to keep in sync. */}
+        {type === 'expense' && (
+          <>
             <div>
               <label htmlFor='receipt' className='block text-sm font-medium mb-2'>
                 Receipt (Image or PDF)

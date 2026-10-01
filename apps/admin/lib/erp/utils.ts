@@ -163,6 +163,33 @@ export function roundMoney(amount: number): number {
   return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
 
+export interface SalaryComponents {
+  basic_salary: number;
+  hra: number;
+  special_allowance: number;
+  other_allowance: number;
+}
+
+/**
+ * Split a monthly gross into Basic/HRA/Special/Other using a salary
+ * template's proportions (e.g. the ₹35,000 standard template → 50% / 20% /
+ * 28.57% / 1.43%). Basic, HRA and Other are rounded to whole rupees and
+ * Special Allowance absorbs the remainder, so the parts always add up to
+ * exactly `gross`.
+ */
+export function splitGrossByTemplate(gross: number, template: SalaryComponents & { gross_salary: number }): SalaryComponents {
+  const ratio = template.gross_salary > 0 ? gross / template.gross_salary : 0;
+  const basic = Math.round(template.basic_salary * ratio);
+  const hra = Math.round(template.hra * ratio);
+  const other = Math.round(template.other_allowance * ratio);
+  return {
+    basic_salary: basic,
+    hra,
+    special_allowance: Math.max(0, roundMoney(gross - basic - hra - other)),
+    other_allowance: other,
+  };
+}
+
 /**
  * Price one month of attendance against an employee's contracted salary.
  *
@@ -279,11 +306,37 @@ export function computeNetSalary(row: {
   gross_salary: number;
   bonus?: number | null;
   deduction?: number | null;
+  // Structured deductions (PF/ESI/Professional Tax/TDS/Other). All default
+  // to 0 — omitting them reproduces the exact pre-existing formula, so every
+  // caller that predates the salary-structure feature is unaffected.
+  pf_deduction?: number | null;
+  esi_deduction?: number | null;
+  professional_tax_deduction?: number | null;
+  tds_deduction?: number | null;
+  other_structured_deduction?: number | null;
 }): { lop_days: number; lop_deduction: number; net_salary: number } {
   const lopDays = Math.max(0, row.total_working_days - row.payable_days);
-  const lopDeduction = roundMoney(row.per_day_salary * lopDays);
+  // Priced from the exact per-day rate (gross / working days), exactly like
+  // calculatePayroll — the stored per_day_salary is rounded to paise, and
+  // multiplying the rounded rate drifts net by a few paise from what
+  // generation produced (e.g. 35,000 / 22 * 11 = 17,500, but 1,590.91 * 11
+  // = 17,500.01).
+  const lopDeduction =
+    row.total_working_days > 0
+      ? roundMoney((row.gross_salary / row.total_working_days) * lopDays)
+      : roundMoney(row.per_day_salary * lopDays);
+  const structuredDeductions =
+    (row.pf_deduction || 0) +
+    (row.esi_deduction || 0) +
+    (row.professional_tax_deduction || 0) +
+    (row.tds_deduction || 0) +
+    (row.other_structured_deduction || 0);
   const netSalary = roundMoney(
-    row.gross_salary - lopDeduction + (row.bonus || 0) - (row.deduction || 0),
+    row.gross_salary -
+      lopDeduction -
+      structuredDeductions +
+      (row.bonus || 0) -
+      (row.deduction || 0),
   );
 
   return { lop_days: lopDays, lop_deduction: lopDeduction, net_salary: netSalary };

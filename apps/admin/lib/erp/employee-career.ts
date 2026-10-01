@@ -6,6 +6,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
+import { createSalaryStructureFromCareerChange, cancelSalaryStructureByCareerHistoryId } from '@/lib/erp/salary-structure';
 import type {
   EmployeeCareerHistory,
   EmployeeCareerHistoryWithNames,
@@ -173,15 +174,18 @@ export async function getEmployeeSalaryForPayrollPeriod(
 
 /**
  * Insert a new career history record.
- * If effective_date is today or past → status 'approved', employee updated immediately.
- * If effective_date is in the future → status 'pending_effective', employee NOT updated yet.
+ * If effective_date is today or past and the requester is the approver
+ * → status 'approved', employee updated immediately.
+ * Otherwise (a future date, or raised by anyone else) → status
+ * 'pending_effective', employee NOT updated until the approver applies it.
  */
 export async function insertEmployeeCareerHistory(
   formData: CareerChangeFormData,
   requestedBy: number,
+  { requesterIsApprover = true }: { requesterIsApprover?: boolean } = {},
 ): Promise<EmployeeCareerHistory> {
   const today = new Date().toISOString().split('T')[0];
-  const isFuture = formData.effective_date > today;
+  const isFuture = formData.effective_date > today || !requesterIsApprover;
   const status = isFuture ? 'pending_effective' : 'approved';
 
   const { data, error } = await supabase
@@ -222,6 +226,46 @@ export async function insertEmployeeCareerHistory(
   // If not a future date, apply the change immediately
   if (!isFuture) {
     await updateEmployeeCareerDetails(formData.employee_id, formData);
+  }
+
+  // If this change results in a full-time employee and a Basic/HRA/Special/
+  // Other breakdown was supplied (see CareerChangeModal.tsx), also create the
+  // structured employee_salary_structure row — in addition to the flat
+  // monthly_salary update above, which is kept for backward-compatible
+  // display/history. Inserted immediately regardless of isFuture: the
+  // structure's own effective_from date already governs when payroll
+  // generation will pick it up, so there's nothing to defer.
+  const breakdownSupplied =
+    formData.new_basic_salary !== undefined &&
+    formData.new_hra !== undefined &&
+    formData.new_special_allowance !== undefined &&
+    formData.new_other_allowance !== undefined;
+
+  if (
+    breakdownSupplied &&
+    (formData.change_type === 'salary_revision' ||
+      formData.change_type === 'promotion' ||
+      formData.change_type === 'intern_conversion')
+  ) {
+    const resultingEmploymentType =
+      formData.change_type === 'intern_conversion'
+        ? formData.new_employment_type
+        : formData.current_employment_type;
+
+    if (resultingEmploymentType === 'full-time') {
+      await createSalaryStructureFromCareerChange(
+        formData.employee_id,
+        {
+          basic_salary: formData.new_basic_salary!,
+          hra: formData.new_hra!,
+          special_allowance: formData.new_special_allowance!,
+          other_allowance: formData.new_other_allowance!,
+        },
+        formData.effective_date,
+        data.id,
+        requestedBy,
+      );
+    }
   }
 
   return data as EmployeeCareerHistory;
@@ -297,9 +341,6 @@ export async function applyCareerChangeById(
   if (record.status !== 'pending_effective') {
     throw new Error(`Cannot apply a record with status '${record.status}'`);
   }
-  if (record.requested_by === adminUserId) {
-    throw new Error('You cannot apply/approve a career change you requested yourself');
-  }
 
   // Apply changes to employee
   await updateEmployeeCareerDetails(record.employee_id, {
@@ -328,16 +369,47 @@ export async function applyCareerChangeById(
  * Cancel a pending_effective career change record.
  */
 export async function cancelCareerChangeById(historyId: number): Promise<void> {
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from('employee_career_history')
     .update({
       status: 'cancelled',
       updated_at: new Date().toISOString(),
     })
     .eq('id', historyId)
-    .in('status', ['pending', 'pending_effective']);
+    .in('status', ['pending', 'pending_effective'])
+    .select('id');
 
   if (error) throw error;
+  // Already applied (or already cancelled) — its salary structure is real
+  // pay now and must not be voided.
+  if (!cancelled || cancelled.length === 0) return;
+
+  // Void any salary structure this change created before its effective date
+  // arrived — otherwise a cancelled career change would leave a future,
+  // never-approved structure sitting active.
+  await cancelSalaryStructureByCareerHistoryId(historyId);
+}
+
+/**
+ * The date an employee became full-time through an applied intern
+ * conversion, or null if they never were converted. Everything before it was
+ * internship (stipend, not salary), so payroll must neither pay salary for
+ * those days nor generate a salary payslip for a month entirely before it.
+ */
+export async function getFullTimeConversionDate(employeeId: number): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('employee_career_history')
+    .select('effective_date')
+    .eq('employee_id', employeeId)
+    .eq('change_type', 'intern_conversion')
+    .eq('new_employment_type', 'full-time')
+    .in('status', ['approved', 'applied'])
+    .order('effective_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.effective_date ?? null;
 }
 
 /**

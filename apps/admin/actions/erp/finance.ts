@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES, FINANCE_READ_ROLES } from '@/lib/auth';
+import { requireApprover } from '@/lib/erp/approver';
 import {
   getLedgerEntries,
   getLedgerEntryById,
@@ -12,6 +13,7 @@ import {
   getFinanceSummary,
   getEmployeeIdFromUserId,
 } from '@/lib/erp/finance';
+import { getEmployeeById } from '@/lib/erp/employees';
 import { uploadReceiptFile, getReceiptSignedUrl, deleteReceiptFile } from '@/lib/erp/receipts';
 import type {
   FinanceTransactionType,
@@ -58,6 +60,22 @@ export interface FinanceActionResult {
   success: boolean;
   error?: string;
   entry?: FinancialLedgerEntry;
+}
+
+/**
+ * For a Salary expense, the Payee shown throughout Finances must always be
+ * the actual employee being paid — never whatever (or nothing) was picked in
+ * the separate "Paid By" field, which is a different, easy-to-forget control
+ * from the "Processed For" employee selector that actually drives the
+ * amount/employee_id. Overriding it here, from the authoritative employee_id
+ * rather than trusting a second free-text/select field, makes it impossible
+ * for a Salary entry to end up with a missing or mismatched payee — the same
+ * guarantee markPayrollPaid already gives payroll-generated ledger entries.
+ */
+async function resolveSalaryPayeeName(data: LedgerFormData): Promise<string | null> {
+  if (data.category !== 'Salary' || !data.employee_id) return data.payee_name ?? null;
+  const employee = await getEmployeeById(data.employee_id);
+  return employee?.name ?? data.payee_name ?? null;
 }
 
 /**
@@ -175,6 +193,8 @@ export async function createLedgerEntryAction(
       rawData.receipt_path = await uploadReceiptFile(receiptFile);
     }
 
+    rawData.payee_name = await resolveSalaryPayeeName(rawData);
+
     const validatedData = ledgerEntrySchema.parse(rawData);
     const entry = await insertLedgerEntry(validatedData, session.userId);
 
@@ -225,6 +245,8 @@ export async function updateLedgerEntryAction(
       approval_status: (formData.get('approval_status') as string) || 'approved',
       account_id: formData.get('account_id') ? parseInt(formData.get('account_id') as string, 10) : null,
     };
+
+    rawData.payee_name = await resolveSalaryPayeeName(rawData);
 
     const validatedData = ledgerEntrySchema.parse(rawData);
     const entry = await updateLedgerEntryById(id, validatedData, session.userId);
@@ -366,8 +388,8 @@ export async function deleteLedgerEntryAction(
 
 /**
  * Approve/reject a reimbursement, expense, or invoice-generated income entry.
- * Income entries (client invoices) are admin-only — separation of duties
- * between whoever raised the invoice and whoever confirms the income.
+ * Approver-only (see lib/erp/approver.ts) — including entries the approver
+ * created themselves.
  */
 export async function approveLedgerEntryAction(
   id: number,
@@ -375,17 +397,11 @@ export async function approveLedgerEntryAction(
   comments?: string,
 ): Promise<FinanceActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    const session = await requireApprover();
 
     const existing = await getLedgerEntryById(id);
     if (!existing) {
       return { success: false, error: 'Ledger entry not found' };
-    }
-    if (existing.transaction_type === 'income' && session.role !== 'admin') {
-      return { success: false, error: 'Only admins can approve invoice income entries' };
-    }
-    if (existing.created_by === session.userId) {
-      return { success: false, error: 'You cannot approve an entry you created yourself' };
     }
 
     const entry = await approveLedgerEntry(id, status, session.userId, comments);
@@ -394,7 +410,10 @@ export async function approveLedgerEntryAction(
     return { success: true, entry };
   } catch (error) {
     console.error('Approve ledger entry error:', error);
-    return { success: false, error: 'Failed to update entry approval status' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update entry approval status',
+    };
   }
 }
 
