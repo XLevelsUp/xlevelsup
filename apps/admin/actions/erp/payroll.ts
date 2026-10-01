@@ -26,6 +26,8 @@ import { getAllEmployees } from '@/lib/erp/employees';
 import { getPayslipSignedUrl } from '@/lib/erp/payslips';
 import { getMonthlyAttendanceByEmployeeDate } from '@/lib/erp/attendance';
 import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
+import { getApprovedLeaveStatusByEmployeeDate } from '@/lib/erp/leave-requests';
+import { getOffDayWork } from '@/lib/erp/earned-leave';
 import {
   getWorkingDayDatesInMonth,
   calculatePayroll,
@@ -48,6 +50,17 @@ export interface PayrollBulkSummary {
   deletedCount?: number;
   /** Paid (finalized) records a month delete left in place. */
   keptPaidCount?: number;
+  /** Why a generate run was refused — see MissingAttendance. */
+  missingAttendance?: MissingAttendance[];
+}
+
+/** One employee's attendance gaps that block a payroll run. */
+export interface MissingAttendance {
+  employee: string;
+  /** Working days with no attendance row (and no approved leave). */
+  dates: string[];
+  /** Weekend/holiday days worked but never clocked out, or with no hours logged. */
+  offDayDates: string[];
 }
 
 /**
@@ -120,11 +133,26 @@ export async function generatePayrollAction(
 
     // One query for the whole run, rather than one per employee.
     const attendanceByEmployee = await getMonthlyAttendanceByEmployeeDate(month);
+    const leaveByEmployee = await getApprovedLeaveStatusByEmployeeDate(workingDayDates);
     const defaultTemplate = await getDefaultSalaryTemplate();
+
+    // Weekend/holiday work that was never clocked out or has no hours logged.
+    // It isn't paid, but it can't be priced for earned leave either, so it
+    // has to be fixed before the month's payroll runs.
+    const unrecordedOffDays = new Map<number, string[]>();
+    for (const work of await getOffDayWork(startDate, endDate)) {
+      if (work.recorded) continue;
+      unrecordedOffDays.set(work.employee_id, [
+        ...(unrecordedOffDays.get(work.employee_id) || []),
+        work.date,
+      ]);
+    }
 
     let generatedCount = 0;
     let skippedCount = 0;
     const errors: string[] = [];
+    const planned: Omit<Payroll, 'id' | 'created_at' | 'updated_at'>[] = [];
+    const missingAttendance: MissingAttendance[] = [];
 
     for (const employee of employees) {
       // Interns and freelancers never get a payslip through this system —
@@ -172,9 +200,12 @@ export async function generatePayrollAction(
         continue;
       }
 
-      const attendanceByDate =
-        attendanceByEmployee.get(employee.id) ||
-        new Map<string, PayrollAttendanceStatus>();
+      // Approved leave fills only the days attendance has no row for — a
+      // recorded attendance row always wins.
+      const attendanceByDate = new Map<string, PayrollAttendanceStatus>([
+        ...(leaveByEmployee.get(employee.id) || []),
+        ...(attendanceByEmployee.get(employee.id) || []),
+      ]);
 
       // A converted intern is only salaried from the conversion date — the
       // days before it were internship (stipend), so they're outside the
@@ -203,47 +234,74 @@ export async function generatePayrollAction(
         continue;
       }
 
-      try {
-        await createPayroll({
-          employee_id: employee.id,
-          month,
-          total_working_days: calculation.total_working_days,
-          present_days: calculation.present_days,
-          paid_leave_days: calculation.paid_leave_days,
-          unpaid_leave_days: calculation.unpaid_leave_days,
-          absent_days: calculation.absent_days,
-          half_days: calculation.half_days,
-          payable_days: calculation.payable_days,
-          per_day_salary: calculation.per_day_salary,
-          gross_salary: calculation.gross_salary,
-          bonus: 0,
-          deduction: 0,
-          // gross_salary is the contracted monthly pay; net is what's left
-          // after loss of pay for unpaid days. The two differ whenever
-          // payable_days < total_working_days.
-          net_salary: calculation.net_salary,
-          status: 'draft',
-          notes: null,
-          generated_by: session.userId,
-          generated_at: new Date().toISOString(),
-          approved_by: null,
-          approved_at: null,
-          paid_by: null,
-          paid_at: null,
-          salary_structure_id: structure?.id ?? null,
-          basic_salary: components?.basic_salary ?? null,
-          hra: components?.hra ?? null,
-          special_allowance: components?.special_allowance ?? null,
-          other_allowance: components?.other_allowance ?? null,
-          pf_deduction: 0,
-          esi_deduction: 0,
-          professional_tax_deduction: 0,
-          tds_deduction: 0,
-          other_structured_deduction: 0,
+      const offDayDates = (unrecordedOffDays.get(employee.id) || []).sort();
+      if (calculation.unrecorded_dates.length > 0 || offDayDates.length > 0) {
+        missingAttendance.push({
+          employee: `${employee.name} (${employee.employee_id})`,
+          dates: calculation.unrecorded_dates,
+          offDayDates,
         });
+        continue;
+      }
+
+      planned.push({
+        employee_id: employee.id,
+        month,
+        total_working_days: calculation.total_working_days,
+        present_days: calculation.present_days,
+        paid_leave_days: calculation.paid_leave_days,
+        unpaid_leave_days: calculation.unpaid_leave_days,
+        absent_days: calculation.absent_days,
+        half_days: calculation.half_days,
+        payable_days: calculation.payable_days,
+        per_day_salary: calculation.per_day_salary,
+        gross_salary: calculation.gross_salary,
+        bonus: 0,
+        deduction: 0,
+        // gross_salary is the contracted monthly pay; net is what's left
+        // after loss of pay for unpaid days. The two differ whenever
+        // payable_days < total_working_days.
+        net_salary: calculation.net_salary,
+        status: 'draft',
+        notes: null,
+        generated_by: session.userId,
+        generated_at: new Date().toISOString(),
+        approved_by: null,
+        approved_at: null,
+        paid_by: null,
+        paid_at: null,
+        salary_structure_id: structure?.id ?? null,
+        basic_salary: components?.basic_salary ?? null,
+        hra: components?.hra ?? null,
+        special_allowance: components?.special_allowance ?? null,
+        other_allowance: components?.other_allowance ?? null,
+        pf_deduction: 0,
+        esi_deduction: 0,
+        professional_tax_deduction: 0,
+        tds_deduction: 0,
+        other_structured_deduction: 0,
+      });
+    }
+
+    // Every working day must be accounted for before anyone is paid for the
+    // month. Refuse the whole run — not just the affected employees — so a
+    // month is never left half-generated while the gaps get fixed.
+    if (missingAttendance.length > 0) {
+      const days = missingAttendance.reduce((n, m) => n + m.dates.length + m.offDayDates.length, 0);
+      return {
+        success: false,
+        error: `Attendance not recorded for ${days} working day(s) across ${missingAttendance.length} employee(s). Record it (or deselect them) and try again.`,
+        payroll: { missingAttendance },
+      };
+    }
+
+    for (const row of planned) {
+      try {
+        await createPayroll(row);
         generatedCount++;
       } catch (error) {
-        errors.push(`Failed for ${employee.name}: ${error}`);
+        const name = employees.find((e) => e.id === row.employee_id)?.name;
+        errors.push(`Failed for ${name}: ${error}`);
       }
     }
 

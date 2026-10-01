@@ -9,7 +9,9 @@
  * NOT a payroll working day: `getWorkingDayDatesInMonth` below must keep
  * excluding every Saturday and never call this function, so the day never
  * enters the salary calculation. A clock-in on it still creates an
- * attendance row, but payroll simply never walks that date.
+ * attendance row, but payroll simply never walks that date. Nor is it an
+ * off day, so working it earns no earned leave (see lib/erp/earned-leave.ts)
+ * — how it is compensated is still to be decided.
  */
 export function isAttendanceWorkingDay(date: Date): boolean {
   const dayOfWeek = date.getDay();
@@ -35,7 +37,8 @@ export function getWorkingDaysInMonth(
 
 /**
  * The actual YYYY-MM-DD dates that count as working days in a month
- * (weekdays, minus any public holidays passed in).
+ * (weekdays, minus any public holidays passed in). Every Saturday is
+ * excluded, including the first — see isAttendanceWorkingDay.
  *
  * Payroll needs the dates themselves and not just the count, so it can line
  * attendance rows up against them: a clock-in on a Saturday is not a payable
@@ -139,6 +142,8 @@ export interface PayrollCalculation {
   lop_days: number;
   /** Working days the employee wasn't employed for (joined late / left early). */
   not_employed_days: number;
+  /** In-employment working days with no attendance row at all — unpaid. */
+  unrecorded_dates: string[];
   per_day_salary: number;
   /** The employee's contracted monthly salary, before any attendance loss. */
   gross_salary: number;
@@ -199,13 +204,14 @@ export function splitGrossByTemplate(gross: number, template: SalaryComponents &
  *  - Payable days can never exceed working days. Only dates in
  *    `workingDayDates` are ever walked, so a weekend or public-holiday
  *    clock-in cannot push someone above their monthly salary (it used to:
- *    22 or 23 payable days in a 21-day month). Extra weekend work is paid
- *    through `bonus`, not by inflating the day count.
- *  - A working day with no attendance row at all is treated as worked.
- *    Attendance logging has gaps, and a missing row is far more likely to be
- *    a logging failure than an unrecorded absence — so it must not silently
- *    dock pay. Only an explicit 'absent' or 'unpaid-leave' row causes loss
- *    of pay.
+ *    22 or 23 payable days in a 21-day month). Weekend and holiday work is
+ *    never paid — it earns earned leave instead (lib/erp/earned-leave.ts).
+ *  - A working day with no attendance row at all is NOT paid. Pay is only
+ *    ever earned by a recorded day, so a gap can never quietly pay someone
+ *    for a day nobody accounted for. These days are returned in
+ *    `unrecorded_dates`, and generatePayrollAction refuses to run while any
+ *    exist — the gap has to be fixed in attendance first, so in practice a
+ *    generated payroll row never contains one.
  *
  * `gross_salary` is the contracted monthly salary as configured on the
  * employee. Attendance loss is *not* folded into it — it comes out as an
@@ -227,10 +233,11 @@ export function calculatePayroll(
   let unpaidLeaveDays = 0;
   let absentDays = 0;
   let notEmployedDays = 0;
+  const unrecordedDates: string[] = [];
 
   for (const date of workingDayDates) {
-    // Days outside the employment window are not payable, and — unlike a
-    // missing attendance row — must never be assumed worked. Without this a
+    // Days outside the employment window are not payable, and must never be
+    // assumed worked. Without this a
     // mid-month joiner (or anyone hired after the payroll month) would be
     // paid a full salary for time they weren't employed. Both bounds are
     // YYYY-MM-DD, so a lexicographic compare is a date compare.
@@ -259,8 +266,12 @@ export function calculatePayroll(
       case 'absent':
         absentDays++;
         break;
-      // 'present', 'in_progress' (clocked in, not yet out), 'holiday' logged
-      // against a working day, and — per the rule above — no row at all.
+      // No row at all — unpaid, per the rule above.
+      case undefined:
+        unrecordedDates.push(date);
+        break;
+      // 'present', 'in_progress' (clocked in, not yet out), and 'holiday'
+      // logged against a working day.
       default:
         presentDays++;
         payableDays += 1;
@@ -283,6 +294,7 @@ export function calculatePayroll(
     payable_days: payableDays,
     lop_days: lopDays,
     not_employed_days: notEmployedDays,
+    unrecorded_dates: unrecordedDates,
     per_day_salary: roundMoney(perDaySalary),
     gross_salary: grossSalary,
     lop_deduction: lopDeduction,
@@ -377,8 +389,10 @@ export function getMonthDateRange(monthString: string): {
   const endDate = new Date(year, month, 0);
 
   return {
-    startDate: formatDate(startDate),
-    endDate: formatDate(endDate),
+    // Local fields, not formatDate's UTC — in IST that would shift both
+    // bounds back a day (see formatLocalDate).
+    startDate: formatLocalDate(startDate),
+    endDate: formatLocalDate(endDate),
   };
 }
 

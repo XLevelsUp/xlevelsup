@@ -11,7 +11,7 @@ import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import DeleteConfirmButton from './DeleteConfirmButton';
 import type { PayrollWithEmployee } from '@/types/erp';
-import { formatCurrency, getMonthName, computeNetSalary } from '@/lib/erp/utils';
+import { formatCurrency, formatDisplayDate, getMonthName, computeNetSalary } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import {
   generatePayrollAction,
@@ -21,6 +21,7 @@ import {
   deletePayrollAction,
   deletePayrollForMonthAction,
   getPayslipForPayrollAction,
+  type MissingAttendance,
 } from '@/actions/erp/payroll';
 
 /** An employee who can be included in a payroll run (not intern/freelancer). */
@@ -93,6 +94,9 @@ export default function PayrollManager({
   const [status, setStatus] = useState(initialStatus || '');
   const [generating, setGenerating] = useState(false);
   const [generateMonth, setGenerateMonth] = useState(initialMonth);
+  // Set when a generate run is refused for unrecorded attendance — shown in
+  // the dialog so the gaps can be fixed (or those employees deselected).
+  const [missingAttendance, setMissingAttendance] = useState<MissingAttendance[]>([]);
   const [deleteMonthValue, setDeleteMonthValue] = useState(initialMonth);
   const [deletingMonth, setDeletingMonth] = useState(false);
   const [markPaidRecord, setMarkPaidRecord] = useState<PayrollWithEmployee | null>(null);
@@ -138,6 +142,7 @@ export default function PayrollManager({
       return;
     }
     setGenerating(true);
+    setMissingAttendance([]);
 
     const formData = new FormData(e.currentTarget);
     // All selected = no filter, so employees added later are never silently
@@ -157,6 +162,7 @@ export default function PayrollManager({
       setShowGenerateModal(false);
       router.refresh();
     } else {
+      setMissingAttendance(result.payroll?.missingAttendance ?? []);
       toast.error(result.error || 'Failed to generate payroll');
     }
   };
@@ -516,7 +522,10 @@ export default function PayrollManager({
       {/* Generate Modal */}
       <Modal
         isOpen={showGenerateModal}
-        onClose={() => setShowGenerateModal(false)}
+        onClose={() => {
+          setShowGenerateModal(false);
+          setMissingAttendance([]);
+        }}
         title='Generate Payroll'
       >
         <form onSubmit={handleGenerate} className='space-y-4'>
@@ -524,11 +533,20 @@ export default function PayrollManager({
             Generates a draft payroll record for each selected employee, using
             the salary structure effective for that month. Employees who already
             have a record for the month are skipped, so nothing is duplicated.
-            Interns and freelancers are never included.
+            Interns and freelancers are never included. Every working day must
+            have attendance recorded — nothing is generated until it does.
           </p>
           <div>
             <label className='block text-sm font-medium mb-2'>Month *</label>
-            <MonthPicker value={generateMonth} onChange={setGenerateMonth} name='month' required />
+            <MonthPicker
+              value={generateMonth}
+              onChange={(value) => {
+                setGenerateMonth(value);
+                setMissingAttendance([]);
+              }}
+              name='month'
+              required
+            />
           </div>
           <div>
             <div className='flex items-center justify-between mb-2'>
@@ -572,6 +590,30 @@ export default function PayrollManager({
               ))}
             </div>
           </div>
+          {missingAttendance.length > 0 && (
+            <div className='bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300 space-y-2'>
+              <p className='font-medium'>
+                Attendance not recorded — nothing was generated. Record these
+                days on the Attendance page, or deselect the employee.
+              </p>
+              <ul className='space-y-1 max-h-40 overflow-y-auto'>
+                {missingAttendance.map((m) => (
+                  <li key={m.employee}>
+                    <span className='text-white'>{m.employee}</span>
+                    {m.dates.length > 0 && (
+                      <div>No attendance: {m.dates.map((d) => formatDisplayDate(d)).join(', ')}</div>
+                    )}
+                    {m.offDayDates.length > 0 && (
+                      <div>
+                        Weekend/holiday with no clock-out or hours:{' '}
+                        {m.offDayDates.map((d) => formatDisplayDate(d)).join(', ')}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <Button
             type='submit'
             variant='primary'

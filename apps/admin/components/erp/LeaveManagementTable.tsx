@@ -22,7 +22,7 @@ const getLeaveTypeLabel = (type: string) => {
     sick: 'Sick',
     casual: 'Casual',
     floater: 'Floater',
-    earned: 'Earned (OT)',
+    earned: 'Earned',
     unpaid: 'Unpaid',
     maternity: 'Maternity',
     paternity: 'Paternity',
@@ -85,7 +85,7 @@ export default function LeaveManagementTable({
   const handleAccrueEarnedLeaves = async () => {
     if (
       !confirm(
-        'Are you sure you want to run the monthly Earned Leave auto-accrual calculation? This will calculate and allocate earned leaves for all active employees based on their accumulated Overtime hours.'
+        'Recalculate earned leave for every employee across all attendance history? Each weekend or company holiday worked for 6+ logged hours earns 1 day. Used earned leave is not affected.'
       )
     ) {
       return;
@@ -154,12 +154,12 @@ export default function LeaveManagementTable({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>Accruing Leaves...</span>
+              <span>Recalculating...</span>
             </>
           ) : (
             <>
               <span>⚡</span>
-              <span>Run Earned Leave Accrual</span>
+              <span>Recalculate Earned Leave</span>
             </>
           )}
         </button>

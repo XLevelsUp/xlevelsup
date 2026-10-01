@@ -10,7 +10,8 @@ import type {
   LeaveBalance,
 } from '@/types/erp';
 import { getNonFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
-import { isAttendanceWorkingDay } from '@/lib/erp/utils';
+import { syncEarnedLeaveBalance } from '@/lib/erp/earned-leave';
+import { isAttendanceWorkingDay, type PayrollAttendanceStatus } from '@/lib/erp/utils';
 
 /**
  * A leave_requests row as PostgREST returns it from the joined select, with
@@ -281,6 +282,53 @@ export async function updateLeaveRequest(
 }
 
 /**
+ * What approved leave says about each of the given dates, per employee — for
+ * payroll to fall back on where a working day has no attendance row.
+ * Approving leave only updates the leave balance; it never writes attendance,
+ * so without this an approved leave day would read as unrecorded.
+ *
+ * Unpaid leave maps to 'unpaid-leave' and every other leave type to
+ * 'paid-leave'. WFH (not leave — the day is still worked and clocked) and
+ * half-day requests (the other half still has to be recorded) are left out,
+ * so those days stay unrecorded until attendance is entered.
+ */
+export async function getApprovedLeaveStatusByEmployeeDate(
+  dates: string[],
+): Promise<Map<number, Map<string, PayrollAttendanceStatus>>> {
+  const byEmployee = new Map<number, Map<string, PayrollAttendanceStatus>>();
+  if (dates.length === 0) return byEmployee;
+
+  const sorted = [...dates].sort();
+  const { data, error } = await supabase
+    .from('leave_requests')
+    .select('employee_id, leave_type, start_date, end_date, is_half_day')
+    .eq('status', 'approved')
+    .neq('leave_type', 'wfh')
+    .eq('is_half_day', false)
+    .lte('start_date', sorted[sorted.length - 1])
+    .gte('end_date', sorted[0]);
+  if (error) throw error;
+
+  for (const request of data || []) {
+    const status: PayrollAttendanceStatus =
+      request.leave_type === 'unpaid' ? 'unpaid-leave' : 'paid-leave';
+    let byDate = byEmployee.get(request.employee_id);
+    if (!byDate) {
+      byDate = new Map();
+      byEmployee.set(request.employee_id, byDate);
+    }
+    // All YYYY-MM-DD, so a string compare is a date compare.
+    for (const date of sorted) {
+      if (date >= request.start_date && date <= request.end_date) {
+        byDate.set(date, status);
+      }
+    }
+  }
+
+  return byEmployee;
+}
+
+/**
  * Cancel leave request (employee can cancel pending or approved requests)
  */
 export async function cancelLeaveRequest(
@@ -452,6 +500,14 @@ export async function getEmployeeLeaveBalance(
 ): Promise<LeaveBalance[]> {
   const currentYear = year || new Date().getFullYear();
 
+  // Earned leave is derived from off-day work, so bring it up to date before
+  // it's shown. Never let a sync failure hide the other balances.
+  try {
+    await syncEarnedLeaveBalance(employeeId, currentYear);
+  } catch (error) {
+    console.error('Failed to sync earned leave balance:', error);
+  }
+
   const { data, error } = await supabase
     .from('leave_balances')
     .select('*')
@@ -492,6 +548,9 @@ export async function checkLeaveBalanceAvailable(
 
   const year = new Date(date).getFullYear();
   const label = leaveType.charAt(0).toUpperCase() + leaveType.slice(1);
+
+  // Checked against the current off-day history, not whatever was last stored.
+  if (leaveType === 'earned') await syncEarnedLeaveBalance(employeeId, year);
 
   const { data: balance, error } = await supabase
     .from('leave_balances')
@@ -660,104 +719,4 @@ export async function getPendingLeaveRequestsCount(): Promise<number> {
 
   if (error) throw error;
   return count || 0;
-}
-
-/**
- * Calculate earned leave days from overtime hours
- * Policy: 8 hours of OT = 1 day of earned leave
- */
-export function calculateEarnedLeaveFromOT(overtimeHours: number): number {
-  const HOURS_PER_EARNED_DAY = 8;
-  return Math.floor(overtimeHours / HOURS_PER_EARNED_DAY);
-}
-
-/**
- * Update earned leave balance based on total OT hours for employee
- * This should be called periodically (e.g., monthly) or when OT is recorded
- */
-export async function updateEarnedLeaveBalance(
-  employeeId: number,
-  year?: number,
-): Promise<void> {
-  const currentYear = year || new Date().getFullYear();
-
-  // Get total overtime hours for the year
-  const startDate = `${currentYear}-01-01`;
-  const endDate = `${currentYear}-12-31`;
-
-  const { data: attendanceRecords, error: attendanceError } = await supabase
-    .from('attendance')
-    .select('overtime_hours')
-    .eq('employee_id', employeeId)
-    .gte('date', startDate)
-    .lte('date', endDate);
-
-  if (attendanceError) throw attendanceError;
-
-  // Calculate total OT hours
-  const totalOTHours =
-    attendanceRecords?.reduce(
-      (sum, record) => sum + (record.overtime_hours || 0),
-      0,
-    ) || 0;
-
-  // Calculate earned leave days
-  const earnedDays = calculateEarnedLeaveFromOT(totalOTHours);
-
-  // Update or insert earned leave balance
-  const { error: upsertError } = await supabase
-    .from('leave_balances')
-    .upsert(
-      {
-        employee_id: employeeId,
-        year: currentYear,
-        leave_type: 'earned',
-        total_allocated: earnedDays,
-        used_days: 0, // Only update total_allocated, keep used_days as is
-      },
-      {
-        onConflict: 'employee_id,year,leave_type',
-        ignoreDuplicates: false,
-      },
-    )
-    .select()
-    .single();
-
-  if (upsertError) {
-    // If record exists, just update total_allocated
-    const { error: updateError } = await supabase
-      .from('leave_balances')
-      .update({ total_allocated: earnedDays })
-      .eq('employee_id', employeeId)
-      .eq('year', currentYear)
-      .eq('leave_type', 'earned');
-
-    if (updateError) throw updateError;
-  }
-}
-
-/**
- * Batch update earned leave for all employees
- * Should be run periodically (e.g., monthly cron job)
- */
-export async function batchUpdateEarnedLeaveBalances(
-  year?: number,
-): Promise<void> {
-  const currentYear = year || new Date().getFullYear();
-
-  // Get all active employees except temporary employees
-  const { data: employees, error: employeesError } = await supabase
-    .from('employees')
-    .select('id, employment_type')
-    .eq('status', 'active')
-    .neq('employment_type', 'temporary');
-
-  if (employeesError) throw employeesError;
-
-  // Update earned leave for each employee
-  if (employees) {
-    await Promise.all(
-      employees.map((emp) => updateEarnedLeaveBalance(emp.id, currentYear)),
-    );
-  }
 }

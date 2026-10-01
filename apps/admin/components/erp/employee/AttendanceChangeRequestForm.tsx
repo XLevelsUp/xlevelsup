@@ -232,7 +232,7 @@ export default function AttendanceChangeRequestForm({
             <option value='sick'>Sick Leave</option>
             <option value='casual'>Casual Leave</option>
             <option value='floater'>Floater Leave</option>
-            <option value='earned'>Earned Leave (OT)</option>
+            <option value='earned'>Earned Leave</option>
             <option value='maternity'>Maternity Leave</option>
             <option value='paternity'>Paternity Leave</option>
             <option value='other'>Other</option>
