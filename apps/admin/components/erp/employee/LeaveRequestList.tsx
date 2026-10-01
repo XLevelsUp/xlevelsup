@@ -53,7 +53,7 @@ export default function LeaveRequestList({
       sick: 'Sick Leave',
       casual: 'Casual Leave',
       floater: 'Floater Leave',
-      earned: 'Earned Leave (OT)',
+      earned: 'Earned Leave',
       unpaid: 'Unpaid Leave',
       maternity: 'Maternity Leave',
       paternity: 'Paternity Leave',

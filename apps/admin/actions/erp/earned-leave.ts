@@ -1,14 +1,12 @@
 'use server';
 
 /**
- * Server actions for updating earned leave balances based on overtime
+ * Server actions for recomputing earned leave balances from off-day work
+ * (see lib/erp/earned-leave.ts)
  */
 
 import { requireRole } from '@/lib/auth';
-import {
-  updateEarnedLeaveBalance,
-  batchUpdateEarnedLeaveBalances,
-} from '@/lib/erp/leave-requests';
+import { syncEarnedLeaveBalance, syncAllEarnedLeaveBalances } from '@/lib/erp/earned-leave';
 import { revalidatePath } from 'next/cache';
 
 export interface UpdateEarnedLeaveResult {
@@ -18,7 +16,7 @@ export interface UpdateEarnedLeaveResult {
 }
 
 /**
- * Update earned leave balance for a specific employee
+ * Recompute earned leave balance for a specific employee
  */
 export async function updateEmployeeEarnedLeaveAction(
   employeeId: number,
@@ -27,7 +25,7 @@ export async function updateEmployeeEarnedLeaveAction(
   try {
     await requireRole(['admin', 'hr']);
 
-    await updateEarnedLeaveBalance(employeeId, year);
+    await syncEarnedLeaveBalance(employeeId, year || new Date().getFullYear());
 
     revalidatePath('/erp/leave-requests');
     revalidatePath('/employee/dashboard');
@@ -46,29 +44,28 @@ export async function updateEmployeeEarnedLeaveAction(
 }
 
 /**
- * Batch update earned leave for all active employees
- * Should be run monthly or as needed
+ * Recompute earned leave for every employee across their whole attendance
+ * history. Balances also refresh on their own whenever one is viewed or a
+ * leave request is checked against it — this is for a full recalculation.
  */
-export async function batchUpdateEarnedLeaveAction(
-  year?: number,
-): Promise<UpdateEarnedLeaveResult> {
+export async function batchUpdateEarnedLeaveAction(): Promise<UpdateEarnedLeaveResult> {
   try {
     await requireRole(['admin']);
 
-    await batchUpdateEarnedLeaveBalances(year);
+    const { employees, years } = await syncAllEarnedLeaveBalances();
 
     revalidatePath('/erp/leave-requests');
     revalidatePath('/erp/dashboard');
 
     return {
       success: true,
-      message: 'Earned leave updated for all employees successfully',
+      message: `Earned leave recalculated for ${employees} employees (${years[0]}–${years[years.length - 1]})`,
     };
   } catch (error) {
     console.error('Batch update earned leave error:', error);
     return {
       success: false,
-      error: 'Failed to batch update earned leave balances',
+      error: 'Failed to recalculate earned leave balances',
     };
   }
 }
