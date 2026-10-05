@@ -49,7 +49,7 @@ export default async function AttendancePage({
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0'>
         <AttendanceManager
           employees={employees}
           attendance={attendance}

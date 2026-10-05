@@ -378,6 +378,27 @@ export function formatDisplayDate(dateString: string): string {
 }
 
 /**
+ * A date range as one short span, dropping whatever the two ends share:
+ * "1 Oct 2026", "12–14 Oct 2026", "29 Sep – 2 Oct 2026",
+ * "30 Dec 2026 – 2 Jan 2027". For calendar-day ranges such as leave.
+ */
+export function formatDateSpan(start: string, end?: string | null): string {
+  // Calendar days ('YYYY-MM-DD'), read in UTC so the day can't shift with
+  // the viewer's timezone.
+  const s = new Date(`${start.slice(0, 10)}T00:00:00Z`);
+  const e = new Date(`${(end || start).slice(0, 10)}T00:00:00Z`);
+  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
+    d.toLocaleDateString('en-GB', { timeZone: 'UTC', ...opts });
+  const full = (d: Date) => fmt(d, { day: 'numeric', month: 'short', year: 'numeric' });
+  const sameYear = s.getUTCFullYear() === e.getUTCFullYear();
+  const sameMonth = sameYear && s.getUTCMonth() === e.getUTCMonth();
+  if (sameMonth && s.getUTCDate() === e.getUTCDate()) return full(s);
+  if (sameMonth) return `${s.getUTCDate()}–${full(e)}`;
+  if (sameYear) return `${fmt(s, { day: 'numeric', month: 'short' })} – ${full(e)}`;
+  return `${full(s)} – ${full(e)}`;
+}
+
+/**
  * Get date range for a specific month
  */
 export function getMonthDateRange(monthString: string): {

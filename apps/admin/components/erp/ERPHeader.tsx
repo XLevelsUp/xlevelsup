@@ -55,7 +55,10 @@ export default function ERPHeader({
   return (
     <header className="sticky top-0 z-30 h-16 w-full bg-[#0c0c0e]/80 backdrop-blur-md border-b border-gray-800/80 flex items-center justify-between px-4 sm:px-6">
       {/* Left Section: Menu Toggle + Breadcrumbs */}
-      <div className="flex items-center gap-3 sm:gap-4">
+      {/* min-w-0 + the truncating title below keep a long page name (e.g.
+          "Attendance Change Requests") on one line on a phone instead of
+          wrapping into three and crowding the icons on the right. */}
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
         {/* Mobile Hamburger menu */}
         <button
           onClick={onMobileMenuToggle}
@@ -81,21 +84,21 @@ export default function ERPHeader({
         )}
 
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-400 select-none">
-          <Link href="/erp/dashboard" className="hover:text-white transition-colors">
+        <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-400 select-none min-w-0">
+          <Link href="/erp/dashboard" className="hover:text-white transition-colors shrink-0">
             ERP
           </Link>
           {pathSegments.length > 1 && (
             <>
-              <span className="text-gray-600">/</span>
-              <span className="text-gray-200 font-semibold">{pageTitle}</span>
+              <span className="text-gray-600 shrink-0">/</span>
+              <span className="text-gray-200 font-semibold truncate" title={pageTitle}>{pageTitle}</span>
             </>
           )}
         </nav>
       </div>
 
       {/* Right Section: User & Logout */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {/* Upcoming events: birthdays, work anniversaries, holidays */}
         <UpcomingEventsPanel />
 

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
-import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmployeeForm from './EmployeeForm';
 import CareerChangeModal from './CareerChangeModal';
@@ -19,12 +18,20 @@ import { getEmployeeCareerHistoryAction } from '@/actions/erp/employee-career';
 import { getEmployeePayrollHistoryAction } from '@/actions/erp/payroll';
 import type { EmployeePayrollHistoryRow } from '@/lib/erp/payroll';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import {
+  PageHeader,
+  FilterField,
+  FIELD_CLASS,
+  FILTER_GRID_CLASS,
+  PRIMARY_ACTION_CLASS,
+  ROW_ACTION_CLASS,
+} from './PageChrome';
 
 interface EmployeeListProps {
   employees: Employee[];
   departments: string[];
   initialFilters: {
-    status?: 'active' | 'inactive';
+    status?: 'active' | 'inactive' | 'all';
     department?: string;
     employment_type?: string;
     search?: string;
@@ -55,7 +62,8 @@ export default function EmployeeList({
     setFilters(newFilters);
 
     const params = new URLSearchParams();
-    if (newFilters.status) params.set('status', newFilters.status);
+    // Active is the default, so it stays out of the URL.
+    if (newFilters.status && newFilters.status !== 'active') params.set('status', newFilters.status);
     if (newFilters.department) params.set('department', newFilters.department);
     if (newFilters.employment_type)
       params.set('employment_type', newFilters.employment_type);
@@ -115,58 +123,164 @@ export default function EmployeeList({
     }
   };
 
-  return (
+  // ── Employee renderers ──────────────────────────────────────────────────
+  // Shared by the wide-screen table and the narrow-screen cards.
+
+  const renderEmployment = (employee: Employee) => (
     <div>
-      {/* Header */}
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
-        <div>
-          <h1 className='text-3xl font-bold gradient-text'>
-            Employee Management
-          </h1>
-          <p className='text-gray-400 mt-2'>
-            Manage employee records, promotions, and career history
-          </p>
-        </div>
-        <Button
-          variant='primary'
-          onClick={() => setShowCreateModal(true)}
-          className='whitespace-nowrap'
+      <span
+        className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${
+          employee.employment_type === 'intern' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-300'
+        }`}
+      >
+        {employee.employment_type?.replace('-', ' ') || 'Full-Time'}
+      </span>
+      {employee.end_date && (
+        <p className='text-xs text-gray-500 mt-0.5 whitespace-nowrap'>Until {formatDisplayDate(employee.end_date)}</p>
+      )}
+    </div>
+  );
+
+  const renderSalary = (employee: Employee) => (
+    <div className='tabular-nums'>
+      <p className='font-medium text-white whitespace-nowrap'>
+        {employee.monthly_salary !== null && employee.monthly_salary !== undefined ? (
+          <SensitiveValue>{formatCurrency(employee.monthly_salary)}</SensitiveValue>
+        ) : (
+          'Unpaid'
+        )}
+      </p>
+      <p className='text-xs text-gray-500 capitalize whitespace-nowrap'>
+        {employee.salary_type}
+        {employee.hourly_rate && ` · ₹${employee.hourly_rate}/hr`}
+      </p>
+    </div>
+  );
+
+  const renderStatus = (employee: Employee) => (
+    <span
+      className={`inline-block px-2 py-1 rounded-full text-xs font-medium capitalize whitespace-nowrap ${
+        employee.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+      }`}
+    >
+      {employee.status}
+    </span>
+  );
+
+  const renderEditDelete = (employee: Employee) => (
+    <>
+      <button
+        type='button'
+        onClick={() => handleEdit(employee)}
+        title='Edit'
+        aria-label={`Edit ${employee.name}`}
+        className='p-1 text-cyan-400 hover:text-cyan-300 transition-colors'
+      >
+        <EditIcon className='w-3.5 h-3.5' />
+      </button>
+      <DeleteConfirmButton
+        onConfirm={() => handleDelete(employee)}
+        message={`Are you sure you want to delete ${employee.name}?`}
+        title='Delete'
+        ariaLabel={`Delete ${employee.name}`}
+        className='p-1 text-red-400 hover:text-red-300 transition-colors'
+      >
+        <DeleteIcon className='w-3.5 h-3.5' />
+      </DeleteConfirmButton>
+    </>
+  );
+
+  /** Career actions — what can happen next in this person's record. */
+  const renderCareerActions = (employee: Employee) => {
+    const isIntern = employee.employment_type === 'intern';
+    const isActive = employee.status === 'active';
+    return (
+      <>
+        {isIntern && isActive && (
+          <button
+            type='button'
+            onClick={() => handleCareerChange(employee, 'intern_conversion')}
+            className={`${ROW_ACTION_CLASS} bg-yellow-500/15 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/25`}
+          >
+            Convert
+          </button>
+        )}
+        {!isIntern && isActive && (
+          <button
+            type='button'
+            onClick={() => handleCareerChange(employee, 'promotion')}
+            className={`${ROW_ACTION_CLASS} bg-green-500/15 text-green-400 border-green-500/30 hover:bg-green-500/25`}
+          >
+            Promote
+          </button>
+        )}
+        {isActive && (
+          <button
+            type='button'
+            onClick={() => handleCareerChange(employee, 'salary_revision')}
+            className={`${ROW_ACTION_CLASS} bg-cyan-500/15 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/25`}
+          >
+            Salary
+          </button>
+        )}
+        <button
+          type='button'
+          onClick={() => handleViewHistory(employee)}
+          className={`${ROW_ACTION_CLASS} border-gray-700 text-gray-300 hover:text-white hover:border-gray-500`}
         >
-          + Add Employee
-        </Button>
-      </div>
+          History
+        </button>
+        <button
+          type='button'
+          onClick={() => handleViewPayslips(employee)}
+          className={`${ROW_ACTION_CLASS} border-gray-700 text-gray-300 hover:text-white hover:border-gray-500`}
+        >
+          Payslips
+        </button>
+      </>
+    );
+  };
+
+  return (
+    <div className='@container pb-20'>
+      <PageHeader
+        title='Employees'
+        description='Everyone on the team — their records, promotions, salary changes and payslips.'
+        actions={
+          <button type='button' onClick={() => setShowCreateModal(true)} className={PRIMARY_ACTION_CLASS}>
+            + Add employee
+          </button>
+        }
+      />
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Search</label>
+        <div className={FILTER_GRID_CLASS}>
+          <FilterField label='Search'>
             <input
-              type='text'
-              placeholder='Name, email, or ID...'
+              type='search'
+              placeholder='Name, email or ID…'
               value={filters.search || ''}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              className={FIELD_CLASS}
             />
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Status</label>
+          </FilterField>
+          <FilterField label='Status'>
             <select
-              value={filters.status || ''}
+              value={filters.status || 'active'}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              className={FIELD_CLASS}
             >
-              <option value=''>All Statuses</option>
               <option value='active'>Active</option>
               <option value='inactive'>Inactive</option>
+              <option value='all'>All Statuses</option>
             </select>
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Department</label>
+          </FilterField>
+          <FilterField label='Department'>
             <select
               value={filters.department || ''}
               onChange={(e) => handleFilterChange('department', e.target.value)}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              className={FIELD_CLASS}
             >
               <option value=''>All Departments</option>
               {departments.map((dept) => (
@@ -175,17 +289,12 @@ export default function EmployeeList({
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>
-              Employment Type
-            </label>
+          </FilterField>
+          <FilterField label='Employment Type'>
             <select
               value={filters.employment_type || ''}
-              onChange={(e) =>
-                handleFilterChange('employment_type', e.target.value)
-              }
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              onChange={(e) => handleFilterChange('employment_type', e.target.value)}
+              className={FIELD_CLASS}
             >
               <option value=''>All Types</option>
               <option value='full-time'>Full-Time</option>
@@ -196,160 +305,92 @@ export default function EmployeeList({
               <option value='intern'>Intern</option>
               <option value='consultant'>Consultant</option>
             </select>
-          </div>
+          </FilterField>
         </div>
       </div>
 
-      {/* Employee Table */}
+      {/* Employees */}
       <div className='glass rounded-lg overflow-hidden'>
         {employees.length === 0 ? (
-          <div className='text-center py-12'>
-            <p className='text-gray-400 mb-4'>No employees found</p>
-            <Button variant='primary' onClick={() => setShowCreateModal(true)}>
-              Add First Employee
-            </Button>
+          <div className='text-center py-14 px-4'>
+            <p className='text-gray-300 font-medium'>No employees match these filters</p>
+            <p className='text-sm text-gray-500 mt-1'>Try another status or department, or clear the search.</p>
+            <button type='button' onClick={() => setShowCreateModal(true)} className={`${PRIMARY_ACTION_CLASS} mt-5`}>
+              + Add employee
+            </button>
           </div>
         ) : (
-          <Table
-            headers={[
-              'ID',
-              'Name',
-              'Department',
-              'Role',
-              'Employment',
-              'Salary',
-              'Status',
-              'Actions',
-            ]}
-          >
-            {employees.map((employee) => {
-              const isIntern = employee.employment_type === 'intern';
-              const isActive = employee.status === 'active';
-              return (
-                <TableRow key={employee.id}>
-                  <TableCell>{employee.employee_id}</TableCell>
-                  <TableCell>
-                    <div className='font-medium text-white'>{employee.name}</div>
-                    <div className='text-xs text-gray-500'>
-                      {employee.email}
-                    </div>
-                    <div className='text-xs text-gray-600'>
-                      Joined: {formatDisplayDate(employee.joining_date)}
-                    </div>
-                    {employee.date_of_birth && (
-                      <div className='text-xs text-gray-600'>
-                        DOB: {formatDisplayDate(employee.date_of_birth)}
+          <>
+            {/* Wide containers: the table. ID and email ride under the
+                name and department under the role, which takes it from
+                eight columns to six. */}
+            <div className='hidden @min-[58rem]:block'>
+              <Table compact headers={['Employee', 'Role', 'Employment', 'Salary', 'Status', 'Actions']}>
+                {employees.map((employee) => (
+                  <TableRow key={employee.id}>
+                    <TableCell className='min-w-48'>
+                      <p className='font-medium text-white'>{employee.name}</p>
+                      <p className='text-xs text-gray-500'>
+                        {employee.employee_id} · {employee.email}
+                      </p>
+                      <p className='text-xs text-gray-600'>
+                        Joined {formatDisplayDate(employee.joining_date)}
+                        {employee.date_of_birth && <> · DOB {formatDisplayDate(employee.date_of_birth)}</>}
+                      </p>
+                    </TableCell>
+                    <TableCell className='min-w-36'>
+                      <p className='text-gray-300'>{employee.role}</p>
+                      <p className='text-xs text-gray-500'>{employee.department}</p>
+                    </TableCell>
+                    <TableCell>{renderEmployment(employee)}</TableCell>
+                    <TableCell>{renderSalary(employee)}</TableCell>
+                    <TableCell>{renderStatus(employee)}</TableCell>
+                    <TableCell className='min-w-44'>
+                      <div className='flex flex-col gap-1.5'>
+                        <div className='flex gap-1'>{renderEditDelete(employee)}</div>
+                        <div className='flex gap-1.5 flex-wrap'>{renderCareerActions(employee)}</div>
                       </div>
-                    )}
-                  </TableCell>
-                  <TableCell>{employee.department}</TableCell>
-                  <TableCell>{employee.role}</TableCell>
-                  <TableCell>
-                    <div className='flex items-center gap-1.5'>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
-                        isIntern
-                          ? 'bg-yellow-500/20 text-yellow-400'
-                          : 'bg-blue-500/20 text-blue-300'
-                      }`}>
-                        {employee.employment_type?.replace('-', ' ') || 'Full-Time'}
-                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Table>
+            </div>
+
+            {/* Narrow containers: one card per person — who and their
+                status on top, role/employment/salary beneath, every action
+                the table row offers in the footer. */}
+            <ul className='@min-[58rem]:hidden grid grid-cols-1 @3xl:grid-cols-2 -mb-px'>
+              {employees.map((employee) => (
+                <li key={employee.id} className='p-4 min-w-0 border-b border-gray-800/70 @3xl:odd:border-r'>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='min-w-0'>
+                      <p className='font-semibold text-white [overflow-wrap:anywhere]'>{employee.name}</p>
+                      <p className='text-xs text-gray-500 [overflow-wrap:anywhere]'>
+                        {employee.employee_id} · {employee.email}
+                      </p>
                     </div>
-                    {employee.end_date && (
-                      <div className='text-xs text-gray-500 mt-0.5'>
-                        Until {formatDisplayDate(employee.end_date)}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className='font-medium text-white'>
-                      {employee.monthly_salary !== null &&
-                      employee.monthly_salary !== undefined
-                        ? <SensitiveValue>{formatCurrency(employee.monthly_salary)}</SensitiveValue>
-                        : 'Unpaid'}
-                    </div>
-                    <div className='text-xs text-gray-500 capitalize'>
-                      {employee.salary_type}
-                      {employee.hourly_rate && ` · ₹${employee.hourly_rate}/hr`}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        employee.status === 'active'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {employee.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex flex-col gap-1.5'>
-                      {/* Top row: core actions */}
-                      <div className='flex gap-2'>
-                        <button
-                          onClick={() => handleEdit(employee)}
-                          title='Edit'
-                          aria-label='Edit'
-                          className='text-cyan-400 hover:text-cyan-300 transition-colors'
-                        >
-                          <EditIcon className='w-3.5 h-3.5' />
-                        </button>
-                        <DeleteConfirmButton
-                          onConfirm={() => handleDelete(employee)}
-                          message={`Are you sure you want to delete ${employee.name}?`}
-                          title='Delete'
-                          ariaLabel='Delete'
-                          className='text-red-400 hover:text-red-300 transition-colors'
-                        >
-                          <DeleteIcon className='w-3.5 h-3.5' />
-                        </DeleteConfirmButton>
-                      </div>
-                      {/* Bottom row: career actions */}
-                      <div className='flex gap-1.5 flex-wrap'>
-                        {isIntern && isActive && (
-                          <button
-                            onClick={() => handleCareerChange(employee, 'intern_conversion')}
-                            className='text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors font-medium whitespace-nowrap'
-                          >
-                            Convert
-                          </button>
-                        )}
-                        {!isIntern && isActive && (
-                          <button
-                            onClick={() => handleCareerChange(employee, 'promotion')}
-                            className='text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors font-medium'
-                          >
-                            Promote
-                          </button>
-                        )}
-                        {isActive && (
-                          <button
-                            onClick={() => handleCareerChange(employee, 'salary_revision')}
-                            className='text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors font-medium whitespace-nowrap'
-                          >
-                            Salary
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleViewHistory(employee)}
-                          className='text-xs px-2 py-0.5 rounded bg-gray-700/60 text-gray-400 hover:bg-gray-700 transition-colors font-medium'
-                        >
-                          History
-                        </button>
-                        <button
-                          onClick={() => handleViewPayslips(employee)}
-                          className='text-xs px-2 py-0.5 rounded bg-gray-700/60 text-gray-400 hover:bg-gray-700 transition-colors font-medium'
-                        >
-                          Payslips
-                        </button>
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
+                    <div className='shrink-0'>{renderStatus(employee)}</div>
+                  </div>
+                  <p className='mt-2 text-sm text-gray-300'>
+                    {employee.role}
+                    <span className='text-gray-500'> · {employee.department}</span>
+                  </p>
+                  <div className='mt-3 flex items-start justify-between gap-3'>
+                    {renderEmployment(employee)}
+                    <div className='text-right'>{renderSalary(employee)}</div>
+                  </div>
+                  <p className='mt-2 text-xs text-gray-600'>
+                    Joined {formatDisplayDate(employee.joining_date)}
+                    {employee.date_of_birth && <> · DOB {formatDisplayDate(employee.date_of_birth)}</>}
+                  </p>
+                  <div className='mt-3 flex flex-wrap items-center gap-1.5'>
+                    {renderCareerActions(employee)}
+                    <span className='ml-auto flex items-center gap-1'>{renderEditDelete(employee)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
 

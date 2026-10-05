@@ -67,7 +67,7 @@ function ViewToggle<T extends string>({
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`px-2 py-0.5 font-semibold transition-colors ${
+          className={`px-2 py-0.5 font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--cyan)] ${
             value === opt.value ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
           }`}
         >
@@ -91,10 +91,14 @@ interface StatTileProps {
 
 export function StatTile({ label, value, sublabel, accentClassName }: StatTileProps) {
   return (
-    <div className={`glass p-5 rounded-lg ${accentClassName ? `border-l-4 ${accentClassName}` : ''}`}>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold text-white mt-1.5">{value}</p>
-      {sublabel && <p className="text-xs text-gray-500 mt-1.5">{sublabel}</p>}
+    // min-w-0 + overflow-wrap so a long INR figure wraps inside its tile
+    // instead of pushing the grid wider. The @-variants size against the
+    // nearest @container (FinanceManager's root) — the content column's
+    // width, not the viewport's, since the sidebar eats up to 260px of it.
+    <div className={`glass p-4 @xl:p-5 rounded-lg min-w-0 ${accentClassName ? `border-l-4 ${accentClassName}` : ''}`}>
+      <p className="text-[11px] @xl:text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">{label}</p>
+      <p className="text-lg @xl:text-2xl font-bold text-white mt-1.5 tabular-nums [overflow-wrap:anywhere]">{value}</p>
+      {sublabel && <p className="text-xs text-gray-500 mt-1.5 [overflow-wrap:anywhere]">{sublabel}</p>}
     </div>
   );
 }
@@ -195,7 +199,7 @@ function BarBreakdownBars({
         return (
           <div key={item.key}>
             <div className="flex justify-between items-baseline gap-3 text-xs mb-1.5">
-              <span className="font-medium text-gray-300 truncate">{item.label}</span>
+              <span className="font-medium text-gray-300 truncate min-w-0">{item.label}</span>
               <span className="text-gray-400 font-semibold whitespace-nowrap">
                 {formatValue(item.value)} <span className="text-gray-600">({pct.toFixed(0)}%)</span>
               </span>
@@ -360,6 +364,13 @@ export function TrendChart({ data, formatValue }: TrendChartProps) {
   }
 
   const max = Math.max(...data.map((d) => Math.max(d.inflow, d.outflow)), 1);
+  // A full month is 31 daily slots — on a phone each is ~9px, too narrow for
+  // "01".."31" side by side, so label at most ~12 evenly spaced slots (plus
+  // the last) and leave the rest blank rather than letting them collide.
+  const labelStep = Math.ceil(data.length / 12);
+  // Tooltips on the right half of the chart open leftward, so the last few
+  // bars can't push a tooltip past the card's right edge.
+  const tooltipAlign = (i: number): 'start' | 'end' => (i >= data.length / 2 ? 'end' : 'start');
   const plotHeight = CHART_HEIGHT - CHART_PADDING_TOP;
   const yTicks = [0, 0.5, 1].map((f) => Math.round((max * f) / 100) * 100 || max * f);
 
@@ -374,7 +385,7 @@ export function TrendChart({ data, formatValue }: TrendChartProps) {
     <div>
       <div className="flex items-center justify-between mb-3 gap-3">
         {/* Legend — identity channel, never color-alone */}
-        <div className="flex items-center gap-5 text-xs">
+        <div className="flex items-center gap-4 text-xs">
           <span className="flex items-center gap-1.5 text-gray-300">
             <span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" /> Inflow
           </span>
@@ -415,7 +426,7 @@ export function TrendChart({ data, formatValue }: TrendChartProps) {
                   onMouseEnter={() => setHoverIndex(i)}
                   onMouseLeave={() => setHoverIndex((h) => (h === i ? null : h))}
                 >
-                  {hoverIndex === i && <TrendTooltip point={point} formatValue={formatValue} />}
+                  {hoverIndex === i && <TrendTooltip point={point} formatValue={formatValue} align={tooltipAlign(i)} />}
                   <div
                     style={{ height: `${Math.max(inflowH, point.inflow > 0 ? 2 : 0)}px`, width: 'min(32%, 10px)' }}
                     className="bg-green-500 rounded-t-[3px] min-w-[4px] transition-all"
@@ -455,7 +466,7 @@ export function TrendChart({ data, formatValue }: TrendChartProps) {
                   onMouseEnter={() => setHoverIndex(i)}
                   onMouseLeave={() => setHoverIndex((h) => (h === i ? null : h))}
                 >
-                  {hoverIndex === i && <TrendTooltip point={point} formatValue={formatValue} center />}
+                  {hoverIndex === i && <TrendTooltip point={point} formatValue={formatValue} align={tooltipAlign(i)} />}
                 </div>
               ))}
             </div>
@@ -464,9 +475,9 @@ export function TrendChart({ data, formatValue }: TrendChartProps) {
 
         {/* X-axis labels */}
         <div className="flex pl-14 mt-2">
-          {data.map((point) => (
-            <div key={point.label} className="flex-1 text-center text-[10px] text-gray-500 truncate">
-              {point.label}
+          {data.map((point, i) => (
+            <div key={point.label} className="flex-1 min-w-0 text-center text-[10px] text-gray-500 truncate">
+              {i % labelStep === 0 || i === data.length - 1 ? point.label : ''}
             </div>
           ))}
         </div>
@@ -478,16 +489,16 @@ export function TrendChart({ data, formatValue }: TrendChartProps) {
 function TrendTooltip({
   point,
   formatValue,
-  center = false,
+  align,
 }: {
   point: TrendPoint;
   formatValue: (n: number) => string;
-  center?: boolean;
+  align: 'start' | 'end';
 }) {
   return (
     <div
-      className={`absolute bottom-full mb-2 z-10 bg-[#0c0c0e] border border-gray-700 rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-xl ${
-        center ? 'left-1/2 -translate-x-1/2' : ''
+      className={`absolute bottom-full mb-2 z-10 bg-[#0c0c0e] border border-gray-700 rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-xl pointer-events-none ${
+        align === 'end' ? 'right-0' : 'left-0'
       }`}
     >
       <p className="font-semibold text-white mb-1">{point.label}</p>

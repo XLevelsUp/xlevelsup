@@ -131,26 +131,24 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold gradient-text">Service Invoice</h1>
-          <p className="text-gray-400 mt-2">Bill clients for services rendered</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* The page header and "New Invoice" tab (app/erp/billing/page.tsx)
+          already title this view. Columns follow the @container on that
+          page: the summary moves beside the form only once the form column
+          itself is still comfortably wide. */}
+      <div className="grid grid-cols-1 @4xl:grid-cols-3 gap-4 @xl:gap-6">
         {/* Line items */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="@4xl:col-span-2 space-y-4 min-w-0">
           <div className="glass p-4 rounded-lg">
-            <label className="block text-xs font-medium text-gray-400 mb-2">Client Name</label>
+            <label htmlFor="billing-client" className="block text-xs font-medium text-gray-400 mb-2">Client Name</label>
             <input
+              id="billing-client"
               type="text"
               list="known-clients"
               placeholder="Search or type a client name..."
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className={`w-full bg-transparent border rounded-lg px-4 py-2.5 text-sm focus:outline-none ${
-                clientNameError ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-cyan'
+              className={`w-full min-w-0 bg-transparent border rounded-lg px-4 py-2.5 text-sm focus:outline-none ${
+                clientNameError ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-[var(--cyan)]'
               }`}
             />
             <datalist id="known-clients">
@@ -165,6 +163,7 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold">Line Items</h2>
               <button
+                type="button"
                 onClick={addLine}
                 className="text-xs font-semibold text-cyan hover:underline"
               >
@@ -177,29 +176,40 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
                 const lineError = lineErrors[index];
                 return (
                   <div key={index} className="space-y-1">
-                    <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                    {/* Narrow: description on its own row, amount + remove
+                        beneath it (the ✕ used to drop onto a third row by
+                        itself). Wide: all three on one row. */}
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] @xl:grid-cols-[minmax(0,1fr)_9rem_auto] gap-2 items-center">
                       <input
                         type="text"
+                        aria-label={`Line ${index + 1} description`}
                         placeholder="Description (e.g. Website Development - Phase 1)"
                         value={item.description}
                         onChange={(e) => updateItem(index, { description: e.target.value })}
-                        className="flex-1 w-full bg-transparent border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan"
+                        className="col-span-2 @xl:col-span-1 w-full min-w-0 bg-transparent border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--cyan)]"
                       />
                       <input
                         type="number"
+                        inputMode="decimal"
                         step="0.01"
                         min="0"
-                        placeholder="Amount"
-                        value={item.rate}
+                        aria-label={`Line ${index + 1} amount`}
+                        placeholder="Amount (₹)"
+                        // Empty rather than "0" until something is typed, so
+                        // the placeholder shows; Number('') is still 0.
+                        value={item.rate || ''}
                         onChange={(e) => updateItem(index, { rate: Number(e.target.value) })}
-                        className={`w-full sm:w-32 bg-transparent border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                          lineError ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-cyan'
+                        className={`w-full min-w-0 bg-transparent border rounded-lg px-3 py-2 text-sm tabular-nums focus:outline-none ${
+                          lineError ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-[var(--cyan)]'
                         }`}
                       />
                       <button
+                        type="button"
                         onClick={() => removeLine(index)}
                         disabled={items.length === 1}
-                        className="text-gray-500 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed px-1"
+                        aria-label={`Remove line ${index + 1}`}
+                        title="Remove line"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       >
                         ✕
                       </button>
@@ -213,19 +223,22 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
           </div>
 
           <div className="glass p-4 rounded-lg">
-            <label className="block text-xs font-medium text-gray-400 mb-2">Notes (optional)</label>
+            <label htmlFor="billing-notes" className="block text-xs font-medium text-gray-400 mb-2">Notes (optional)</label>
             <textarea
+              id="billing-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any additional notes for this invoice..."
-              className="w-full bg-transparent border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cyan resize-none"
+              className="w-full min-w-0 bg-transparent border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[var(--cyan)] resize-none"
             />
           </div>
         </div>
 
-        {/* Totals & checkout */}
-        <div className="glass p-5 rounded-lg h-fit sticky top-4">
+        {/* Totals & checkout. Sticky only beside the form, and at top-20 —
+            the old top-4 slid this panel up underneath the 64px sticky
+            ERPHeader (z-30) while scrolling a long invoice. */}
+        <div className="glass p-5 rounded-lg h-fit min-w-0 @4xl:sticky @4xl:top-20">
           <h2 className="text-lg font-bold mb-4">Invoice Summary</h2>
 
           <div className="space-y-1.5 text-sm">
@@ -248,13 +261,15 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
           </div>
 
           <div className="mt-4">
-            <label className="block text-xs font-medium text-gray-400 mb-2">Payment Method</label>
-            <div className="grid grid-cols-3 gap-2">
+            <p id="billing-payment-method" className="block text-xs font-medium text-gray-400 mb-2">Payment Method</p>
+            <div role="group" aria-labelledby="billing-payment-method" className="grid grid-cols-3 gap-2">
               {PAYMENT_METHODS.map((method) => (
                 <button
                   key={method}
+                  type="button"
                   onClick={() => setPaymentMethod(method)}
-                  className={`py-2 rounded-lg text-xs font-semibold border transition-all ${
+                  aria-pressed={paymentMethod === method}
+                  className={`py-2 px-1 rounded-lg text-xs font-semibold border transition-all min-w-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cyan)] ${
                     paymentMethod === method
                       ? 'bg-cyan/10 border-cyan text-cyan'
                       : 'border-gray-700 text-gray-400 hover:border-gray-600'

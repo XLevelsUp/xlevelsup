@@ -24,14 +24,9 @@ export default async function LeaveManagementPage() {
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
-        <div className='mb-6'>
-          <h1 className='text-3xl font-bold text-white gradient-text'>Leave Management</h1>
-          <p className='text-gray-400 mt-2'>
-            Review and manage employee leave requests
-          </p>
-        </div>
-
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0'>
+        {/* Header, view switch and list all live in LeaveManagementTable —
+            the header's "Recalculate earned leave" button needs its handler. */}
         <LeaveManagementTable requests={leaveRequests} />
       </main>
     </ERPLayoutWrapper>

@@ -3,19 +3,27 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
-import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import AttendanceForm from './AttendanceForm';
 import BulkAttendanceForm from './BulkAttendanceForm';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import type { Employee, Attendance, LeaveBalance, LeaveRequestWithEmployee, TimeLog } from '@/types/erp';
-import { formatDisplayDate, getMonthName, formatDuration } from '@/lib/erp/utils';
+import { formatDisplayDate, formatDateSpan, getMonthName, formatDuration } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
 import { getEmployeeLeaveBalanceAction } from '@/actions/erp/leave-requests';
 import DeleteConfirmButton from './DeleteConfirmButton';
 import Link from 'next/link';
+import { StatTile } from './charts/FinanceCharts';
+import {
+  PageHeader,
+  FilterField,
+  FIELD_CLASS,
+  FILTER_GRID_CLASS,
+  PRIMARY_ACTION_CLASS,
+  SECONDARY_ACTION_CLASS,
+} from './PageChrome';
 
 interface AttendanceManagerProps {
   employees: Employee[];
@@ -216,52 +224,82 @@ export default function AttendanceManager({
   const calendarDays = getCalendarDays();
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  // Solid twin of getStatusColor, for the calendar's narrow-screen dots.
+  const STATUS_DOT: Record<string, string> = {
+    present: 'bg-green-400',
+    in_progress: 'bg-amber-400',
+    absent: 'bg-red-400',
+    'half-day': 'bg-yellow-400',
+    'paid-leave': 'bg-blue-400',
+    'unpaid-leave': 'bg-orange-400',
+    holiday: 'bg-purple-400',
+  };
+
+  const statusLabel = (record: Attendance) =>
+    `${record.status.replace(/[-_]/g, ' ')}${
+      record.status === 'half-day' && record.half_day_period
+        ? ` (${record.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
+        : ''
+    }`;
+
+  const renderStatus = (record: Attendance) => (
+    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap capitalize ${getStatusColor(record.status)}`}>
+      {statusLabel(record)}
+    </span>
+  );
+
+  const renderDelete = (record: Attendance) => (
+    <DeleteConfirmButton
+      onConfirm={() => handleDelete(record)}
+      message='Delete this attendance record?'
+      title='Delete'
+      ariaLabel='Delete'
+      className='p-1 text-red-400 hover:text-red-300 transition-colors'
+    >
+      <DeleteIcon />
+    </DeleteConfirmButton>
+  );
+
+  const VIEW_OPTIONS: { id: typeof viewMode; label: string }[] = [
+    { id: 'table', label: 'Records' },
+    // Calendar is a single month; it's hidden while Full History is on.
+    ...(isAllTime ? [] : [{ id: 'calendar' as const, label: 'Calendar' }]),
+    { id: 'leave-report', label: 'Leave report' },
+  ];
+
   return (
-    <div>
-      {/* Header */}
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
-        <div>
-          <h1 className='text-3xl font-bold gradient-text'>
-            Attendance Management
-          </h1>
-          <p className='text-gray-400 mt-2'>
-            Track daily attendance for all employees
-          </p>
-        </div>
-        <div className='flex items-center gap-3 flex-wrap sm:flex-nowrap'>
-          <Link href='/erp/attendance/sessions'>
-            <Button variant='secondary' className='whitespace-nowrap'>
-              🕒 View Login/Logout Sessions
-            </Button>
-          </Link>
-          <Button
-            variant='secondary'
-            onClick={() => setShowBulkModal(true)}
-            className='whitespace-nowrap'
-          >
-            🗓️ Bulk Update
-          </Button>
-          <Button
-            variant='primary'
-            onClick={() => setShowAddModal(true)}
-            className='whitespace-nowrap'
-          >
-            + Add Attendance
-          </Button>
-        </div>
-      </div>
+    <div className='@container pb-20'>
+      <PageHeader
+        title='Attendance'
+        description='Daily attendance for everyone — record it, correct it, and see the month at a glance.'
+        actions={
+          <>
+            <Link href='/erp/attendance/sessions' className={SECONDARY_ACTION_CLASS}>
+              Sessions
+            </Link>
+            <button type='button' onClick={() => setShowBulkModal(true)} className={SECONDARY_ACTION_CLASS}>
+              Bulk update
+            </button>
+            <button type='button' onClick={() => setShowAddModal(true)} className={PRIMARY_ACTION_CLASS}>
+              {/* Shortened on a phone so the three buttons share one row. */}
+              <span className='@md:hidden'>+ Add</span>
+              <span className='hidden @md:inline'>+ Add attendance</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Month</label>
+        <div className={FILTER_GRID_CLASS}>
+          <FilterField label='Month'>
             {isAllTime ? (
-              <div className='w-full px-4 py-2 rounded-lg bg-dark-800/60 border border-dashed border-gray-700 text-gray-400 text-sm'>
-                Showing entire history — month filter off
+              <div className='w-full px-3 py-1.5 rounded-lg bg-dark-800/60 border border-dashed border-gray-700 text-gray-400 text-sm truncate'>
+                Entire history — month filter off
               </div>
             ) : (
               <MonthPicker
+                compact
                 value={month}
                 onChange={(next) => {
                   setMonth(next);
@@ -269,16 +307,15 @@ export default function AttendanceManager({
                 }}
               />
             )}
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Employee</label>
+          </FilterField>
+          <FilterField label='Employee'>
             <select
               value={employeeId || ''}
               onChange={(e) => {
                 const next = e.target.value ? parseInt(e.target.value) : undefined;
                 handleEmployeeChange(next);
               }}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              className={FIELD_CLASS}
             >
               <option value=''>All Employees</option>
               {employees.map((emp) => (
@@ -287,19 +324,20 @@ export default function AttendanceManager({
                 </option>
               ))}
             </select>
-          </div>
+          </FilterField>
         </div>
 
         <div className='mt-4 pt-4 border-t border-gray-800 flex items-center justify-between gap-3 flex-wrap'>
-          <p className='text-xs text-gray-500'>
+          <p className='text-xs text-gray-500 min-w-0 flex-1 basis-60'>
             {employeeId
-              ? 'View this employee\'s entire attendance history from the day they joined, instead of one month at a time.'
-              : 'Select an employee above to enable Full History.'}
+              ? 'See this employee’s whole attendance history since they joined, instead of one month at a time.'
+              : 'Pick an employee to see their full history.'}
           </p>
           <button
             type='button'
             onClick={handleToggleAllTime}
             disabled={!employeeId}
+            aria-pressed={isAllTime}
             className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-all ${
               isAllTime
                 ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
@@ -308,7 +346,7 @@ export default function AttendanceManager({
                   : 'border border-gray-800 text-gray-600 cursor-not-allowed'
             }`}
           >
-            {isAllTime ? '📜 Full History (on) — back to month view' : '📜 View Full History'}
+            {isAllTime ? 'Back to month view' : 'Full history'}
           </button>
         </div>
       </div>
@@ -316,8 +354,8 @@ export default function AttendanceManager({
       {/* Leave Balances for selected employee */}
       {employeeId && (
         <div className='glass p-4 rounded-lg mb-6'>
-          <h3 className='text-sm font-semibold text-white mb-3'>
-            🏖️ Leave Balance — {employeeMap.get(employeeId)?.name}
+          <h3 className='text-sm font-semibold text-white mb-3 [overflow-wrap:anywhere]'>
+            Leave balance — {employeeMap.get(employeeId)?.name}
           </h3>
           {loadingLeaveBalances ? (
             <p className='text-xs text-gray-400'>Loading leave balances...</p>
@@ -326,19 +364,19 @@ export default function AttendanceManager({
               No leave balances found for this employee.
             </p>
           ) : (
-            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+            <div className='grid grid-cols-2 @md:grid-cols-4 gap-3'>
               {leaveBalances
                 .filter((balance) => balance.leave_type !== 'wfh')
                 .map((balance) => (
                 <div
                   key={balance.id}
-                  className='bg-dark-800/40 border border-gray-800/60 rounded-lg px-3 py-2'
+                  className='bg-dark-800/40 border border-gray-800/60 rounded-lg px-3 py-2 min-w-0'
                 >
-                  <p className='text-[10px] uppercase tracking-wider text-gray-500'>
+                  <p className='text-[10px] uppercase tracking-wider text-gray-500 truncate'>
                     {balance.leave_type.replace(/[-_]/g, ' ')}
                   </p>
                   <p
-                    className={`text-lg font-bold ${
+                    className={`text-lg font-bold tabular-nums ${
                       balance.remaining_days > 5
                         ? 'text-green-400'
                         : balance.remaining_days > 0
@@ -363,152 +401,124 @@ export default function AttendanceManager({
       )}
 
       {/* Stats */}
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mb-6'>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Total Records</p>
-          <p className='text-2xl font-bold text-white mt-1'>
-            {attendance.length}
-          </p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Present</p>
-          <p className='text-2xl font-bold text-green-400 mt-1'>
-            {attendance.filter((a) => a.status === 'present').length}
-          </p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Absent</p>
-          <p className='text-2xl font-bold text-red-400 mt-1'>
-            {attendance.filter((a) => a.status === 'absent').length}
-          </p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Leaves</p>
-          <p className='text-2xl font-bold text-blue-400 mt-1'>
-            {
-              attendance.filter(
-                (a) => a.status === 'paid-leave' || a.status === 'unpaid-leave',
-              ).length
-            }
-          </p>
-        </div>
+      <div className='grid grid-cols-2 @3xl:grid-cols-4 gap-3 @xl:gap-4 mb-6'>
+        <StatTile label='Records' value={attendance.length} />
+        <StatTile
+          label='Present'
+          value={<span className='text-green-400'>{attendance.filter((a) => a.status === 'present').length}</span>}
+        />
+        <StatTile
+          label='Absent'
+          value={<span className='text-red-400'>{attendance.filter((a) => a.status === 'absent').length}</span>}
+        />
+        <StatTile
+          label='Leave'
+          value={
+            <span className='text-blue-400'>
+              {attendance.filter((a) => a.status === 'paid-leave' || a.status === 'unpaid-leave').length}
+            </span>
+          }
+        />
       </div>
 
       {/* View Toggle */}
-      <div className='flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 p-1 rounded-lg mb-6 w-fit'>
-        <button
-          onClick={() => setViewMode('table')}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            viewMode === 'table'
-              ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          📋 Table View
-        </button>
-        {!isAllTime && (
+      <div role='group' aria-label='View' className='flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 p-1 rounded-lg mb-4 w-fit max-w-full'>
+        {VIEW_OPTIONS.map((opt) => (
           <button
-            onClick={() => setViewMode('calendar')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-              viewMode === 'calendar'
-                ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
-                : 'text-gray-400 hover:text-white'
+            key={opt.id}
+            type='button'
+            onClick={() => setViewMode(opt.id)}
+            aria-pressed={viewMode === opt.id}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap transition-all border focus-visible:outline-2 focus-visible:outline-[var(--cyan)] ${
+              viewMode === opt.id ? 'bg-cyan/10 text-cyan border-cyan/25' : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
-            📅 Calendar View
+            {opt.label}
           </button>
-        )}
-        <button
-          onClick={() => setViewMode('leave-report')}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            viewMode === 'leave-report'
-              ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          📊 Leave Report
-        </button>
+        ))}
       </div>
 
-      {/* Attendance Table */}
+      {/* Attendance Records */}
       {viewMode === 'table' && (
         <div className='glass rounded-lg overflow-hidden'>
           {attendance.length === 0 ? (
-            <div className='text-center py-12'>
-              <p className='text-gray-400 mb-4'>No attendance records found</p>
-              <Button variant='primary' onClick={() => setShowAddModal(true)}>
-                Add First Record
-              </Button>
+            <div className='text-center py-14 px-4'>
+              <p className='text-gray-300 font-medium'>
+                No attendance recorded{isAllTime ? '' : ` for ${getMonthName(month)}`}
+              </p>
+              <p className='text-sm text-gray-500 mt-1'>Add a day for one person, or use Bulk update for the whole team.</p>
+              <button type='button' onClick={() => setShowAddModal(true)} className={`${PRIMARY_ACTION_CLASS} mt-5`}>
+                + Add attendance
+              </button>
             </div>
           ) : (
-            <Table
-              headers={[
-                'Date',
-                'Employee',
-                'Department',
-                'Status',
-                'Hours Worked',
-                'Notes',
-                'Actions',
-              ]}
-            >
-              {attendance.map((record) => {
-                const employee = employeeMap.get(record.employee_id);
-                const dateKey = record.date.split('T')[0];
-                const hoursWorked = hoursWorkedByKey.get(`${record.employee_id}_${dateKey}`);
-                return (
-                  <TableRow key={`${record.employee_id}-${record.date}`}>
-                    <TableCell>
-                      <div className='font-medium text-white'>
-                        {formatDisplayDate(record.date)}
+            <>
+              {/* Wide containers: the table — department rides under the
+                  employee's name, which keeps it to six columns. */}
+              <div className='hidden @min-[48rem]:block'>
+                <Table compact headers={['Date', 'Employee', 'Status', 'Hours Worked', 'Notes', '']}>
+                  {attendance.map((record) => {
+                    const employee = employeeMap.get(record.employee_id);
+                    const hoursWorked = hoursWorkedByKey.get(`${record.employee_id}_${record.date.split('T')[0]}`);
+                    return (
+                      <TableRow key={`${record.employee_id}-${record.date}`}>
+                        <TableCell className='whitespace-nowrap font-medium text-white'>
+                          {formatDisplayDate(record.date)}
+                        </TableCell>
+                        <TableCell className='min-w-40'>
+                          <p className='font-medium text-white'>{employee?.name}</p>
+                          <p className='text-xs text-gray-500'>
+                            {employee?.employee_id}
+                            {employee?.department && <> · {employee.department}</>}
+                          </p>
+                        </TableCell>
+                        <TableCell>{renderStatus(record)}</TableCell>
+                        <TableCell className='whitespace-nowrap text-xs text-gray-300 tabular-nums'>
+                          {hoursWorked ? formatDuration(hoursWorked, false) : '—'}
+                        </TableCell>
+                        <TableCell className='max-w-56 text-xs text-gray-400'>
+                          <p className='truncate' title={record.notes || ''}>{record.notes || '—'}</p>
+                        </TableCell>
+                        <TableCell>{renderDelete(record)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </Table>
+              </div>
+
+              {/* Narrow containers: one card per record. */}
+              <ul className='@min-[48rem]:hidden grid grid-cols-1 @md:grid-cols-2 -mb-px'>
+                {attendance.map((record) => {
+                  const employee = employeeMap.get(record.employee_id);
+                  const hoursWorked = hoursWorkedByKey.get(`${record.employee_id}_${record.date.split('T')[0]}`);
+                  return (
+                    <li
+                      key={`${record.employee_id}-${record.date}`}
+                      className='p-4 min-w-0 border-b border-gray-800/70 @md:odd:border-r'
+                    >
+                      <div className='flex items-start justify-between gap-3'>
+                        <div className='min-w-0'>
+                          <p className='font-semibold text-white [overflow-wrap:anywhere]'>{employee?.name}</p>
+                          <p className='text-xs text-gray-500'>
+                            {formatDisplayDate(record.date)} · {employee?.employee_id}
+                          </p>
+                        </div>
+                        <div className='shrink-0'>{renderStatus(record)}</div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='font-medium text-white'>
-                        {employee?.name}
+                      <div className='mt-3 flex items-center justify-between gap-3'>
+                        <p className='text-xs text-gray-400 min-w-0'>
+                          <span className='text-gray-200 tabular-nums'>
+                            {hoursWorked ? formatDuration(hoursWorked, false) : 'No hours logged'}
+                          </span>
+                          {record.notes && <span className='block truncate text-gray-500'>{record.notes}</span>}
+                        </p>
+                        {renderDelete(record)}
                       </div>
-                      <div className='text-xs text-gray-500'>
-                        {employee?.employee_id}
-                      </div>
-                    </TableCell>
-                    <TableCell>{employee?.department}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                          record.status,
-                        )}`}
-                      >
-                        {record.status.replace(/[-_]/g, ' ')}
-                        {record.status === 'half-day' && record.half_day_period
-                          ? ` (${record.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
-                          : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className='text-xs text-gray-300'>
-                        {hoursWorked ? formatDuration(hoursWorked, false) : '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className='text-xs text-gray-400'>
-                        {record.notes || '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <DeleteConfirmButton
-                        onConfirm={() => handleDelete(record)}
-                        message='Delete this attendance record?'
-                        title='Delete'
-                        ariaLabel='Delete'
-                        className='text-red-400 hover:text-red-300 transition-colors'
-                      >
-                        <DeleteIcon />
-                      </DeleteConfirmButton>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </Table>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
       )}
@@ -516,17 +526,17 @@ export default function AttendanceManager({
       {/* Calendar View */}
       {viewMode === 'calendar' && (
         <div className='space-y-4'>
-          <div className='bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 sm:p-4'>
+          <div className='bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 @xl:p-4'>
             <p className='text-xs text-gray-500 mb-3'>
-              Showing {getMonthName(month)} for{' '}
+              {getMonthName(month)} for{' '}
               <span className='text-gray-300 font-medium'>
                 {employeeId ? employeeMap.get(employeeId)?.name || 'selected employee' : 'all employees'}
               </span>
-              . Click a day to see the per-employee breakdown.
+              . Pick a day to see who was in.
             </p>
 
             {/* Weekday headers */}
-            <div className='grid grid-cols-7 gap-1 text-center font-bold text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800/40 pb-2'>
+            <div className='grid grid-cols-7 gap-1 text-center font-bold text-[10px] @xl:text-xs text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800/40 pb-2'>
               {weekdays.map((day) => (
                 <div key={day} className='py-1'>
                   {day}
@@ -534,8 +544,10 @@ export default function AttendanceManager({
               ))}
             </div>
 
-            {/* Days grid */}
-            <div className='grid grid-cols-7 gap-1 sm:gap-2'>
+            {/* Days grid. Wide: a count chip per status. Narrow: one dot per
+                status present — the chips ("P 5", "IP 2") wrapped past the
+                bottom of a 40px-wide cell and over the next row. */}
+            <div className='grid grid-cols-7 gap-1 @xl:gap-2'>
               {calendarDays.map((day, idx) => {
                 const dateStr = formatDateKey(day.date);
                 const dayRecords = attendanceByDate.get(dateStr) || [];
@@ -546,46 +558,60 @@ export default function AttendanceManager({
                 dayRecords.forEach((r) => {
                   counts[r.status] = (counts[r.status] || 0) + 1;
                 });
+                const presentStatuses = STATUS_ORDER.filter((s) => counts[s]);
 
                 return (
                   <button
                     key={`${dateStr}-${idx}`}
                     onClick={() => day.isCurrentMonth && setSelectedDateStr(dateStr)}
                     disabled={!day.isCurrentMonth}
-                    className={`flex flex-col justify-between items-start p-1 sm:p-2 h-16 sm:h-24 border rounded-lg transition-all text-left ${
+                    aria-pressed={isSelected}
+                    aria-label={
+                      day.isCurrentMonth
+                        ? `${formatDisplayDate(dateStr)}: ${dayRecords.length} record${dayRecords.length === 1 ? '' : 's'}`
+                        : undefined
+                    }
+                    className={`min-w-0 flex flex-col justify-between items-start p-1 @xl:p-2 h-14 @xl:h-24 border rounded-lg transition-all text-left overflow-hidden ${
                       day.isCurrentMonth
                         ? 'bg-[#111111]/30 hover:bg-[#1a1a1a]/60 border-gray-800/30 cursor-pointer'
                         : 'bg-transparent border-transparent opacity-20 pointer-events-none'
                     } ${isToday ? 'ring-2 ring-[var(--cyan)] ring-offset-2 ring-offset-black' : ''} ${
-                      isSelected ? 'border-cyan' : ''
+                      isSelected ? 'border-[var(--cyan)]' : ''
                     }`}
                   >
                     <div className='flex justify-between items-center w-full'>
                       <span
-                        className={`text-xs font-bold ${
+                        className={`text-xs font-bold tabular-nums ${
                           isToday ? 'text-[var(--cyan)]' : day.isCurrentMonth ? 'text-gray-300' : 'text-gray-600'
                         }`}
                       >
                         {day.dayNum}
                       </span>
                       {isToday && (
-                        <span className='text-[8px] bg-[var(--cyan)]/20 text-[var(--cyan)] px-1 rounded-sm hidden sm:inline'>
+                        <span className='text-[8px] bg-[var(--cyan)]/20 text-[var(--cyan)] px-1 rounded-sm hidden @xl:inline'>
                           Today
                         </span>
                       )}
                     </div>
 
                     {dayRecords.length > 0 && (
-                      <div className='w-full flex flex-wrap gap-0.5 mt-auto'>
-                        {STATUS_ORDER.filter((s) => counts[s]).map((s) => (
-                          <span
-                            key={s}
-                            className={`text-[8px] font-bold px-1 rounded leading-tight ${getStatusColor(s)}`}
-                          >
-                            {STATUS_SHORT[s]}&nbsp;{counts[s]}
-                          </span>
-                        ))}
-                      </div>
+                      <>
+                        <div className='@xl:hidden flex flex-wrap gap-0.5 mt-auto' aria-hidden='true'>
+                          {presentStatuses.map((s) => (
+                            <span key={s} className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[s] || 'bg-gray-400'}`} />
+                          ))}
+                        </div>
+                        <div className='hidden @xl:flex w-full flex-wrap gap-0.5 mt-auto'>
+                          {presentStatuses.map((s) => (
+                            <span
+                              key={s}
+                              className={`text-[8px] font-bold px-1 rounded leading-tight ${getStatusColor(s)}`}
+                            >
+                              {STATUS_SHORT[s]}&nbsp;{counts[s]}
+                            </span>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </button>
                 );
@@ -596,10 +622,11 @@ export default function AttendanceManager({
           {/* Legend */}
           <div className='flex flex-wrap gap-x-4 gap-y-2 bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 text-xs justify-center'>
             {STATUS_ORDER.map((s) => (
-              <div key={s} className='flex items-center gap-1.5'>
-                <span className={`h-3 w-3 rounded-md inline-block ${getStatusColor(s)}`}></span>
-                <span className='text-gray-300'>
-                  {STATUS_SHORT[s]} = {s.replace(/[-_]/g, ' ')}
+              <div key={s} className='flex items-center gap-1.5 whitespace-nowrap'>
+                <span className={`h-2.5 w-2.5 rounded-full inline-block ${STATUS_DOT[s]}`}></span>
+                <span className='text-gray-300 capitalize'>
+                  <span className='hidden @xl:inline'>{STATUS_SHORT[s]} = </span>
+                  {s.replace(/[-_]/g, ' ')}
                 </span>
               </div>
             ))}
@@ -608,13 +635,14 @@ export default function AttendanceManager({
           {/* Selected Date Breakdown */}
           {selectedDateStr && (
             <div className='bg-[#111111]/80 border border-gray-800 rounded-lg p-4 space-y-3'>
-              <div className='flex items-center justify-between border-b border-gray-800 pb-2'>
+              <div className='flex items-center justify-between gap-3 border-b border-gray-800 pb-2'>
                 <h3 className='text-sm font-semibold text-white'>
-                  📅 Attendance on {formatDisplayDate(selectedDateStr)}
+                  Attendance on {formatDisplayDate(selectedDateStr)}
                 </h3>
                 <button
+                  type='button'
                   onClick={() => setSelectedDateStr('')}
-                  className='text-xs text-gray-400 hover:text-white transition-colors'
+                  className='text-xs text-gray-400 hover:text-white transition-colors whitespace-nowrap'
                 >
                   Close ×
                 </button>
@@ -637,29 +665,26 @@ export default function AttendanceManager({
 
                 return (
                   <>
-                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                    <div className='grid grid-cols-1 @xl:grid-cols-2 gap-2'>
                       {dayRecords.map((record) => {
                         const employee = employeeMap.get(record.employee_id);
                         return (
                           <div
                             key={record.id}
-                            className='flex items-center justify-between bg-dark-800/40 border border-gray-800/60 rounded-lg px-3 py-2 text-xs'
+                            className='flex items-center justify-between gap-3 bg-dark-800/40 border border-gray-800/60 rounded-lg px-3 py-2 text-xs min-w-0'
                           >
-                            <div>
-                              <div className='font-medium text-white'>{employee?.name || 'Unknown'}</div>
-                              <div className='text-gray-500'>
+                            <div className='min-w-0'>
+                              <div className='font-medium text-white truncate'>{employee?.name || 'Unknown'}</div>
+                              <div className='text-gray-500 truncate'>
                                 {employee?.employee_id} · {employee?.department}
                               </div>
                             </div>
                             <span
-                              className={`px-2 py-1 rounded-full text-[10px] font-medium ${getStatusColor(
+                              className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap capitalize ${getStatusColor(
                                 record.status,
                               )}`}
                             >
-                              {record.status.replace(/[-_]/g, ' ')}
-                              {record.status === 'half-day' && record.half_day_period
-                                ? ` (${record.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
-                                : ''}
+                              {statusLabel(record)}
                             </span>
                           </div>
                         );
@@ -730,14 +755,15 @@ export default function AttendanceManager({
 
             return (
               <>
-                {/* Per-employee summary */}
+                {/* Per-employee summary — three short columns (department
+                    under the name), so it fits a phone without scrolling. */}
                 <div className='glass rounded-lg overflow-hidden'>
-                  <div className='px-4 pt-4 flex items-center justify-between'>
+                  <div className='px-4 pt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1'>
                     <h3 className='text-sm font-semibold text-white'>
-                      Leave Used {employeeId ? `— ${employeeMap.get(employeeId)?.name}` : 'by Employee'}
+                      Leave used {employeeId ? `— ${employeeMap.get(employeeId)?.name}` : 'by employee'}
                     </h3>
                     <span className='text-xs text-gray-400'>
-                      Total: <span className='text-white font-medium'>{grandTotalDays}</span> days across{' '}
+                      <span className='text-white font-medium tabular-nums'>{grandTotalDays}</span> days across{' '}
                       {nonWfhLeaveRequests.length} approved request{nonWfhLeaveRequests.length === 1 ? '' : 's'}
                     </span>
                   </div>
@@ -747,17 +773,18 @@ export default function AttendanceManager({
                     </p>
                   ) : (
                     <div className='mt-3'>
-                      <Table headers={['Employee', 'Department', 'Requests', 'Total Days Used']}>
+                      <Table compact headers={['Employee', 'Requests', 'Days used']}>
                         {summaryRows.map((row) => (
                           <TableRow key={row.employeeIdDisplay}>
                             <TableCell>
-                              <div className='font-medium text-white'>{row.name}</div>
-                              <div className='text-xs text-gray-500'>{row.employeeIdDisplay}</div>
+                              <p className='font-medium text-white'>{row.name}</p>
+                              <p className='text-xs text-gray-500'>
+                                {row.employeeIdDisplay} · {row.department}
+                              </p>
                             </TableCell>
-                            <TableCell>{row.department}</TableCell>
-                            <TableCell>{row.count}</TableCell>
+                            <TableCell className='tabular-nums'>{row.count}</TableCell>
                             <TableCell>
-                              <span className='font-semibold text-blue-400'>{row.totalDays}</span>
+                              <span className='font-semibold text-blue-400 tabular-nums'>{row.totalDays}</span>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -766,53 +793,40 @@ export default function AttendanceManager({
                   )}
                 </div>
 
-                {/* Detailed leave dates */}
+                {/* Detailed leave dates — a list rather than a five-column
+                    table: each entry is who, when and why, which reads
+                    naturally at any width. */}
                 <div className='glass rounded-lg overflow-hidden'>
-                  <h3 className='text-sm font-semibold text-white px-4 pt-4'>
-                    Leave Details
-                  </h3>
+                  <h3 className='text-sm font-semibold text-white px-4 pt-4'>Leave details</h3>
                   {sortedRequests.length === 0 ? (
                     <p className='text-xs text-gray-500 italic px-4 py-6'>
                       No approved leave records to show.
                     </p>
                   ) : (
-                    <div className='mt-3'>
-                      <Table headers={['Employee', 'Leave Type', 'Dates', 'Days', 'Reason']}>
-                        {sortedRequests.map((req) => (
-                          <TableRow key={req.id}>
-                            <TableCell>
-                              <div className='font-medium text-white'>{req.employee_name}</div>
-                              <div className='text-xs text-gray-500'>{req.employee_id_display}</div>
-                            </TableCell>
-                            <TableCell>
-                              <span className='px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 capitalize'>
-                                {req.leave_type}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className='text-sm text-white'>
-                                {formatDisplayDate(req.start_date)}
-                                {req.start_date !== req.end_date && (
-                                  <> &rarr; {formatDisplayDate(req.end_date)}</>
-                                )}
-                              </div>
-                              {req.is_half_day && (
-                                <div className='text-xs text-gray-500'>
-                                  Half day
-                                  {req.half_day_period
-                                    ? ` (${req.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
-                                    : ''}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>{req.total_days}</TableCell>
-                            <TableCell>
-                              <span className='text-xs text-gray-400'>{req.reason || '-'}</span>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </Table>
-                    </div>
+                    <ul className='mt-3 divide-y divide-gray-800/70 border-t border-gray-800/70'>
+                      {sortedRequests.map((req) => (
+                        <li key={req.id} className='px-4 py-3 flex flex-col @xl:flex-row @xl:items-center gap-x-4 gap-y-1.5 min-w-0'>
+                          <div className='@xl:w-48 shrink-0 min-w-0'>
+                            <p className='text-sm font-medium text-white truncate'>{req.employee_name}</p>
+                            <p className='text-xs text-gray-500'>{req.employee_id_display}</p>
+                          </div>
+                          <div className='flex flex-wrap items-center gap-2 @xl:w-64 shrink-0'>
+                            <span className='px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 capitalize whitespace-nowrap'>
+                              {req.leave_type}
+                            </span>
+                            <span className='text-sm text-gray-200 whitespace-nowrap'>
+                              {formatDateSpan(req.start_date, req.end_date)}
+                            </span>
+                            <span className='text-xs text-gray-500 whitespace-nowrap'>
+                              {req.is_half_day
+                                ? `Half day${req.half_day_period ? `, ${req.half_day_period === 'first_half' ? 'morning' : 'afternoon'}` : ''}`
+                                : `${req.total_days} day${Number(req.total_days) === 1 ? '' : 's'}`}
+                            </span>
+                          </div>
+                          <p className='text-xs text-gray-400 min-w-0 flex-1 [overflow-wrap:anywhere]'>{req.reason || '—'}</p>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </>

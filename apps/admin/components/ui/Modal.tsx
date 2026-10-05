@@ -38,7 +38,7 @@ export default function Modal({
           {/* Modal */}
           <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
             <motion.div
-              className={`glass ${maxWidthClassName || 'max-w-2xl'} w-full p-8 rounded-2xl relative max-h-[90vh] overflow-y-auto`}
+              className={`glass ${maxWidthClassName || 'max-w-2xl'} w-full p-5 sm:p-8 rounded-2xl relative max-h-[90vh] overflow-y-auto`}
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -65,7 +65,7 @@ export default function Modal({
               </button>
 
               {title && (
-                <h2 className='text-2xl font-bold mb-6 gradient-text'>
+                <h2 className='text-xl sm:text-2xl font-bold mb-6 pr-8 gradient-text'>
                   {title}
                 </h2>
               )}

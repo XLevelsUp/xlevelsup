@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
@@ -10,6 +9,18 @@ import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import { StatTile } from './charts/FinanceCharts';
+import {
+  PageHeader,
+  PageTabs,
+  FilterField,
+  FIELD_CLASS,
+  FILTER_GRID_CLASS,
+  PRIMARY_ACTION_CLASS,
+  DANGER_ACTION_CLASS,
+  ROW_ACTION_CLASS,
+  type PageTab,
+} from './PageChrome';
 import type { PayrollWithEmployee } from '@/types/erp';
 import { formatCurrency, formatDisplayDate, getMonthName, computeNetSalary } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -66,6 +77,20 @@ export async function openPayrollPayslip(payrollId: number): Promise<void> {
   if (tab) tab.location.href = url;
   else window.open(url, '_blank', 'noopener,noreferrer');
 }
+
+/** Both Payroll-page tabs; shared with SalaryStructureManager. */
+export const PAYROLL_TABS: PageTab[] = [
+  { id: 'payroll', label: 'Payroll', href: '/erp/payroll' },
+  { id: 'salary-structures', label: 'Salary Structures', href: '/erp/payroll?tab=salary-structures' },
+];
+
+/** The order a payroll month moves through, with each stage's bar colour —
+ * the same green/blue the status badges and old count tiles used. */
+const RUN_STAGES = [
+  { id: 'draft', label: 'Draft', bar: 'bg-gray-500' },
+  { id: 'approved', label: 'Approved', bar: 'bg-green-500' },
+  { id: 'paid', label: 'Paid', bar: 'bg-blue-400' },
+] as const;
 
 /**
  * Unpaid days behind a record — working days the employee wasn't paid for.
@@ -260,62 +285,186 @@ export default function PayrollManager({
   const totalStructuredDeductionsOf = (record: PayrollWithEmployee) =>
     record.pf_deduction + record.esi_deduction + record.professional_tax_deduction +
     record.tds_deduction + record.other_structured_deduction;
+  const stageCounts = Object.fromEntries(
+    RUN_STAGES.map((stage) => [stage.id, payroll.filter((p) => p.status === stage.id).length]),
+  ) as Record<(typeof RUN_STAGES)[number]['id'], number>;
+
+  const openGenerate = () => {
+    setGenerateMonth(month);
+    setShowGenerateModal(true);
+  };
+
+  // ── Record renderers ────────────────────────────────────────────────────
+  // Shared by the wide-screen table and the narrow-screen cards, so the two
+  // layouts can't drift apart on what a record shows or allows.
+
+  const renderEmployee = (record: PayrollWithEmployee) => (
+    <div className='min-w-0'>
+      <p className='font-medium text-white [overflow-wrap:anywhere]'>{record.employee_name}</p>
+      <p className='text-xs text-gray-500 [overflow-wrap:anywhere]'>{record.employee_role}</p>
+    </div>
+  );
+
+  const renderDays = (record: PayrollWithEmployee) => (
+    <div>
+      <p className='tabular-nums whitespace-nowrap'>
+        <span className='text-gray-200'>{record.payable_days.toFixed(1)}</span>
+        <span className='text-gray-500'> of {record.total_working_days}</span>
+      </p>
+      <p className='text-[11px] text-gray-500 tabular-nums whitespace-nowrap' title='Present · Half days · Paid leave · Absent (unpaid)'>
+        P:{record.present_days} H:{record.half_days} L:{record.paid_leave_days}
+        {lopDaysOf(record) > 0 && ` A:${lopDaysOf(record).toFixed(1)}`}
+      </p>
+    </div>
+  );
+
+  const renderGross = (record: PayrollWithEmployee) => (
+    <div className='min-w-0'>
+      <p className='tabular-nums whitespace-nowrap'>
+        <SensitiveValue>{formatCurrency(record.gross_salary)}</SensitiveValue>
+      </p>
+      {record.basic_salary != null && (
+        <p className='text-[11px] text-gray-500 tabular-nums'>
+          <SensitiveValue>
+            B:{formatCurrency(record.basic_salary || 0)} H:{formatCurrency(record.hra || 0)} S:
+            {formatCurrency(record.special_allowance || 0)} O:
+            {formatCurrency(record.other_allowance || 0)}
+          </SensitiveValue>
+        </p>
+      )}
+    </div>
+  );
+
+  /** What sits between gross and net — LOP, statutory deductions, bonus and
+   * one-off deductions. Null when nothing does. */
+  const renderAdjustments = (record: PayrollWithEmployee) => {
+    if (
+      !(record.bonus > 0 || record.deduction > 0 || lopDeductionOf(record) > 0 || totalStructuredDeductionsOf(record) > 0)
+    ) {
+      return null;
+    }
+    return (
+      <p className='text-[11px] text-gray-500 tabular-nums'>
+        <SensitiveValue>
+          {lopDeductionOf(record) > 0 && `-${formatCurrency(lopDeductionOf(record))} LOP `}
+          {totalStructuredDeductionsOf(record) > 0 &&
+            `-${formatCurrency(totalStructuredDeductionsOf(record))} deductions `}
+          {record.bonus > 0 && `+${formatCurrency(record.bonus)} `}
+          {record.deduction > 0 && `-${formatCurrency(record.deduction)}`}
+        </SensitiveValue>
+      </p>
+    );
+  };
+
+  const renderEditDeductions = (record: PayrollWithEmployee, asChip = false) =>
+    record.status !== 'paid' && (
+      <button
+        type='button'
+        onClick={() => setDeductionsRecord(record)}
+        className={
+          asChip
+            ? `${ROW_ACTION_CLASS} border-gray-700 text-gray-300 hover:text-white hover:border-gray-500`
+            : 'text-xs text-cyan hover:text-cyan/80 transition-colors whitespace-nowrap'
+        }
+      >
+        Edit deductions
+      </button>
+    );
+
+  const renderStatus = (record: PayrollWithEmployee) =>
+    record.status === 'paid' ? (
+      <span
+        className='inline-block px-2 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/30 whitespace-nowrap'
+        title='Paid — the payslip is finalized and its figures can no longer change'
+      >
+        Paid · Finalized
+      </span>
+    ) : (
+      <select
+        value={record.status}
+        aria-label={`Status for ${record.employee_name}`}
+        onChange={(e) => {
+          const newStatus = e.target.value as 'draft' | 'approved' | 'paid';
+          if (newStatus === 'paid') {
+            setMarkPaidRecord(record);
+            setReferenceNumber('');
+          } else {
+            handleStatusChange(record.id, newStatus);
+          }
+        }}
+        className='px-2 py-1 rounded text-xs font-medium bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-[var(--cyan)]'
+      >
+        <option value='draft'>Draft</option>
+        <option value='approved'>Approved</option>
+        <option value='paid'>Paid</option>
+      </select>
+    );
+
+  const renderRowActions = (record: PayrollWithEmployee, asChip = false) => (
+    <>
+      <button
+        type='button'
+        onClick={() => handleOpenPayslip(record.id)}
+        disabled={openingPayslipId === record.id}
+        title={record.status === 'paid' ? 'View / download the final payslip' : 'Preview the payslip (not yet paid)'}
+        className={
+          asChip
+            ? `${ROW_ACTION_CLASS} bg-cyan/10 text-cyan border-cyan/30 hover:bg-cyan/20`
+            : 'text-cyan hover:text-cyan/80 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-50'
+        }
+      >
+        {openingPayslipId === record.id
+          ? 'Opening…'
+          : record.status === 'paid'
+            ? 'Payslip'
+            : 'Preview'}
+      </button>
+      {record.status !== 'paid' && (
+        <DeleteConfirmButton
+          onConfirm={() => handleDelete(record.id)}
+          message='Are you sure you want to delete this payroll record?'
+          title='Delete'
+          ariaLabel='Delete'
+          className='p-1 text-red-400 hover:text-red-300 transition-colors'
+        >
+          <DeleteIcon />
+        </DeleteConfirmButton>
+      )}
+    </>
+  );
 
   return (
-    <div>
-      {/* Header */}
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
-        <div>
-          <h1 className='text-3xl font-bold gradient-text'>
-            Payroll Management
-          </h1>
-          <p className='text-gray-400 mt-2'>
-            Generate and manage employee salaries
-          </p>
-        </div>
-        <div className='flex items-center gap-3'>
-          <Button
-            variant='secondary'
-            onClick={() => {
-              setDeleteMonthValue(month);
-              setShowDeleteMonthModal(true);
-            }}
-            className='whitespace-nowrap !text-red-400 !outline-red-500/60 hover:!outline-red-400'
-          >
-            Delete Month
-          </Button>
-          <Button
-            variant='primary'
-            onClick={() => {
-              setGenerateMonth(month);
-              setShowGenerateModal(true);
-            }}
-            className='whitespace-nowrap'
-          >
-            Generate Payroll
-          </Button>
-        </div>
-      </div>
+    <div className='@container pb-20'>
+      <PageHeader
+        title='Payroll'
+        description='Generate each month’s salaries, review them, then record payment.'
+        actions={
+          <>
+            <button
+              type='button'
+              onClick={() => {
+                setDeleteMonthValue(month);
+                setShowDeleteMonthModal(true);
+              }}
+              className={DANGER_ACTION_CLASS}
+            >
+              Delete month
+            </button>
+            <button type='button' onClick={openGenerate} className={PRIMARY_ACTION_CLASS}>
+              Generate payroll
+            </button>
+          </>
+        }
+      />
 
-      {/* Tab Switcher */}
-      <div className='flex gap-2 mb-6 border-b border-gray-800'>
-        <div className='px-4 py-2.5 text-sm font-medium text-cyan border-b-2 border-cyan -mb-px'>
-          Payroll
-        </div>
-        <Link
-          href='/erp/payroll?tab=salary-structures'
-          className='px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors'
-        >
-          Salary Structures
-        </Link>
-      </div>
+      <PageTabs label='Payroll sections' active='payroll' tabs={PAYROLL_TABS} />
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Month</label>
+        <div className={FILTER_GRID_CLASS}>
+          <FilterField label='Month'>
             <MonthPicker
+              compact
               value={month}
               onChange={(next) => {
                 setMonth(next);
@@ -323,199 +472,153 @@ export default function PayrollManager({
               }}
               required
             />
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Status</label>
+          </FilterField>
+          <FilterField label='Status'>
             <select
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
                 applyFilters({ status: e.target.value });
               }}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              className={FIELD_CLASS}
             >
               <option value=''>All Statuses</option>
               <option value='draft'>Draft</option>
               <option value='approved'>Approved</option>
               <option value='paid'>Paid</option>
             </select>
+          </FilterField>
+        </div>
+      </div>
+
+      {/* Totals + the month's run. A payroll month moves strictly
+          draft → approved → paid, so the third tile shows exactly that: one
+          bar split by stage, read left to right, with the paid share as the
+          headline. It replaces two loose "Approved"/"Paid" count tiles that
+          couldn't say how far along the month was. */}
+      <div className='grid grid-cols-2 @3xl:grid-cols-4 gap-3 @xl:gap-4 mb-6'>
+        <StatTile label='Records' value={payroll.length.toLocaleString('en-IN')} sublabel={getMonthName(month)} />
+        <StatTile
+          label='Net payable'
+          value={<span className='text-cyan'><SensitiveValue>{formatCurrency(totalPayable)}</SensitiveValue></span>}
+          sublabel='After LOP and deductions'
+        />
+        <div className='glass p-4 @xl:p-5 rounded-lg col-span-2 min-w-0'>
+          <div className='flex items-baseline justify-between gap-3'>
+            <p className='text-[11px] @xl:text-xs font-semibold text-gray-500 uppercase tracking-wider truncate'>
+              Month’s run
+            </p>
+            <p className='text-xs text-gray-400 tabular-nums whitespace-nowrap'>
+              <span className='text-white font-semibold'>{stageCounts.paid}</span> of {payroll.length} paid
+            </p>
           </div>
+          <div
+            role='img'
+            aria-label={RUN_STAGES.map((stage) => `${stageCounts[stage.id]} ${stage.label.toLowerCase()}`).join(', ')}
+            className='mt-3 flex gap-0.5 h-2.5 rounded-full overflow-hidden bg-gray-800'
+          >
+            {RUN_STAGES.map(
+              (stage) =>
+                stageCounts[stage.id] > 0 && (
+                  <div key={stage.id} className={`${stage.bar} transition-all duration-500`} style={{ flexGrow: stageCounts[stage.id] }} />
+                ),
+            )}
+          </div>
+          <ol className='mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400'>
+            {RUN_STAGES.map((stage, i) => (
+              <li key={stage.id} className='flex items-center gap-2'>
+                {i > 0 && <span aria-hidden='true' className='text-gray-600'>→</span>}
+                <span className={`w-2 h-2 rounded-full ${stage.bar}`} aria-hidden='true' />
+                <span>
+                  <span className='text-white font-semibold tabular-nums'>{stageCounts[stage.id]}</span> {stage.label}
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-6'>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Total Records</p>
-          <p className='text-2xl font-bold text-white mt-1'>{payroll.length}</p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Total Payable</p>
-          <p className='text-2xl font-bold text-cyan mt-1'>
-            <SensitiveValue>{formatCurrency(totalPayable)}</SensitiveValue>
-          </p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Approved</p>
-          <p className='text-2xl font-bold text-green-400 mt-1'>
-            {payroll.filter((p) => p.status === 'approved').length}
-          </p>
-        </div>
-        <div className='glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>Paid</p>
-          <p className='text-2xl font-bold text-blue-400 mt-1'>
-            {payroll.filter((p) => p.status === 'paid').length}
-          </p>
-        </div>
-      </div>
-
-      {/* Payroll Table */}
+      {/* Records */}
       <div className='glass rounded-lg overflow-hidden'>
         {payroll.length === 0 ? (
-          <div className='text-center py-12'>
-            <p className='text-gray-400 mb-4'>No payroll records found</p>
-            <Button
-              variant='primary'
-              onClick={() => setShowGenerateModal(true)}
-            >
-              Generate Payroll
-            </Button>
+          <div className='text-center py-14 px-4'>
+            <p className='text-gray-300 font-medium'>No payroll for {getMonthName(month)}{status ? ` with status “${status}”` : ''}</p>
+            <p className='text-sm text-gray-500 mt-1'>Generate it once every working day’s attendance is recorded.</p>
+            <button type='button' onClick={openGenerate} className={`${PRIMARY_ACTION_CLASS} mt-5`}>
+              Generate payroll
+            </button>
           </div>
         ) : (
-          <Table
-            headers={[
-              'Employee',
-              'Department',
-              'Working Days',
-              'Payable Days',
-              'Gross Salary',
-              'Net Salary',
-              'Status',
-              'Actions',
-            ]}
-          >
-            {payroll.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell>
-                  <div className='font-medium text-white'>
-                    {record.employee_name}
-                  </div>
-                  <div className='text-xs text-gray-500'>
-                    {record.employee_role}
-                  </div>
-                </TableCell>
-                <TableCell>{record.employee_department}</TableCell>
-                <TableCell>{record.total_working_days}</TableCell>
-                <TableCell>
-                  {record.payable_days.toFixed(1)}
-                  <div className='text-xs text-gray-500'>
-                    P:{record.present_days} H:{record.half_days} L:
-                    {record.paid_leave_days}
-                    {lopDaysOf(record) > 0 &&
-                      ` A:${lopDaysOf(record).toFixed(1)}`}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <SensitiveValue>{formatCurrency(record.gross_salary)}</SensitiveValue>
-                  {record.basic_salary != null && (
-                    <div className='text-xs text-gray-500'>
-                      <SensitiveValue>
-                        B:{formatCurrency(record.basic_salary || 0)} H:{formatCurrency(record.hra || 0)} S:
-                        {formatCurrency(record.special_allowance || 0)} O:
-                        {formatCurrency(record.other_allowance || 0)}
-                      </SensitiveValue>
+          <>
+            {/* Wide containers: the table. Working and payable days share one
+                "Days" column ("20.0 of 20"), which keeps it to seven. */}
+            <div className={`hidden @min-[60rem]:block`}>
+              <Table compact headers={['Employee', 'Department', 'Days', 'Gross', 'Net', 'Status', 'Actions']}>
+                {payroll.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell className='min-w-40'>{renderEmployee(record)}</TableCell>
+                    <TableCell className='whitespace-nowrap'>{record.employee_department}</TableCell>
+                    <TableCell>{renderDays(record)}</TableCell>
+                    <TableCell className='min-w-32 max-w-52'>{renderGross(record)}</TableCell>
+                    <TableCell className='min-w-32 max-w-52'>
+                      <p className='font-medium text-white tabular-nums whitespace-nowrap'>
+                        <SensitiveValue>{formatCurrency(record.net_salary)}</SensitiveValue>
+                      </p>
+                      {renderAdjustments(record)}
+                      <div className='mt-1'>{renderEditDeductions(record)}</div>
+                    </TableCell>
+                    <TableCell>{renderStatus(record)}</TableCell>
+                    <TableCell>
+                      <div className='flex items-center gap-3'>{renderRowActions(record)}</div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Table>
+            </div>
+
+            {/* Narrow containers: one card per employee — who and their net
+                pay on top, days and gross beneath, every table action in a
+                wrapping footer. Two-up once there's room. */}
+            <ul className={`@min-[60rem]:hidden grid grid-cols-1 @3xl:grid-cols-2 -mb-px`}>
+              {payroll.map((record) => (
+                <li key={record.id} className='p-4 min-w-0 border-b border-gray-800/70 @3xl:odd:border-r'>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='min-w-0'>
+                      <p className='font-semibold text-white [overflow-wrap:anywhere]'>{record.employee_name}</p>
+                      <p className='text-xs text-gray-500 [overflow-wrap:anywhere]'>
+                        {record.employee_role}
+                        {record.employee_department && <> · {record.employee_department}</>}
+                      </p>
                     </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className='font-medium text-white'>
-                    <SensitiveValue>{formatCurrency(record.net_salary)}</SensitiveValue>
-                  </div>
-                  {(record.bonus > 0 ||
-                    record.deduction > 0 ||
-                    lopDeductionOf(record) > 0 ||
-                    totalStructuredDeductionsOf(record) > 0) && (
-                    <div className='text-xs text-gray-500'>
-                      <SensitiveValue>
-                        {lopDeductionOf(record) > 0 &&
-                          `-${formatCurrency(lopDeductionOf(record))} LOP `}
-                        {totalStructuredDeductionsOf(record) > 0 &&
-                          `-${formatCurrency(totalStructuredDeductionsOf(record))} deductions `}
-                        {record.bonus > 0 && `+${formatCurrency(record.bonus)} `}
-                        {record.deduction > 0 &&
-                          `-${formatCurrency(record.deduction)}`}
-                      </SensitiveValue>
+                    <div className='text-right shrink-0'>
+                      <p className='text-sm font-bold text-white tabular-nums'>
+                        <SensitiveValue>{formatCurrency(record.net_salary)}</SensitiveValue>
+                      </p>
+                      <p className='text-[11px] text-gray-500'>Net pay</p>
                     </div>
-                  )}
-                  {record.status !== 'paid' && (
-                    <button
-                      type='button'
-                      onClick={() => setDeductionsRecord(record)}
-                      className='text-xs text-cyan hover:text-cyan/80 transition-colors mt-1'
-                    >
-                      Edit Deductions
-                    </button>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {record.status === 'paid' ? (
-                    <span
-                      className='inline-block px-2 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/30 whitespace-nowrap'
-                      title='Paid — the payslip is finalized and its figures can no longer change'
-                    >
-                      Paid · Finalized
-                    </span>
-                  ) : (
-                  <select
-                    value={record.status}
-                    onChange={(e) => {
-                      const newStatus = e.target.value as 'draft' | 'approved' | 'paid';
-                      if (newStatus === 'paid') {
-                        setMarkPaidRecord(record);
-                        setReferenceNumber('');
-                      } else {
-                        handleStatusChange(record.id, newStatus);
-                      }
-                    }}
-                    className='px-2 py-1 rounded text-xs font-medium bg-dark-800 border border-gray-700 text-white'
-                  >
-                    <option value='draft'>Draft</option>
-                    <option value='approved'>Approved</option>
-                    <option value='paid'>Paid</option>
-                  </select>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className='flex items-center gap-3'>
-                    <button
-                      type='button'
-                      onClick={() => handleOpenPayslip(record.id)}
-                      disabled={openingPayslipId === record.id}
-                      title={record.status === 'paid' ? 'View / download the final payslip' : 'Preview the payslip (not yet paid)'}
-                      className='text-cyan hover:text-cyan/80 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-50'
-                    >
-                      {openingPayslipId === record.id
-                        ? 'Opening…'
-                        : record.status === 'paid'
-                          ? 'Payslip'
-                          : 'Preview'}
-                    </button>
-                    {record.status !== 'paid' && (
-                      <DeleteConfirmButton
-                        onConfirm={() => handleDelete(record.id)}
-                        message='Are you sure you want to delete this payroll record?'
-                        title='Delete'
-                        ariaLabel='Delete'
-                        className='text-red-400 hover:text-red-300 transition-colors'
-                      >
-                        <DeleteIcon />
-                      </DeleteConfirmButton>
-                    )}
                   </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </Table>
+
+                  <dl className='mt-3 grid grid-cols-2 gap-3 text-sm text-gray-400'>
+                    <div className='min-w-0'>
+                      <dt className='text-[11px] uppercase tracking-wide text-gray-500 mb-0.5'>Payable days</dt>
+                      <dd>{renderDays(record)}</dd>
+                    </div>
+                    <div className='min-w-0'>
+                      <dt className='text-[11px] uppercase tracking-wide text-gray-500 mb-0.5'>Gross</dt>
+                      <dd>{renderGross(record)}</dd>
+                    </div>
+                  </dl>
+                  {renderAdjustments(record) && <div className='mt-2'>{renderAdjustments(record)}</div>}
+
+                  <div className='mt-3 flex flex-wrap items-center gap-2'>
+                    {renderStatus(record)}
+                    {renderEditDeductions(record, true)}
+                    <span className='ml-auto flex items-center gap-2'>{renderRowActions(record, true)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
