@@ -25,19 +25,26 @@ export default async function EmployeesPage({
   }
 
   const params = await searchParams;
+  // Active employees only unless another status is picked — "All Statuses"
+  // is sent as status=all, since no status at all now means active.
+  const status: 'active' | 'inactive' | 'all' =
+    params.status === 'inactive' || params.status === 'all' ? params.status : 'active';
   const filters = {
-    status: params.status as 'active' | 'inactive' | undefined,
+    status,
     department: params.department,
     employment_type: params.employment_type,
     search: params.search,
   };
 
-  const employees = await getAllEmployees(filters);
+  const employees = await getAllEmployees({
+    ...filters,
+    status: status === 'all' ? undefined : status,
+  });
   const departments = await getAllDepartments();
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0'>
         <EmployeeList
           employees={employees}
           departments={departments}

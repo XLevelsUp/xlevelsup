@@ -6,6 +6,7 @@ import { getCurrentMonth } from '@/lib/erp/utils';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import BillingTerminal from '@/components/erp/BillingTerminal';
 import InvoiceHistory from '@/components/erp/InvoiceHistory';
+import { PageHeader, PageTabs } from '@/components/erp/PageChrome';
 
 export default async function BillingPage({
   searchParams,
@@ -45,37 +46,33 @@ export default async function BillingPage({
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
-        <div className='flex gap-1 mb-6 bg-[#0a0a0a] p-1 rounded-lg w-fit'>
-          {!isReadOnly && (
-            <a
-              href='?tab=new'
-              className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${
-                activeTab === 'new'
-                  ? 'bg-[var(--cyan)] text-black'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              🧾 New Invoice
-            </a>
-          )}
-          <a
-            href='?tab=history'
-            className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${
-              activeTab === 'history'
-                ? 'bg-[var(--cyan)] text-black'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            📜 Invoice History
-          </a>
-        </div>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0'>
+        {/* @container: Billing's layouts size against this column, not the
+            viewport — see components/erp/PageChrome.tsx. */}
+        <div className='@container pb-20'>
+          <PageHeader
+            title='Billing'
+            description={
+              isReadOnly
+                ? 'Look up, view and reprint client invoices.'
+                : 'Raise GST invoices for client services, and look up past ones.'
+            }
+          />
+          <PageTabs
+            label='Billing sections'
+            active={activeTab}
+            tabs={[
+              ...(isReadOnly ? [] : [{ id: 'new', label: 'New Invoice', href: '/erp/billing?tab=new' }]),
+              { id: 'history', label: 'Invoice History', href: '/erp/billing?tab=history' },
+            ]}
+          />
 
-        {activeTab === 'new' ? (
-          <BillingTerminal knownClients={knownClients} />
-        ) : (
-          <InvoiceHistory orders={orders} initialMonth={month} />
-        )}
+          {activeTab === 'new' ? (
+            <BillingTerminal knownClients={knownClients} />
+          ) : (
+            <InvoiceHistory orders={orders} initialMonth={month} />
+          )}
+        </div>
       </main>
     </ERPLayoutWrapper>
   );

@@ -6,7 +6,6 @@
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Table, TableRow, TableCell } from './Table';
@@ -14,6 +13,8 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import SensitiveValue from './SensitiveValue';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import { PageHeader, PageTabs, SECONDARY_ACTION_CLASS, ROW_ACTION_CLASS } from './PageChrome';
+import { PAYROLL_TABS } from './PayrollManager';
 import {
   createSalaryStructureAction,
   cancelSalaryStructureAction,
@@ -21,13 +22,20 @@ import {
   createSalaryTemplateAction,
 } from '@/actions/erp/salary-structure';
 import type { Employee, EmployeeSalaryStructure, EmployeeSalaryStructureWithRange, SalaryTemplate } from '@/types/erp';
-import { formatCurrency, splitGrossByTemplate } from '@/lib/erp/utils';
+import { formatCurrency, formatDisplayDate, splitGrossByTemplate } from '@/lib/erp/utils';
 
 interface SalaryStructureManagerProps {
   employees: Employee[];
   templates: SalaryTemplate[];
   currentStructureByEmployeeId: Record<number, EmployeeSalaryStructure | null>;
 }
+
+const SALARY_COMPONENTS = [
+  { key: 'basic_salary', label: 'Basic' },
+  { key: 'hra', label: 'HRA' },
+  { key: 'special_allowance', label: 'Special' },
+  { key: 'other_allowance', label: 'Other' },
+] as const;
 
 const emptyBreakdown = { basic_salary: '', hra: '', special_allowance: '', other_allowance: '' };
 
@@ -148,92 +156,142 @@ export default function SalaryStructureManager({
 
   const gross = sumBreakdown(breakdown);
 
+  const renderRowActions = (employee: Employee, asChip = false) => {
+    const linkClass = asChip
+      ? `${ROW_ACTION_CLASS} bg-cyan/10 text-cyan border-cyan/30 hover:bg-cyan/20`
+      : 'text-cyan hover:text-cyan/80 text-sm whitespace-nowrap transition-colors';
+    return (
+      <>
+        <button type='button' onClick={() => openHistory(employee)} className={linkClass}>
+          History
+        </button>
+        <button type='button' onClick={() => openRevisionModal(employee)} className={linkClass}>
+          New revision
+        </button>
+      </>
+    );
+  };
+
   return (
-    <div>
-      {/* Header */}
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6'>
-        <div>
-          <h1 className='text-3xl font-bold gradient-text'>Payroll Management</h1>
-          <p className='text-gray-400 mt-2'>Salary structures for full-time employees</p>
-        </div>
-        <Button variant='secondary' onClick={() => setShowTemplates(true)} className='whitespace-nowrap'>
-          Manage Templates
-        </Button>
-      </div>
+    <div className='@container pb-20'>
+      <PageHeader
+        title='Payroll'
+        description='Salary structures for full-time employees — each revision applies from its effective date.'
+        actions={
+          <button type='button' onClick={() => setShowTemplates(true)} className={SECONDARY_ACTION_CLASS}>
+            Manage templates
+          </button>
+        }
+      />
 
-      {/* Tab Switcher */}
-      <div className='flex gap-2 mb-6 border-b border-gray-800'>
-        <Link
-          href='/erp/payroll'
-          className='px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors'
-        >
-          Payroll
-        </Link>
-        <div className='px-4 py-2.5 text-sm font-medium text-cyan border-b-2 border-cyan -mb-px'>
-          Salary Structures
-        </div>
-      </div>
+      <PageTabs label='Payroll sections' active='salary-structures' tabs={PAYROLL_TABS} />
 
-      {/* Employee Table */}
       <div className='glass rounded-lg overflow-hidden'>
         {employees.length === 0 ? (
-          <div className='text-center py-12 text-gray-400'>No full-time employees found</div>
+          <div className='text-center py-14 px-4'>
+            <p className='text-gray-300 font-medium'>No full-time employees</p>
+            <p className='text-sm text-gray-500 mt-1'>Salary structures apply to active full-time employees only.</p>
+          </div>
         ) : (
-          <Table
-            headers={['Employee', 'Department', 'Monthly Gross', 'Basic', 'HRA', 'Special', 'Other', 'Effective From', 'Actions']}
-          >
-            {employees.map((employee) => {
-              const current = currentStructureByEmployeeId[employee.id];
-              return (
-                <TableRow key={employee.id}>
-                  <TableCell>
-                    <div className='font-medium text-white'>{employee.name}</div>
-                    <div className='text-xs text-gray-500'>{employee.role}</div>
-                  </TableCell>
-                  <TableCell>{employee.department}</TableCell>
-                  <TableCell>
-                    {current ? (
-                      <span className='font-semibold text-white'>
-                        <SensitiveValue>{formatCurrency(current.gross_salary)}</SensitiveValue>
-                      </span>
-                    ) : (
-                      <span className='text-gray-500 text-sm'>Not configured</span>
-                    )}
-                  </TableCell>
-                  {(['basic_salary', 'hra', 'special_allowance', 'other_allowance'] as const).map((key) => (
-                    <TableCell key={key}>
-                      {current ? (
-                        <span className='text-gray-300'>
-                          <SensitiveValue>{formatCurrency(current[key])}</SensitiveValue>
-                        </span>
-                      ) : (
-                        <span className='text-gray-600'>—</span>
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell>{current?.effective_from || '—'}</TableCell>
-                  <TableCell>
-                    <div className='flex gap-3'>
-                      <button
-                        type='button'
-                        onClick={() => openHistory(employee)}
-                        className='text-cyan hover:text-cyan/80 text-sm transition-colors'
-                      >
-                        History
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => openRevisionModal(employee)}
-                        className='text-cyan hover:text-cyan/80 text-sm transition-colors'
-                      >
-                        New Revision
-                      </button>
+          <>
+            {/* Wide containers: one column per salary component, so the
+                split is comparable down the page. */}
+            <div className='hidden @min-[61rem]:block'>
+              <Table
+                compact
+                headers={['Employee', 'Department', 'Monthly Gross', 'Basic', 'HRA', 'Special', 'Other', 'Effective From', 'Actions']}
+              >
+                {employees.map((employee) => {
+                  const current = currentStructureByEmployeeId[employee.id];
+                  return (
+                    <TableRow key={employee.id}>
+                      <TableCell className='min-w-40'>
+                        <div className='font-medium text-white'>{employee.name}</div>
+                        <div className='text-xs text-gray-500'>{employee.role}</div>
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>{employee.department}</TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {current ? (
+                          <span className='font-semibold text-white tabular-nums'>
+                            <SensitiveValue>{formatCurrency(current.gross_salary)}</SensitiveValue>
+                          </span>
+                        ) : (
+                          <span className='text-gray-500 text-sm'>Not configured</span>
+                        )}
+                      </TableCell>
+                      {SALARY_COMPONENTS.map(({ key }) => (
+                        <TableCell key={key} className='whitespace-nowrap tabular-nums'>
+                          {current ? (
+                            <span className='text-gray-300'>
+                              <SensitiveValue>{formatCurrency(current[key])}</SensitiveValue>
+                            </span>
+                          ) : (
+                            <span className='text-gray-600'>—</span>
+                          )}
+                        </TableCell>
+                      ))}
+                      <TableCell className='whitespace-nowrap'>
+                        {current ? formatDisplayDate(current.effective_from) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex gap-3'>{renderRowActions(employee)}</div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </Table>
+            </div>
+
+            {/* Narrow containers: one card per employee. */}
+            <ul className='@min-[61rem]:hidden grid grid-cols-1 @3xl:grid-cols-2 -mb-px'>
+              {employees.map((employee) => {
+                const current = currentStructureByEmployeeId[employee.id];
+                return (
+                  <li key={employee.id} className='p-4 min-w-0 border-b border-gray-800/70 @3xl:odd:border-r'>
+                    <div className='flex items-start justify-between gap-3'>
+                      <div className='min-w-0'>
+                        <p className='font-semibold text-white [overflow-wrap:anywhere]'>{employee.name}</p>
+                        <p className='text-xs text-gray-500 [overflow-wrap:anywhere]'>
+                          {employee.role}
+                          {employee.department && <> · {employee.department}</>}
+                        </p>
+                      </div>
+                      <div className='text-right shrink-0'>
+                        {current ? (
+                          <>
+                            <p className='text-sm font-bold text-white tabular-nums'>
+                              <SensitiveValue>{formatCurrency(current.gross_salary)}</SensitiveValue>
+                            </p>
+                            <p className='text-[11px] text-gray-500'>Monthly gross</p>
+                          </>
+                        ) : (
+                          <p className='text-xs text-gray-500'>Not configured</p>
+                        )}
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
+
+                    {current && (
+                      <>
+                        <dl className='mt-3 grid grid-cols-2 @md:grid-cols-4 gap-x-3 gap-y-2'>
+                          {SALARY_COMPONENTS.map(({ key, label }) => (
+                            <div key={key} className='min-w-0'>
+                              <dt className='text-[11px] uppercase tracking-wide text-gray-500'>{label}</dt>
+                              <dd className='text-sm text-gray-300 tabular-nums [overflow-wrap:anywhere]'>
+                                <SensitiveValue>{formatCurrency(current[key])}</SensitiveValue>
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p className='mt-2 text-xs text-gray-500'>Effective from {formatDisplayDate(current.effective_from)}</p>
+                      </>
+                    )}
+
+                    <div className='mt-3 flex flex-wrap items-center gap-2'>{renderRowActions(employee, true)}</div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
 
@@ -372,7 +430,7 @@ export default function SalaryStructureManager({
           <div className='space-y-3'>
             {history.map((row) => (
               <div key={row.id} className='border border-gray-800 rounded-lg p-3'>
-                <div className='flex justify-between items-center gap-3 mb-2'>
+                <div className='flex flex-wrap justify-between items-center gap-x-3 gap-y-1 mb-2'>
                   <span className='text-sm font-medium text-white'>
                     {row.effective_from} → {row.effective_to || 'Present'}
                   </span>
@@ -394,7 +452,7 @@ export default function SalaryStructureManager({
                     </DeleteConfirmButton>
                   </div>
                 </div>
-                <div className='grid grid-cols-4 gap-2 text-xs text-gray-400'>
+                <div className='grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-400'>
                   <div>Basic: <SensitiveValue>{formatCurrency(row.basic_salary)}</SensitiveValue></div>
                   <div>HRA: <SensitiveValue>{formatCurrency(row.hra)}</SensitiveValue></div>
                   <div>Special: <SensitiveValue>{formatCurrency(row.special_allowance)}</SensitiveValue></div>
@@ -446,8 +504,8 @@ function TemplatesModal({
     <Modal isOpen={isOpen} onClose={onClose} title='Salary Templates'>
       <div className='space-y-3'>
         {templates.map((t) => (
-          <div key={t.id} className='border border-gray-800 rounded-lg p-3 flex justify-between items-center'>
-            <div>
+          <div key={t.id} className='border border-gray-800 rounded-lg p-3 flex justify-between items-start gap-3'>
+            <div className='min-w-0'>
               <p className='text-sm font-medium text-white'>{t.name}</p>
               <p className='text-xs text-gray-400'>
                 Basic {formatCurrency(t.basic_salary)} · HRA {formatCurrency(t.hra)} · Special{' '}
@@ -458,7 +516,7 @@ function TemplatesModal({
                 {shareOf(t.special_allowance, t.gross_salary)} / {shareOf(t.other_allowance, t.gross_salary)}
               </p>
             </div>
-            <span className='text-cyan font-bold text-sm'>{formatCurrency(t.gross_salary)}</span>
+            <span className='text-cyan font-bold text-sm whitespace-nowrap'>{formatCurrency(t.gross_salary)}</span>
           </div>
         ))}
 
@@ -470,7 +528,7 @@ function TemplatesModal({
               onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
               className='w-full px-3 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white text-sm'
             />
-            <div className='grid grid-cols-2 gap-2'>
+            <div className='grid grid-cols-2 gap-2 *:min-w-0'>
               <input type='number' name='basic_salary' placeholder='Basic' min='0' step='0.01' required
                 value={newTemplate.basic_salary}
                 onChange={(e) => setNewTemplate({ ...newTemplate, basic_salary: e.target.value })}

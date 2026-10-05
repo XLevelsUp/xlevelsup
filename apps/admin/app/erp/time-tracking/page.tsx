@@ -11,7 +11,8 @@ import {
   getTimeTrackingStats,
 } from '@/lib/erp/time-tracking-admin';
 import TimeTrackingOverview from '@/components/erp/admin/TimeTrackingOverview';
-import Link from 'next/link';
+import { PageHeader, RefreshButton } from '@/components/erp/PageChrome';
+import { StatTile } from '@/components/erp/charts/FinanceCharts';
 import type { Metadata } from 'next';
 import { formatDuration } from '@/lib/erp/utils';
 
@@ -35,165 +36,64 @@ export default async function TimeTrackingPage() {
   const employeesTimeStatus = await getAllEmployeesTimeStatus();
   const timeTrackingStats = await getTimeTrackingStats();
 
-  const currentDate = new Date().toLocaleDateString('en-IN', {
+  // In IST, not the server runtime's timezone. "As of" replaces the old
+  // "Auto-refresh every 60s" label — nothing ever auto-refreshed; the figures
+  // are as of this render, and the Refresh button re-fetches them in place.
+  const now = new Date();
+  const currentDate = now.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     weekday: 'long',
-    year: 'numeric',
     month: 'long',
     day: 'numeric',
+  });
+  const asOf = now.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
   });
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
-      <main className='max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full'>
-        {/* Header */}
-        <div className='mb-8'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h1 className='text-3xl font-bold gradient-text'>
-                ⏰ Time Tracking Dashboard
-              </h1>
-              <p className='text-gray-400 mt-2'>
-                Real-time employee attendance and working hours
-              </p>
-              <p className='text-sm text-gray-500 mt-1'>{currentDate}</p>
-            </div>
-            <Link
-              href='/erp/dashboard'
-              className='px-4 py-2 bg-[#1a1a1a] text-gray-300 hover:text-white rounded-lg transition-colors text-sm'
-            >
-              ← Back to Dashboard
-            </Link>
-          </div>
-        </div>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0'>
+        {/* @container: layouts below size against this column — see
+            components/erp/PageChrome.tsx. */}
+        <div className='@container pb-20'>
+          <PageHeader
+            title='Time Tracking'
+            description={
+              <>
+                {currentDate} — who’s clocked in and the hours logged so far.{' '}
+                <span className='text-gray-500 whitespace-nowrap'>As of {asOf}.</span>
+              </>
+            }
+            actions={<RefreshButton />}
+          />
 
-        {/* Overview Stats */}
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8'>
-          {/* Total Employees */}
-          <div className='glass p-6 rounded-lg border-l-4 border-cyan'>
-            <div className='text-xs text-gray-400 uppercase tracking-wider mb-2'>
-              Total Employees
-            </div>
-            <div className='text-3xl font-bold text-white mb-1'>
-              {timeTrackingStats.total_employees}
-            </div>
-            <div className='text-xs text-gray-500'>Active today</div>
-          </div>
-
-          {/* Currently Working */}
-          <div className='glass p-6 rounded-lg border-l-4 border-green-500'>
-            <div className='text-xs text-gray-400 uppercase tracking-wider mb-2'>
-              Currently Working
-            </div>
-            <div className='text-3xl font-bold text-green-400 mb-1'>
-              {timeTrackingStats.currently_working}
-            </div>
-            <div className='text-xs text-gray-500'>
-              {timeTrackingStats.total_employees > 0
-                ? (
-                    (timeTrackingStats.currently_working /
-                      timeTrackingStats.total_employees) *
-                    100
-                  ).toFixed(0)
-                : 0}
-              % of team
-            </div>
-          </div>
-
-          {/* Completed Day */}
-          <div className='glass p-6 rounded-lg border-l-4 border-blue-500'>
-            <div className='text-xs text-gray-400 uppercase tracking-wider mb-2'>
-              Completed Day
-            </div>
-            <div className='text-3xl font-bold text-blue-400 mb-1'>
-              {timeTrackingStats.completed_day}
-            </div>
-            <div className='text-xs text-gray-500'>≥9 hours worked</div>
-          </div>
-
-          {/* Total Hours */}
-          <div className='glass p-6 rounded-lg border-l-4 border-purple'>
-            <div className='text-xs text-gray-400 uppercase tracking-wider mb-2'>
-              Total Hours
-            </div>
-            <div className='text-3xl font-bold text-purple mb-1'>
-              {formatDuration(timeTrackingStats.total_hours_today, true)}
-            </div>
-            <div className='text-xs text-gray-500'>
-              Avg: {formatDuration(timeTrackingStats.average_hours, true)}/employee
-            </div>
-          </div>
-
-          {/* Not Started */}
-          <div className='glass p-6 rounded-lg border-l-4 border-gray-500'>
-            <div className='text-xs text-gray-400 uppercase tracking-wider mb-2'>
-              Not Started
-            </div>
-            <div className='text-3xl font-bold text-gray-400 mb-1'>
-              {timeTrackingStats.not_started}
-            </div>
-            <div className='text-xs text-gray-500'>Haven&apos;t clocked in</div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className='glass p-6 rounded-lg mb-8'>
-          <div className='flex items-center justify-between mb-3'>
-            <h3 className='text-lg font-semibold text-white'>
-              Team Productivity Overview
-            </h3>
-            <div className='text-sm text-gray-400'>
-              {timeTrackingStats.completed_day} /{' '}
-              {timeTrackingStats.total_employees} completed
-            </div>
-          </div>
-          <div className='relative w-full h-6 bg-[#0a0a0a] rounded-full overflow-hidden'>
-            <div
-              className='absolute h-full bg-gradient-to-r from-green-500 to-blue-500 transition-all duration-500'
-              style={{
-                width: `${timeTrackingStats.total_employees > 0 ? (timeTrackingStats.completed_day / timeTrackingStats.total_employees) * 100 : 0}%`,
-              }}
-            />
-          </div>
-          <div className='flex justify-between text-xs text-gray-500 mt-2'>
-            <span>0%</span>
-            <span>
-              {timeTrackingStats.total_employees > 0
-                ? (
-                    (timeTrackingStats.completed_day /
-                      timeTrackingStats.total_employees) *
-                    100
-                  ).toFixed(1)
-                : 0}
-              % completed
-            </span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        {/* Employee Time Tracking Table */}
-        <div className='glass p-6 rounded-lg'>
-          <div className='flex items-center justify-between mb-6'>
-            <h2 className='text-xl font-bold text-white'>
-              Employee Status Details
-            </h2>
-            <div className='flex items-center gap-2'>
-              <div className='text-xs text-gray-500'>
-                Auto-refresh every 60s
-              </div>
-              <div className='w-2 h-2 rounded-full bg-green-500 animate-pulse' />
-            </div>
-          </div>
-          <TimeTrackingOverview employees={employeesTimeStatus} />
-        </div>
-
-        {/* Info */}
-        <div className='mt-8 glass p-4 rounded-lg'>
-          <p className='text-sm text-gray-400'>
-            💡 <strong>Tip:</strong> This dashboard shows real-time status.
-            Employees can clock in/out from their portal. Data is refreshed when
-            you reload the page. Hours are calculated automatically including
-            all sessions throughout the day.
-          </p>
+          {/* Two headline figures; the team breakdown (working / paused /
+              completed / on leave / not started) is the bar beside them,
+              rendered by TimeTrackingOverview from the same list it filters. */}
+          <TimeTrackingOverview
+            employees={employeesTimeStatus}
+            tiles={
+              <>
+                <StatTile
+                  label='Working now'
+                  value={<span className='text-green-400'>{timeTrackingStats.currently_working}</span>}
+                  sublabel={`${
+                    timeTrackingStats.total_employees > 0
+                      ? ((timeTrackingStats.currently_working / timeTrackingStats.total_employees) * 100).toFixed(0)
+                      : 0
+                  }% of ${timeTrackingStats.total_employees} people`}
+                />
+                <StatTile
+                  label='Hours today'
+                  value={<span className='text-purple'>{formatDuration(timeTrackingStats.total_hours_today, true)}</span>}
+                  sublabel={`Avg ${formatDuration(timeTrackingStats.average_hours, true)} / person`}
+                />
+              </>
+            }
+          />
         </div>
       </main>
     </ERPLayoutWrapper>

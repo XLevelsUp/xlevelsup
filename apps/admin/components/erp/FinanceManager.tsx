@@ -12,6 +12,15 @@ import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import {
+  PageHeader,
+  PageTabs,
+  FilterField,
+  FIELD_CLASS,
+  FILTER_GRID_CLASS,
+  PRIMARY_ACTION_CLASS,
+  SECONDARY_ACTION_CLASS,
+} from './PageChrome';
 import { StatTile, BarBreakdown, TrendChart, type BarBreakdownItem } from './charts/FinanceCharts';
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import type { ReceiptData } from '@/types/billing';
@@ -32,9 +41,9 @@ import { getOrCreateInvoiceForTransactionAction } from '@/actions/erp/billing';
 function DetailField({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   if (!value) return null;
   return (
-    <div>
+    <div className='min-w-0'>
       <p className='text-[11px] text-gray-500 uppercase tracking-wide'>{label}</p>
-      <p className={`text-gray-200 ${mono ? 'font-mono text-xs' : 'text-sm'}`}>{value}</p>
+      <p className={`text-gray-200 [overflow-wrap:anywhere] ${mono ? 'font-mono text-xs' : 'text-sm'}`}>{value}</p>
     </div>
   );
 }
@@ -113,6 +122,13 @@ export default function FinanceManager({
 
   const yearOptions = Array.from({ length: 6 }, (_, i) => String(Number(defaultYear) - i));
 
+  // On narrow screens everything but Period folds behind a toggle — seven
+  // stacked fields filled a whole phone screen before any figure showed.
+  // Wide containers always show every field (see `collapsibleField`).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = [filterType, filterCategory, filterStatus, filterMode, filterPayee, filterGst].filter(Boolean).length;
+  const collapsibleField = filtersOpen ? '' : 'hidden @3xl:block';
+
   // Apply filters to URL query params — accepts overrides so a field's
   // onChange can push its new value immediately without waiting for
   // the (async) state update to land. Month and year are mutually
@@ -188,12 +204,6 @@ export default function FinanceManager({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterPayee]);
-
-  const handleTabChange = (tab: string) => {
-    const params = new URLSearchParams();
-    params.set('tab', tab);
-    router.push(`/erp/finances?${params.toString()}`);
-  };
 
   const handleDelete = async (id: number) => {
     const result = await deleteLedgerEntryAction(id);
@@ -488,80 +498,245 @@ export default function FinanceManager({
     { id: 'reports', name: 'Analytics' },
   ];
 
+  // ── Ledger entry renderers ──────────────────────────────────────────────
+  // Shared by the wide-screen table and the narrow-screen card list, so the
+  // two layouts can never drift apart on what a row shows or allows.
+
+  // Money in vs money out is the one thing every ledger row must say at a
+  // glance, so it's carried twice: a green/red edge on the row and a +/−
+  // sign on the amount. The sign sits outside SensitiveValue, so direction
+  // stays readable while the figures themselves are masked.
+  const directionEdge = (entry: FinancialLedgerEntry) =>
+    entry.direction === 'inflow' ? 'shadow-[inset_3px_0_0_#22c55ebf]' : 'shadow-[inset_3px_0_0_#f87171bf]';
+
+  const renderAmount = (entry: FinancialLedgerEntry) => {
+    const inflow = entry.direction === 'inflow';
+    return (
+      <span className='inline-flex items-baseline gap-1 font-bold tabular-nums whitespace-nowrap'>
+        <span aria-hidden='true' className={inflow ? 'text-green-400' : 'text-red-400'}>
+          {inflow ? '+' : '−'}
+        </span>
+        <span className='sr-only'>{inflow ? 'Inflow' : 'Outflow'}</span>
+        <span className='text-white'>
+          <SensitiveValue>{formatCurrency(entry.amount)}</SensitiveValue>
+        </span>
+      </span>
+    );
+  };
+
+  const renderTypeBadge = (entry: FinancialLedgerEntry) => (
+    <span className='inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-dark-800 text-cyan border border-cyan/15 whitespace-nowrap'>
+      {entry.transaction_type}
+    </span>
+  );
+
+  const renderStatusBadge = (entry: FinancialLedgerEntry) => (
+    <span
+      className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap ${entry.approval_status === 'pending'
+          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+          : entry.approval_status === 'rejected'
+            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+            : 'bg-green-500/20 text-green-400 border border-green-500/30'
+        }`}
+    >
+      {entry.approval_status || entry.payment_status || 'completed'}
+    </span>
+  );
+
+  const renderParty = (entry: FinancialLedgerEntry) => {
+    // vendor_name has a column in the DB and a field in the create/edit
+    // form, but was never rendered in the ledger table — an expense entered
+    // with only a vendor name (no payee_name) showed a blank cell.
+    const lines = [
+      entry.client_name && { label: 'Client', value: entry.client_name, className: 'text-purple font-semibold' },
+      entry.project_name && { label: 'Project', value: entry.project_name, className: 'text-gray-500 text-[11px]' },
+      entry.payee_name && { label: 'Payee', value: entry.payee_name, className: 'text-gray-300' },
+      entry.vendor_name && { label: 'Vendor', value: entry.vendor_name, className: 'text-gray-300' },
+      entry.payer_name && { label: 'Source', value: entry.payer_name, className: 'text-gray-300' },
+    ].filter(Boolean) as { label: string; value: string; className: string }[];
+
+    if (lines.length === 0) return <span className='text-xs text-gray-600'>—</span>;
+    return (
+      <div className='space-y-0.5 min-w-0'>
+        {lines.map((line) => (
+          <p key={line.label} className={`text-xs [overflow-wrap:anywhere] ${line.className}`}>
+            <span className='text-gray-600 font-normal'>{line.label} </span>
+            {line.value}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  /** `empty` is what to show when there's no receipt action at all — a dash
+   * in the table (keeps the column aligned), nothing in a card. */
+  const renderReceipt = (entry: FinancialLedgerEntry, empty: React.ReactNode) => {
+    // Payslips carry per-employee salary detail beyond the ledger row, so
+    // getPayslipUrlAction stays admin/hr — an accountant gets the plain dash
+    // instead of a button that would only fail. Expense receipts are fine
+    // for them to open.
+    if (entry.receipt_path && !(isAccountant && entry.transaction_type === 'payroll')) {
+      return (
+        <button
+          type='button'
+          onClick={() => handleViewReceipt(entry.id, entry.receipt_path!, entry.transaction_type === 'payroll')}
+          disabled={viewingReceiptId === entry.id}
+          className='px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-colors disabled:opacity-50'
+        >
+          {viewingReceiptId === entry.id
+            ? 'Opening…'
+            : entry.transaction_type === 'payroll'
+            ? '📄 Payslip'
+            : '📎 Receipt'}
+        </button>
+      );
+    }
+    // Payslips are generated by the payroll run itself (getPayslipSignedUrl),
+    // not attached by hand — a missing one means payroll hasn't produced it
+    // yet, not that someone forgot to upload a file.
+    // Uploading a receipt for an existing entry is admin/hr only (see
+    // uploadLedgerReceiptAction), so an employee viewing their own
+    // reimbursement row, or the read-only accountant, gets `empty` rather
+    // than a button that would fail server-side.
+    if (entry.transaction_type === 'payroll' || !canManage) return empty;
+    return (
+      <label
+        className={`inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer focus-within:outline-2 focus-within:outline-[var(--cyan)] ${
+          uploadingReceiptId === entry.id ? 'opacity-50 pointer-events-none' : ''
+        }`}
+      >
+        {uploadingReceiptId === entry.id ? 'Uploading…' : '📤 Upload'}
+        <input
+          type='file'
+          className='sr-only'
+          accept='image/jpeg,image/png,image/webp,image/heic,application/pdf'
+          disabled={uploadingReceiptId === entry.id}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            // Reset so picking the same filename again after a failed
+            // upload still fires onChange.
+            e.target.value = '';
+            if (file) handleUploadReceipt(entry.id, file);
+          }}
+        />
+      </label>
+    );
+  };
+
+  /** Outflows only — there's no GST input tax credit to claim on money
+   * coming IN. `withLabel` adds visible text for the card layout, where
+   * there's no column header to explain a bare checkbox. */
+  const renderGstClaim = (entry: FinancialLedgerEntry, withLabel = false) => {
+    const checkbox = (
+      <input
+        type='checkbox'
+        checked={entry.gst_claim}
+        disabled={togglingGstId === entry.id || !canManage}
+        onChange={() => handleToggleGstClaim(entry)}
+        aria-label={withLabel ? undefined : 'GST claimed'}
+        title={
+          !canManage
+            ? 'Read-only — only admin/hr can change this'
+            : entry.gst_claim
+            ? 'Claimed as GST input tax credit'
+            : 'Mark as claimed for GST input tax credit'
+        }
+        className='w-4 h-4 rounded border-gray-700 bg-dark-800 text-cyan accent-cyan cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
+      />
+    );
+    if (!withLabel) return checkbox;
+    return (
+      <label className='inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-800 text-[10px] font-bold uppercase text-gray-400 whitespace-nowrap'>
+        {checkbox}
+        GST claimed
+      </label>
+    );
+  };
+
+  const renderRowActions = (entry: FinancialLedgerEntry) => (
+    <>
+      {entry.approval_status === 'pending' &&
+        !isAccountant &&
+        (entry.transaction_type !== 'income' || userRole === 'admin') && (
+          <>
+            <button
+              type='button'
+              onClick={() => handleApproval(entry.id, 'approved')}
+              title='Approve'
+              className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20 transition-colors'
+            >
+              Approve
+            </button>
+            <button
+              type='button'
+              onClick={() => handleApproval(entry.id, 'rejected')}
+              title='Reject'
+              className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors'
+            >
+              Reject
+            </button>
+          </>
+        )}
+      {entry.transaction_type === 'income' && canManage && (
+        <button
+          type='button'
+          onClick={() => handleGenerateInvoice(entry.id)}
+          disabled={generatingInvoiceId === entry.id}
+          title='Generate tax invoice for this income'
+          className='px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap bg-[var(--purple)]/10 text-purple border border-[var(--purple)]/30 hover:bg-[var(--purple)]/20 transition-colors disabled:opacity-50'
+        >
+          {generatingInvoiceId === entry.id ? 'Generating…' : '🧾 Invoice'}
+        </button>
+      )}
+      {userRole === 'admin' && (
+        <DeleteConfirmButton
+          onConfirm={() => handleDelete(entry.id)}
+          message='Are you sure you want to permanently delete this financial ledger entry?'
+          title='Delete'
+          ariaLabel='Delete'
+          className='p-1 text-red-400 hover:text-red-300 transition-colors'
+        >
+          <DeleteIcon />
+        </DeleteConfirmButton>
+      )}
+    </>
+  );
+
   // Shared filter row — one row above everything it scopes, reused by the
   // Overview/Analytics tabs (which now filter too) and the table tabs.
+  // Columns come from the container's width, not the viewport's: auto-fill
+  // packs as many 11rem fields per row as fit, so a field never shrinks
+  // below a usable width and nothing overlaps whatever the sidebar state.
+  const periodOptions = [
+    { value: 'month', label: 'Month' },
+    { value: 'year', label: 'Year' },
+    { value: 'all', label: 'All', title: 'Entire history since the beginning' },
+  ] as const;
+
   const filterPanel = (
     <div className='glass p-4 rounded-lg'>
-      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 items-end'>
-        {(currentTab === 'ledger' || currentTab === 'overview' || currentTab === 'reports') && (
-          <div>
-            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Type</label>
-            <select
-              value={filterType}
-              onChange={(e) => {
-                setFilterType(e.target.value);
-                applyFilters({ type: e.target.value });
-              }}
-              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
-            >
-              <option value=''>All Types</option>
-              <option value='income'>Income</option>
-              <option value='expense'>Expense</option>
-              <option value='investment'>Investment</option>
-              <option value='payroll'>Payroll</option>
-              <option value='reimbursement'>Reimbursement</option>
-            </select>
-          </div>
-        )}
-        <div>
-          <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Category</label>
-          <select
-            value={filterCategory}
-            onChange={(e) => {
-              setFilterCategory(e.target.value);
-              applyFilters({ category: e.target.value });
-            }}
-            className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
-          >
-            <option value=''>All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <div className='flex items-center justify-between mb-2'>
-            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider'>Period</label>
-            <div className='flex shrink-0 rounded-md overflow-hidden border border-gray-700 text-[10px]'>
-              <button
-                type='button'
-                onClick={() => handlePeriodTypeChange('month')}
-                className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors ${periodType === 'month' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
+      <div className={FILTER_GRID_CLASS}>
+        <FilterField
+          label='Period'
+          aside={
+            <span role='group' aria-label='Period type' className='flex shrink-0 rounded-md overflow-hidden border border-gray-700 text-[10px]'>
+              {periodOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type='button'
+                  onClick={() => handlePeriodTypeChange(opt.value)}
+                  title={'title' in opt ? opt.title : undefined}
+                  aria-pressed={periodType === opt.value}
+                  className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--cyan)] ${
+                    periodType === opt.value ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
                   }`}
-              >
-                Month
-              </button>
-              <button
-                type='button'
-                onClick={() => handlePeriodTypeChange('year')}
-                className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors ${periodType === 'year' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
-                  }`}
-              >
-                Year
-              </button>
-              <button
-                type='button'
-                onClick={() => handlePeriodTypeChange('all')}
-                title='Entire history since the beginning'
-                className={`px-2 py-0.5 font-semibold whitespace-nowrap transition-colors ${periodType === 'all' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
-                  }`}
-              >
-                All
-              </button>
-            </div>
-          </div>
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </span>
+          }
+        >
           {periodType === 'month' ? (
             <MonthPicker
               compact
@@ -574,11 +749,12 @@ export default function FinanceManager({
           ) : periodType === 'year' ? (
             <select
               value={filterYear}
+              aria-label='Year'
               onChange={(e) => {
                 setFilterYear(e.target.value);
                 applyFilters({ periodType: 'year', year: e.target.value });
               }}
-              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+              className={FIELD_CLASS}
             >
               {yearOptions.map((y) => (
                 <option key={y} value={y}>
@@ -587,20 +763,71 @@ export default function FinanceManager({
               ))}
             </select>
           ) : (
-            <div className='px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-gray-400'>
+            <div className='px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-gray-400 truncate'>
               Since the beginning
             </div>
           )}
-        </div>
-        <div>
-          <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Mode</label>
+        </FilterField>
+
+        {/* Narrow containers only — wide ones always show every field. */}
+        <button
+          type='button'
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-expanded={filtersOpen}
+          className={`${SECONDARY_ACTION_CLASS} w-full gap-2 @3xl:hidden`}
+        >
+          {filtersOpen ? 'Hide filters' : 'More filters'}
+          {activeFilterCount > 0 && (
+            <span className='rounded-full bg-[var(--cyan)] text-black text-[10px] font-bold px-1.5 leading-4'>
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        {(currentTab === 'ledger' || currentTab === 'overview' || currentTab === 'reports') && (
+          <FilterField label='Type' className={collapsibleField}>
+            <select
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                applyFilters({ type: e.target.value });
+              }}
+              className={FIELD_CLASS}
+            >
+              <option value=''>All Types</option>
+              <option value='income'>Income</option>
+              <option value='expense'>Expense</option>
+              <option value='investment'>Investment</option>
+              <option value='payroll'>Payroll</option>
+              <option value='reimbursement'>Reimbursement</option>
+            </select>
+          </FilterField>
+        )}
+        <FilterField label='Category' className={collapsibleField}>
+          <select
+            value={filterCategory}
+            onChange={(e) => {
+              setFilterCategory(e.target.value);
+              applyFilters({ category: e.target.value });
+            }}
+            className={FIELD_CLASS}
+          >
+            <option value=''>All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField label='Mode' className={collapsibleField}>
           <select
             value={filterMode}
             onChange={(e) => {
               setFilterMode(e.target.value);
               applyFilters({ mode: e.target.value });
             }}
-            className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+            className={FIELD_CLASS}
           >
             <option value=''>All Modes</option>
             <option value='Bank Transfer'>Bank Transfer</option>
@@ -613,17 +840,16 @@ export default function FinanceManager({
             <option value='Stripe'>Stripe</option>
             <option value='Other'>Other</option>
           </select>
-        </div>
+        </FilterField>
         {currentTab !== 'income' && (
-          <div>
-            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Status</label>
+          <FilterField label='Status' className={collapsibleField}>
             <select
               value={filterStatus}
               onChange={(e) => {
                 setFilterStatus(e.target.value);
                 applyFilters({ status: e.target.value });
               }}
-              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+              className={FIELD_CLASS}
             >
               <option value=''>All Statuses</option>
               <option value='pending'>Pending</option>
@@ -631,89 +857,77 @@ export default function FinanceManager({
               <option value='rejected'>Rejected</option>
               <option value='paid'>Paid</option>
             </select>
-          </div>
+          </FilterField>
         )}
         {/* GST claim is an outflow concept (input tax credit on a purchase) —
             same condition as Status above, which is hidden on the Income
             tab for the same reason. */}
         {currentTab !== 'income' && (
-          <div>
-            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>GST Claim</label>
+          <FilterField label='GST Claim' className={collapsibleField}>
             <select
               value={filterGst}
               onChange={(e) => {
                 setFilterGst(e.target.value);
                 applyFilters({ gst: e.target.value });
               }}
-              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+              className={FIELD_CLASS}
             >
               <option value=''>All</option>
               <option value='claimed'>Claimed</option>
               <option value='unclaimed'>Not Claimed</option>
             </select>
-          </div>
+          </FilterField>
         )}
-        <div>
-          <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Payee / Vendor</label>
+        <FilterField label='Payee / Vendor' className={collapsibleField}>
           <input
-            type='text'
-            placeholder='Search payee...'
+            type='search'
+            placeholder='Search payee…'
             value={filterPayee}
             onChange={(e) => setFilterPayee(e.target.value)}
-            className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan placeholder-gray-500'
+            className={FIELD_CLASS}
           />
-        </div>
-        <div className='flex gap-2'>
-          <Button variant='secondary' onClick={handleClearFilters} className='w-full text-xs py-2!'>
-            Clear Filters
-          </Button>
+        </FilterField>
+        <div className={collapsibleField}>
+          <button type='button' onClick={handleClearFilters} className={`${SECONDARY_ACTION_CLASS} w-full`}>
+            Reset filters
+          </button>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div>
-      {/* Upper header */}
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
-        <div>
-          <h1 className='text-3xl font-bold gradient-text'>Financial Center</h1>
-          <p className='text-gray-400 mt-2'>
-            Manage unified ledger accounts, company investment ledger, outflows, and operational expenses.
-          </p>
-        </div>
-        <div className='flex gap-2.5 flex-wrap'>
-          {canManage && (
+    // @container: every responsive rule below sizes against this column's
+    // own width. pb-20 keeps the last row/card clear of the fixed
+    // QuickActionFAB (bottom-6 right-6) instead of sitting underneath it.
+    <div className='@container pb-20'>
+      <PageHeader
+        title='Financial Center'
+        description='Every rupee in and out of the company — ledger, client income, expenses and capital.'
+        actions={
+          canManage && (
             <>
-              <Button variant='primary' onClick={() => handleOpenAddModal('income')} className='whitespace-nowrap'>
-                + Client Income
-              </Button>
-              <Button variant='primary' onClick={() => handleOpenAddModal('investment')} className='whitespace-nowrap'>
+              <button type='button' onClick={() => handleOpenAddModal('income')} className={PRIMARY_ACTION_CLASS}>
+                {/* "Client" only once there's room — three full labels overrun a phone-width row. */}
+                <span className='@md:hidden'>+ Income</span>
+                <span className='hidden @md:inline'>+ Client Income</span>
+              </button>
+              <button type='button' onClick={() => handleOpenAddModal('investment')} className={PRIMARY_ACTION_CLASS}>
                 + Investment
-              </Button>
-              <Button variant='primary' onClick={() => handleOpenAddModal('expense')} className='whitespace-nowrap'>
+              </button>
+              <button type='button' onClick={() => handleOpenAddModal('expense')} className={PRIMARY_ACTION_CLASS}>
                 + Expense
-              </Button>
+              </button>
             </>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
-      {/* Tabs Selector Navigation bar */}
-      <div className='flex border-b border-gray-800 gap-1.5 overflow-x-auto mb-6 select-none'>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={`px-5 py-3 border-b-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 ${currentTab === tab.id
-                ? 'border-cyan text-cyan bg-cyan/5'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-900/40'
-              }`}
-          >
-            {tab.name}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        label='Finance sections'
+        active={currentTab}
+        tabs={tabs.map((tab) => ({ id: tab.id, label: tab.name, href: `/erp/finances?tab=${tab.id}` }))}
+      />
 
       {/* Overview Dashboard Tab */}
       {currentTab === 'overview' && userRole !== 'employee' && (
@@ -721,7 +935,7 @@ export default function FinanceManager({
           {filterPanel}
 
           {/* Primary KPIs — respect every active filter */}
-          <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+          <div className='grid grid-cols-2 @5xl:grid-cols-4 gap-3 @xl:gap-4'>
             <StatTile
               label='Total Inflow'
               value={<SensitiveValue>{formatCurrency(stats.totalInflow)}</SensitiveValue>}
@@ -751,7 +965,7 @@ export default function FinanceManager({
           </div>
 
           {/* Secondary KPIs */}
-          <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+          <div className='grid grid-cols-2 @5xl:grid-cols-4 gap-3 @xl:gap-4'>
             <StatTile
               label='Client Income'
               value={<SensitiveValue>{formatCurrency(stats.clientIncome)}</SensitiveValue>}
@@ -775,7 +989,7 @@ export default function FinanceManager({
           </div>
 
           {/* Cash-flow trend */}
-          <div className='glass p-6 rounded-lg'>
+          <div className='glass p-4 @xl:p-6 rounded-lg min-w-0'>
             <h3 className='text-sm font-semibold text-white mb-1'>
               {periodType === 'all'
                 ? 'Monthly Cash Flow — Entire History'
@@ -804,233 +1018,139 @@ export default function FinanceManager({
         <div className='space-y-6'>
           {filterPanel}
 
-          {/* Financial Ledger Data Table */}
           <div className='glass rounded-lg overflow-hidden'>
             {initialEntries.length === 0 ? (
-              <div className='text-center py-16'>
-                <p className='text-gray-400 mb-4'>No ledger transactions found</p>
-                {canManage && (
-                  <Button variant='primary' onClick={() => handleOpenAddModal('expense')}>
-                    Log First Ledger Entry
-                  </Button>
-                )}
+              <div className='text-center py-14 px-4'>
+                <p className='text-gray-300 font-medium'>No transactions match these filters</p>
+                <p className='text-sm text-gray-500 mt-1'>Pick another period or reset the filters.</p>
+                <div className='mt-5 flex flex-wrap justify-center gap-2'>
+                  <button type='button' onClick={handleClearFilters} className={SECONDARY_ACTION_CLASS}>
+                    Reset filters
+                  </button>
+                  {canManage && (
+                    <button type='button' onClick={() => handleOpenAddModal('expense')} className={PRIMARY_ACTION_CLASS}>
+                      + Expense
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
-              <Table
-                headers={[
-                  'Date',
-                  'Type',
-                  'Category',
-                  'Inflow/Outflow',
-                  'Payee',
-                  'Description',
-                  'Mode',
-                  'Status',
-                  'Amount',
-                  'Receipt',
-                  'GST Claim',
-                  'Actions',
-                ]}
-              >
-                {initialEntries.map((entry) => (
-                  <TableRow key={entry.id} onDoubleClick={() => setDetailsEntry(entry)}>
-                    <TableCell className='whitespace-nowrap'>{formatDisplayDate(entry.transaction_date)}</TableCell>
-                    <TableCell>
-                      <span className='px-2.5 py-0.5 rounded text-[10px] font-bold uppercase bg-dark-800 text-cyan border border-cyan/15'>
-                        {entry.transaction_type}
-                      </span>
-                    </TableCell>
-                    <TableCell className='font-semibold text-gray-300'>{entry.category}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-bold ${entry.direction === 'inflow' ? 'text-green-400' : 'text-red-400'
-                          }`}
-                      >
-                        {entry.direction === 'inflow' ? '↓ Inflow' : '↑ Outflow'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {entry.client_name && (
-                        <div className='text-xs font-bold text-purple'>Client: {entry.client_name}</div>
-                      )}
-                      {entry.project_name && (
-                        <div className='text-[10px] text-gray-500'>Proj: {entry.project_name}</div>
-                      )}
-                      {entry.payee_name && (
-                        <div className='text-xs text-gray-400'>Payee: {entry.payee_name}</div>
-                      )}
-                      {/* vendor_name has a column in the DB and a field in the
-                          create/edit form, but was never rendered anywhere in
-                          this table — an expense entered with only a vendor
-                          name (no payee_name) showed a blank cell here. */}
-                      {entry.vendor_name && (
-                        <div className='text-xs text-gray-400'>Vendor: {entry.vendor_name}</div>
-                      )}
-                      {entry.payer_name && (
-                        <div className='text-xs text-gray-400'>Source: {entry.payer_name}</div>
-                      )}
-                      {!entry.client_name &&
-                        !entry.project_name &&
-                        !entry.payee_name &&
-                        !entry.vendor_name &&
-                        !entry.payer_name && <span className='text-xs text-gray-600'>—</span>}
-                    </TableCell>
-                    <TableCell className='max-w-[200px] truncate text-xs text-gray-400'>
-                      <div className="truncate" title={entry.description || ''}>
-                        {entry.description || 'N/A'}
+              <>
+                {/* Wide containers: the full table. Direction is folded into
+                    the amount's sign and the row's edge, and Mode sits under
+                    the date, which keeps it to nine columns. 68rem is
+                    measured, not a preset step: the table's natural width is
+                    ~1080px, so it shows at 1440 with the sidebar open (and
+                    1280 with it collapsed) and hands over to cards below
+                    that rather than scrolling sideways inside its card. */}
+                <div className='hidden @min-[68rem]:block'>
+                  <Table
+                    compact
+                    headers={[
+                      'Date',
+                      'Entry',
+                      'Party',
+                      'Description',
+                      'Status',
+                      'Amount',
+                      'Receipt',
+                      'GST',
+                      'Actions',
+                    ]}
+                  >
+                    {initialEntries.map((entry) => (
+                      <TableRow key={entry.id} onDoubleClick={() => setDetailsEntry(entry)}>
+                        <TableCell className={`whitespace-nowrap ${directionEdge(entry)}`}>
+                          {formatDisplayDate(entry.transaction_date)}
+                          {/* Mode rides under the date — both are row metadata,
+                              and a column of its own pushed Actions off-screen. */}
+                          <p className='text-[11px] text-gray-500 mt-0.5'>{entry.payment_mode || 'No mode'}</p>
+                        </TableCell>
+                        <TableCell className='min-w-32'>
+                          {renderTypeBadge(entry)}
+                          <p className='mt-1 font-semibold text-gray-300'>{entry.category}</p>
+                        </TableCell>
+                        <TableCell className='min-w-36 max-w-52'>{renderParty(entry)}</TableCell>
+                        <TableCell className='max-w-52 text-xs text-gray-400'>
+                          <div className='truncate' title={entry.description || ''}>
+                            {entry.description || 'N/A'}
+                          </div>
+                        </TableCell>
+                        <TableCell>{renderStatusBadge(entry)}</TableCell>
+                        <TableCell>{renderAmount(entry)}</TableCell>
+                        <TableCell>{renderReceipt(entry, <span className='text-xs text-gray-600'>—</span>)}</TableCell>
+                        <TableCell>
+                          {entry.direction === 'outflow' ? renderGstClaim(entry) : <span className='text-xs text-gray-600'>—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <div className='flex items-center gap-2'>
+                            {renderRowActions(entry)}
+                            <button
+                              type='button'
+                              onClick={() => setDetailsEntry(entry)}
+                              title='View Details'
+                              aria-label='View Details'
+                              className='text-gray-400 hover:text-white transition-colors px-1'
+                            >
+                              <svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
+                                <path d='M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z' />
+                              </svg>
+                            </button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </Table>
+                </div>
+
+                {/* Narrow containers: one card per entry — what, how much,
+                    and its state on top; party and description below; every
+                    action the table row offers in a wrapping footer. Two
+                    columns once there's room, so a tablet/laptop-width
+                    column isn't one long list of very wide cards. -mb-px
+                    tucks the last row's bottom border under the card edge. */}
+                <ul className='@min-[68rem]:hidden grid grid-cols-1 @3xl:grid-cols-2 -mb-px'>
+                  {initialEntries.map((entry) => (
+                    <li key={entry.id} className={`p-4 min-w-0 border-b border-gray-800/70 @3xl:odd:border-r ${directionEdge(entry)}`}>
+                      <div className='flex items-start justify-between gap-3'>
+                        <div className='min-w-0'>
+                          <p className='text-sm font-semibold text-gray-200 [overflow-wrap:anywhere]'>{entry.category}</p>
+                          <p className='text-xs text-gray-500 mt-0.5'>
+                            {formatDisplayDate(entry.transaction_date)}
+                            {entry.payment_mode && <> · {entry.payment_mode}</>}
+                          </p>
+                        </div>
+                        <div className='text-right shrink-0'>
+                          <div className='text-sm'>{renderAmount(entry)}</div>
+                          <div className='mt-1'>{renderStatusBadge(entry)}</div>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell className='text-xs text-gray-400'>{entry.payment_mode || 'N/A'}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${entry.approval_status === 'pending'
-                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                            : entry.approval_status === 'rejected'
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              : 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          }`}
-                      >
-                        {entry.approval_status || entry.payment_status || 'completed'}
-                      </span>
-                    </TableCell>
-                    <TableCell className='font-bold text-white whitespace-nowrap'><SensitiveValue>{formatCurrency(entry.amount)}</SensitiveValue></TableCell>
-                    <TableCell>
-                      {/* Payslips carry per-employee salary detail beyond the
-                          ledger row, so getPayslipUrlAction stays admin/hr —
-                          an accountant gets the plain dash instead of a
-                          button that would only fail. Expense receipts are
-                          fine for them to open. */}
-                      {entry.receipt_path && !(isAccountant && entry.transaction_type === 'payroll') ? (
-                        <button
-                          onClick={() =>
-                            handleViewReceipt(entry.id, entry.receipt_path!, entry.transaction_type === 'payroll')
-                          }
-                          disabled={viewingReceiptId === entry.id}
-                          className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-colors disabled:opacity-50'
-                        >
-                          {viewingReceiptId === entry.id
-                            ? 'Opening…'
-                            : entry.transaction_type === 'payroll'
-                            ? '📄 Payslip'
-                            : '📎 View'}
-                        </button>
-                      ) : entry.transaction_type === 'payroll' ? (
-                        // Payslips are generated by the payroll run itself
-                        // (getPayslipSignedUrl), not attached by hand — a
-                        // missing one here means payroll hasn't produced it
-                        // yet, not that someone forgot to upload a file.
-                        <span className='text-xs text-gray-600'>—</span>
-                      ) : !canManage ? (
-                        // Matches the actions below: uploading a receipt for
-                        // an existing entry is admin/hr only (see
-                        // uploadLedgerReceiptAction), so an employee viewing
-                        // their own reimbursement row, or the read-only
-                        // accountant, gets the plain dash rather than a
-                        // button that would fail server-side.
-                        <span className='text-xs text-gray-600'>—</span>
-                      ) : (
-                        <label
-                          className={`inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase bg-dark-800 text-gray-300 border border-gray-700 hover:border-cyan hover:text-cyan transition-colors cursor-pointer ${
-                            uploadingReceiptId === entry.id ? 'opacity-50 pointer-events-none' : ''
-                          }`}
-                        >
-                          {uploadingReceiptId === entry.id ? 'Uploading…' : '📤 Upload'}
-                          <input
-                            type='file'
-                            className='sr-only'
-                            accept='image/jpeg,image/png,image/webp,image/heic,application/pdf'
-                            disabled={uploadingReceiptId === entry.id}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              // Reset so picking the same filename again after
-                              // a failed upload still fires onChange.
-                              e.target.value = '';
-                              if (file) handleUploadReceipt(entry.id, file);
-                            }}
-                          />
-                        </label>
+
+                      <div className='mt-3 flex items-start gap-2'>
+                        <div className='shrink-0'>{renderTypeBadge(entry)}</div>
+                        <div className='min-w-0'>{renderParty(entry)}</div>
+                      </div>
+
+                      {entry.description && (
+                        <p className='mt-2 text-xs text-gray-400 line-clamp-2 [overflow-wrap:anywhere]'>{entry.description}</p>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      {entry.direction === 'outflow' ? (
-                        <input
-                          type='checkbox'
-                          checked={entry.gst_claim}
-                          disabled={togglingGstId === entry.id || !canManage}
-                          onChange={() => handleToggleGstClaim(entry)}
-                          title={
-                            !canManage
-                              ? 'Read-only — only admin/hr can change this'
-                              : entry.gst_claim
-                              ? 'Claimed as GST input tax credit'
-                              : 'Mark as claimed for GST input tax credit'
-                          }
-                          className='w-4 h-4 rounded border-gray-700 bg-dark-800 text-cyan accent-cyan cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
-                        />
-                      ) : (
-                        // Not an outflow — there's nothing to claim GST
-                        // input tax credit on for money coming IN.
-                        <span className='text-xs text-gray-600'>—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className='flex items-center gap-2'>
-                        {entry.approval_status === 'pending' &&
-                          !isAccountant &&
-                          (entry.transaction_type !== 'income' || userRole === 'admin') && (
-                            <>
-                              <button
-                                onClick={() => handleApproval(entry.id, 'approved')}
-                                title='Approve'
-                                className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20 transition-colors'
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleApproval(entry.id, 'rejected')}
-                                title='Reject'
-                                className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors'
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                        {entry.transaction_type === 'income' && canManage && (
-                          <button
-                            onClick={() => handleGenerateInvoice(entry.id)}
-                            disabled={generatingInvoiceId === entry.id}
-                            title='Generate tax invoice for this income'
-                            className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-[var(--purple)]/10 text-purple border border-[var(--purple)]/30 hover:bg-[var(--purple)]/20 transition-colors disabled:opacity-50'
-                          >
-                            {generatingInvoiceId === entry.id ? 'Generating…' : '🧾 Invoice'}
-                          </button>
-                        )}
-                        {userRole === 'admin' && (
-                          <DeleteConfirmButton
-                            onConfirm={() => handleDelete(entry.id)}
-                            message='Are you sure you want to permanently delete this financial ledger entry?'
-                            title='Delete'
-                            ariaLabel='Delete'
-                            className='text-red-400 hover:text-red-300 transition-colors'
-                          >
-                            <DeleteIcon />
-                          </DeleteConfirmButton>
-                        )}
+
+                      <div className='mt-3 flex flex-wrap items-center gap-2'>
+                        {renderReceipt(entry, null)}
+                        {entry.direction === 'outflow' && renderGstClaim(entry, true)}
+                        {renderRowActions(entry)}
                         <button
+                          type='button'
                           onClick={() => setDetailsEntry(entry)}
-                          title='View Details'
-                          aria-label='View Details'
-                          className='text-gray-400 hover:text-white transition-colors px-1'
+                          className='ml-auto px-2 py-1 rounded text-[10px] font-bold uppercase text-gray-300 border border-gray-700 hover:text-white hover:border-gray-500 transition-colors'
                         >
-                          <svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
-                            <path d='M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z' />
-                          </svg>
+                          Details
                         </button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </Table>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </div>
@@ -1054,7 +1174,7 @@ export default function FinanceManager({
           {filterPanel}
 
           {/* Approval pipeline — quick pulse on what needs attention */}
-          <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+          <div className='grid grid-cols-2 @5xl:grid-cols-4 gap-3 @xl:gap-4'>
             {(['pending', 'approved', 'rejected', 'paid'] as const).map((status) => (
               <StatTile
                 key={status}
@@ -1072,13 +1192,13 @@ export default function FinanceManager({
           </div>
 
           {/* Category breakdowns — expense vs income, side by side */}
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
-            <div className='glass p-6 rounded-lg'>
+          <div className='grid grid-cols-1 @4xl:grid-cols-2 gap-4'>
+            <div className='glass p-4 @xl:p-6 rounded-lg min-w-0'>
               <h3 className='text-sm font-semibold text-white mb-1'>Expenses by Category</h3>
               <p className='text-xs text-gray-500 mb-4'>Completed outflows, current filter</p>
               <BarBreakdown items={toBarItems(stats.categoryExpense)} formatValue={formatCurrency} />
             </div>
-            <div className='glass p-6 rounded-lg'>
+            <div className='glass p-4 @xl:p-6 rounded-lg min-w-0'>
               <h3 className='text-sm font-semibold text-white mb-1'>Income by Category</h3>
               <p className='text-xs text-gray-500 mb-4'>Completed inflows, current filter</p>
               <BarBreakdown items={toBarItems(stats.categoryIncome)} formatValue={formatCurrency} />
@@ -1086,13 +1206,13 @@ export default function FinanceManager({
           </div>
 
           {/* Payment mode + transaction type breakdowns */}
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
-            <div className='glass p-6 rounded-lg'>
+          <div className='grid grid-cols-1 @4xl:grid-cols-2 gap-4'>
+            <div className='glass p-4 @xl:p-6 rounded-lg min-w-0'>
               <h3 className='text-sm font-semibold text-white mb-1'>By Payment Mode</h3>
               <p className='text-xs text-gray-500 mb-4'>All transaction amounts, current filter</p>
               <BarBreakdown items={toBarItems(stats.modeBreakdown)} formatValue={formatCurrency} emptyLabel='No payment mode recorded' />
             </div>
-            <div className='glass p-6 rounded-lg'>
+            <div className='glass p-4 @xl:p-6 rounded-lg min-w-0'>
               <h3 className='text-sm font-semibold text-white mb-1'>By Transaction Type</h3>
               <p className='text-xs text-gray-500 mb-4'>Income, expense, payroll, investment, reimbursement</p>
               <BarBreakdown items={toBarItems(stats.typeBreakdown)} formatValue={formatCurrency} />
@@ -1100,9 +1220,9 @@ export default function FinanceManager({
           </div>
 
           {/* Top vendors / clients */}
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
-            <div className='glass rounded-lg overflow-hidden'>
-              <h3 className='text-sm font-semibold text-white p-6 pb-0 mb-4'>Top Vendors / Payees</h3>
+          <div className='grid grid-cols-1 @4xl:grid-cols-2 gap-4'>
+            <div className='glass rounded-lg overflow-hidden min-w-0'>
+              <h3 className='text-sm font-semibold text-white px-4 pt-4 @xl:px-6 @xl:pt-6 mb-4'>Top Vendors / Payees</h3>
               {Object.keys(stats.vendorTotals).length === 0 ? (
                 <p className='text-sm text-gray-500 text-center py-8'>No vendor spend recorded for this filter</p>
               ) : (
@@ -1119,8 +1239,8 @@ export default function FinanceManager({
                 </Table>
               )}
             </div>
-            <div className='glass rounded-lg overflow-hidden'>
-              <h3 className='text-sm font-semibold text-white p-6 pb-0 mb-4'>Top Clients</h3>
+            <div className='glass rounded-lg overflow-hidden min-w-0'>
+              <h3 className='text-sm font-semibold text-white px-4 pt-4 @xl:px-6 @xl:pt-6 mb-4'>Top Clients</h3>
               {Object.keys(stats.clientTotals).length === 0 ? (
                 <p className='text-sm text-gray-500 text-center py-8'>No client income recorded for this filter</p>
               ) : (
@@ -1176,7 +1296,7 @@ export default function FinanceManager({
             </div>
 
             <div className='text-center py-2 border-b border-gray-800'>
-              <p className='text-3xl font-bold text-white'>
+              <p className='text-2xl sm:text-3xl font-bold text-white tabular-nums [overflow-wrap:anywhere]'>
                 <SensitiveValue>{formatCurrency(detailsEntry.amount)}</SensitiveValue>
               </p>
               <p className='text-xs text-gray-500 mt-1'>{formatDisplayDate(detailsEntry.transaction_date)}</p>

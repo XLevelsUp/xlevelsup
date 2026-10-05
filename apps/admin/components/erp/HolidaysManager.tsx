@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { EditIcon, DeleteIcon } from './ActionIcons';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import { PageHeader, PRIMARY_ACTION_CLASS, ROW_ACTION_CLASS } from './PageChrome';
 import type { CompanyHoliday } from '@/lib/erp/holidays';
 import {
   createHolidayAction,
@@ -20,16 +20,21 @@ interface HolidaysManagerProps {
   holidays: CompanyHoliday[];
   initialYear: number;
   userRole: string;
+  /** Today as 'YYYY-MM-DD' in IST, resolved on the server so the
+   * past/next marking can't differ between server and client render. */
+  today: string;
 }
 
 const HOLIDAY_TYPE_INFO: Record<
   CompanyHoliday['holiday_type'],
-  { label: string; icon: string; badge: string }
+  // `short` is the badge text — the full label wrapped onto three lines in
+  // a narrow column; it stays in the badge's tooltip and the form.
+  { label: string; short: string; icon: string; badge: string; dot: string }
 > = {
-  public: { label: 'Mandatory / Government Holiday', icon: '🏛️', badge: 'bg-red-500/20 text-red-400' },
-  floater: { label: 'Floater Holiday', icon: '🎈', badge: 'bg-amber-500/20 text-amber-400' },
-  company: { label: 'Company Holiday', icon: '🏢', badge: 'bg-blue-500/20 text-blue-400' },
-  optional: { label: 'Company Holiday', icon: '🏢', badge: 'bg-blue-500/20 text-blue-400' },
+  public: { label: 'Mandatory / Government Holiday', short: 'Mandatory', icon: '🏛️', badge: 'bg-red-500/20 text-red-400', dot: 'bg-red-400' },
+  floater: { label: 'Floater Holiday', short: 'Floater', icon: '🎈', badge: 'bg-amber-500/20 text-amber-400', dot: 'bg-amber-400' },
+  company: { label: 'Company Holiday', short: 'Company', icon: '🏢', badge: 'bg-blue-500/20 text-blue-400', dot: 'bg-blue-400' },
+  optional: { label: 'Company Holiday', short: 'Company', icon: '🏢', badge: 'bg-blue-500/20 text-blue-400', dot: 'bg-blue-400' },
 };
 
 const CREATABLE_TYPES: CompanyHoliday['holiday_type'][] = ['public', 'floater', 'company'];
@@ -42,20 +47,11 @@ const emptyForm = {
   is_active: true,
 };
 
-function formatDisplayDate(date: string) {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 export default function HolidaysManager({
   holidays,
   initialYear,
   userRole,
+  today,
 }: HolidaysManagerProps) {
   const router = useRouter();
   const [year, setYear] = useState(initialYear);
@@ -151,118 +147,188 @@ export default function HolidaysManager({
     }
   };
 
+  // A year of holidays is a timeline, so the list is grouped by month in
+  // date order. Past days are quieted and the next active one is marked —
+  // "what's coming up" is the question this page usually gets opened for.
+  const sorted = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
+  const nextHolidayId = sorted.find((h) => h.is_active && h.date >= today)?.id;
+  const byMonth = sorted.reduce<{ month: string; items: CompanyHoliday[] }[]>((groups, holiday) => {
+    const month = holiday.date.slice(0, 7);
+    const last = groups[groups.length - 1];
+    if (last && last.month === month) last.items.push(holiday);
+    else groups.push({ month, items: [holiday] });
+    return groups;
+  }, []);
+  const typeCounts = CREATABLE_TYPES.map((type) => ({
+    type,
+    count: holidays.filter(
+      (h) => h.is_active && (h.holiday_type === type || (type === 'company' && h.holiday_type === 'optional')),
+    ).length,
+  }));
+
+  const renderActions = (holiday: CompanyHoliday) => (
+    <>
+      <button
+        type='button'
+        onClick={() => openEditModal(holiday)}
+        title='Edit'
+        aria-label={`Edit ${holiday.name}`}
+        className='p-1 text-cyan hover:text-cyan/80 transition-colors'
+      >
+        <EditIcon />
+      </button>
+      <button
+        type='button'
+        onClick={() => handleToggleActive(holiday)}
+        className={`${ROW_ACTION_CLASS} border-gray-700 text-gray-300 hover:text-white hover:border-gray-500`}
+      >
+        {holiday.is_active ? 'Archive' : 'Reactivate'}
+      </button>
+      {canHardDelete && (
+        <DeleteConfirmButton
+          onConfirm={() => handleDelete(holiday)}
+          message={`Permanently delete "${holiday.name}" (${holiday.date})? This cannot be undone — consider archiving instead.`}
+          title='Delete permanently'
+          ariaLabel={`Delete ${holiday.name} permanently`}
+          className='p-1 text-red-400 hover:text-red-300 transition-colors'
+        >
+          <DeleteIcon />
+        </DeleteConfirmButton>
+      )}
+    </>
+  );
+
   return (
-    <div>
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
-        <div>
-          <h1 className='text-3xl font-bold gradient-text'>Holiday Calendar Management</h1>
-          <p className='text-gray-400 mt-2'>
-            Manage mandatory, floater, and company holidays for the year
-          </p>
-        </div>
-        <Button variant='primary' onClick={openAddModal} className='whitespace-nowrap'>
-          + Add Holiday
-        </Button>
-      </div>
-
-      {/* Year selector */}
-      <div className='glass p-4 rounded-lg mb-6 flex items-center gap-3'>
-        <label className='text-sm font-medium'>Year</label>
-        <div className='flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 rounded-lg p-1'>
-          <button
-            onClick={() => changeYear(year - 1)}
-            className='px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors'
-            aria-label='Previous year'
-          >
-            ←
+    <div className='@container pb-20'>
+      <PageHeader
+        title='Holidays'
+        description='The company holiday calendar — mandatory, floater and company days that attendance and leave count as off.'
+        actions={
+          <button type='button' onClick={openAddModal} className={PRIMARY_ACTION_CLASS}>
+            + Add holiday
           </button>
-          <span className='px-3 py-1.5 text-sm font-semibold text-white'>{year}</span>
-          <button
-            onClick={() => changeYear(year + 1)}
-            className='px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors'
-            aria-label='Next year'
-          >
-            →
-          </button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Table */}
-      <div className='glass rounded-lg overflow-hidden'>
-        {holidays.length === 0 ? (
-          <div className='text-center py-12'>
-            <p className='text-gray-400 mb-4'>No holidays configured for {year}</p>
-            <Button variant='primary' onClick={openAddModal}>
-              Add First Holiday
-            </Button>
+      {/* Year stepper + what the year holds */}
+      <div className='glass p-4 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3'>
+        <div className='flex items-center gap-3'>
+          <span className='text-[11px] font-semibold text-gray-400 uppercase tracking-wider'>Year</span>
+          <div className='flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 rounded-lg p-1'>
+            <button
+              type='button'
+              onClick={() => changeYear(year - 1)}
+              className='px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors'
+              aria-label='Previous year'
+            >
+              ←
+            </button>
+            <span className='px-3 py-1.5 text-sm font-semibold text-white tabular-nums'>{year}</span>
+            <button
+              type='button'
+              onClick={() => changeYear(year + 1)}
+              className='px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors'
+              aria-label='Next year'
+            >
+              →
+            </button>
           </div>
-        ) : (
-          <Table headers={['Date', 'Holiday', 'Type', 'Status', 'Actions']}>
-            {holidays.map((holiday) => {
-              const info = HOLIDAY_TYPE_INFO[holiday.holiday_type];
-              return (
-                <TableRow key={holiday.id} className={!holiday.is_active ? 'opacity-50' : ''}>
-                  <TableCell>
-                    <div className='font-medium text-white'>{formatDisplayDate(holiday.date)}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className='font-medium text-white'>{holiday.name}</div>
-                    {holiday.description && (
-                      <div className='text-xs text-gray-500 mt-0.5'>{holiday.description}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${info.badge}`}>
-                      {info.icon} {info.label}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        holiday.is_active
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-gray-500/20 text-gray-400'
-                      }`}
-                    >
-                      {holiday.is_active ? 'Active' : 'Archived'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex items-center gap-3'>
-                      <button
-                        onClick={() => openEditModal(holiday)}
-                        title='Edit'
-                        aria-label='Edit'
-                        className='text-cyan hover:text-cyan/80 transition-colors'
-                      >
-                        <EditIcon />
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(holiday)}
-                        title={holiday.is_active ? 'Archive' : 'Reactivate'}
-                        className='text-xs text-gray-400 hover:text-white transition-colors underline'
-                      >
-                        {holiday.is_active ? 'Archive' : 'Reactivate'}
-                      </button>
-                      {canHardDelete && (
-                        <DeleteConfirmButton
-                          onConfirm={() => handleDelete(holiday)}
-                          message={`Permanently delete "${holiday.name}" (${holiday.date})? This cannot be undone — consider archiving instead.`}
-                          title='Delete permanently'
-                          ariaLabel='Delete permanently'
-                          className='text-red-400 hover:text-red-300 transition-colors'
-                        >
-                          <DeleteIcon />
-                        </DeleteConfirmButton>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
-        )}
+        </div>
+        <ul className='flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400'>
+          {typeCounts.map(({ type, count }) => (
+            <li key={type} className='flex items-center gap-1.5'>
+              <span className={`w-2 h-2 rounded-full ${HOLIDAY_TYPE_INFO[type].dot}`} aria-hidden='true' />
+              <span className='text-white font-semibold tabular-nums'>{count}</span> {HOLIDAY_TYPE_INFO[type].short.toLowerCase()}
+            </li>
+          ))}
+        </ul>
       </div>
+
+      {holidays.length === 0 ? (
+        <div className='glass rounded-lg text-center py-14 px-4'>
+          <p className='text-gray-300 font-medium'>No holidays set for {year}</p>
+          <p className='text-sm text-gray-500 mt-1'>Add the year’s mandatory and floater days so attendance and leave count them.</p>
+          <button type='button' onClick={openAddModal} className={`${PRIMARY_ACTION_CLASS} mt-5`}>
+            + Add holiday
+          </button>
+        </div>
+      ) : (
+        <div className='space-y-6'>
+          {byMonth.map(({ month, items }) => (
+            <section key={month} aria-labelledby={`holidays-${month}`}>
+              <h2
+                id={`holidays-${month}`}
+                className='flex items-baseline gap-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500'
+              >
+                {new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long' })}
+                <span className='text-gray-600 tabular-nums'>{items.length}</span>
+              </h2>
+              <ul className='glass rounded-lg divide-y divide-gray-800/70 overflow-hidden'>
+                {items.map((holiday) => {
+                  const info = HOLIDAY_TYPE_INFO[holiday.holiday_type];
+                  const isPast = holiday.date < today;
+                  const isNext = holiday.id === nextHolidayId;
+                  const date = new Date(`${holiday.date}T00:00:00Z`);
+                  return (
+                    <li
+                      key={holiday.id}
+                      className={`flex items-start gap-3 @xl:gap-4 p-3 @xl:p-4 ${
+                        isNext ? 'bg-[var(--cyan)]/5 shadow-[inset_3px_0_0_var(--cyan)]' : ''
+                      } ${!holiday.is_active ? 'opacity-50' : ''}`}
+                    >
+                      {/* Date block: weekday over the day number — reads like
+                          a desk-calendar page, and lines every row up on the
+                          same left edge whatever the holiday's name. */}
+                      <div
+                        className={`w-12 @xl:w-14 shrink-0 rounded-lg border text-center py-1.5 ${
+                          isNext ? 'border-[var(--cyan)]/50' : 'border-gray-800'
+                        }`}
+                      >
+                        <p className={`text-[10px] font-semibold uppercase tracking-wider ${isNext ? 'text-cyan' : 'text-gray-500'}`}>
+                          {date.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short' })}
+                        </p>
+                        <p className={`text-xl @xl:text-2xl font-bold leading-tight tabular-nums ${isPast ? 'text-gray-500' : 'text-white'}`}>
+                          {date.getUTCDate()}
+                        </p>
+                      </div>
+
+                      <div className='min-w-0 flex-1'>
+                        <p className={`font-semibold [overflow-wrap:anywhere] ${isPast ? 'text-gray-400' : 'text-white'}`}>
+                          {holiday.name}
+                          {isNext && (
+                            <span className='ml-2 align-middle text-[10px] font-bold uppercase tracking-wider text-cyan'>Next</span>
+                          )}
+                        </p>
+                        {holiday.description && (
+                          <p className='text-xs text-gray-500 mt-0.5 [overflow-wrap:anywhere]'>{holiday.description}</p>
+                        )}
+                        <div className='mt-2 flex flex-wrap items-center gap-2'>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${info.badge}`}
+                            title={info.label}
+                          >
+                            <span aria-hidden='true'>{info.icon}</span> {info.short}
+                          </span>
+                          {!holiday.is_active && (
+                            <span className='px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-500/20 text-gray-400'>
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                        {/* Narrow: actions under the text so the name keeps
+                            the full width beside the date block. */}
+                        <div className='@xl:hidden mt-3 flex flex-wrap items-center gap-2'>{renderActions(holiday)}</div>
+                      </div>
+
+                      <div className='hidden @xl:flex items-center gap-3 shrink-0 self-center'>{renderActions(holiday)}</div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <Modal
