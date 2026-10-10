@@ -135,6 +135,39 @@ const projects = [
     link: 'https://astrosara.in',
     logo: 'https://www.google.com/s2/favicons?domain=astrosara.in&sz=128',
   },
+  {
+    id: 9,
+    name: 'Rajendra Glass House',
+    tag: 'Digital Presence',
+    description:
+      'Brought a 1977 Coimbatore glass dealer online with a catalogue-led site — toughened glass, shower enclosures and railings presented clearly, with quote requests routed straight to WhatsApp.',
+    metrics: ['Full Product Catalogue', 'Direct Quote Requests', 'Built for Local Search'],
+    gradient: 'from-blue/20 to-purple/20',
+    link: 'https://www.rajendraglasshouse.com',
+    logo: 'https://www.google.com/s2/favicons?domain=rajendraglasshouse.com&sz=128',
+  },
+  {
+    id: 10,
+    name: 'Ohm Murugha Electrical',
+    tag: 'Digital Presence',
+    description:
+      'Structured a 40-category industrial electrical catalogue into a site panel builders can actually navigate, with part-level detail and a quote workflow in place of a checkout.',
+    metrics: ['40+ Product Categories', 'Part-Level Detail Pages', 'Streamlined Quote Flow'],
+    gradient: 'from-cyan/20 to-green/20',
+    link: 'https://ohmmurughaelectrical.com',
+    logo: 'https://www.google.com/s2/favicons?domain=ohmmurughaelectrical.com&sz=128',
+  },
+  {
+    id: 11,
+    name: 'MeetMyPets',
+    tag: 'In-House Product',
+    description:
+      'Our own pet-social app: profiles for your animals, nearby matches for playdates, owner chat and verified local vets and groomers. Launch site live, iOS and Android in build.',
+    metrics: ['Built In-House', 'Pre-Launch Waitlist', 'iOS & Android in Build'],
+    gradient: 'from-pink/20 to-cyan/20',
+    link: 'https://www.meetmypets.app',
+    logo: 'https://www.google.com/s2/favicons?domain=meetmypets.app&sz=128',
+  },
 ];
 
 /** Filter values are the project tags themselves — no new copy introduced. */
