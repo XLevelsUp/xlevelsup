@@ -37,6 +37,8 @@ const clients = [
   { name: 'TagMyTaxi' },
   { name: 'Astrosara' },
   { name: 'Studio OS' },
+  { name: 'Rajendra Glass House' },
+  { name: 'Ohm Murugha Electrical' },
 ];
 
 export default function SocialProof() {
