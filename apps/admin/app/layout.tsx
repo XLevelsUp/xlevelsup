@@ -15,6 +15,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import AnimationProvider from '@/components/AnimationProvider';
 import ToastProvider from '@/components/ToastProvider';
+import ConfirmDialogHost from '@/components/ui/ConfirmDialog';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -63,6 +64,7 @@ export default function AdminRootLayout({
         <AnimationProvider>
           <ToastProvider />
           {children}
+          <ConfirmDialogHost />
         </AnimationProvider>
       </body>
     </html>

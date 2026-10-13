@@ -44,6 +44,7 @@ export async function getLedgerEntries(
     payee?: string;
     accountId?: number;
     gstClaim?: boolean;
+    gstApplicable?: boolean;
   },
 ): Promise<FinancialLedgerEntry[]> {
   try {
@@ -119,6 +120,12 @@ export async function getLedgerEntries(
     // would silently drop the "Not Claimed" (false) option of the filter.
     if (filters?.gstClaim !== undefined) {
       query = query.eq('gst_claim', filters.gstClaim);
+    }
+    // Same `!== undefined` reason. "Is GST applicable?" is only ever asked of
+    // expenses, so either answer narrows to expenses — "No GST" must not
+    // sweep in every income, investment and payroll row (all false too).
+    if (filters?.gstApplicable !== undefined) {
+      query = query.eq('transaction_type', 'expense').eq('gst_applicable', filters.gstApplicable);
     }
 
     if (filters?.month) {

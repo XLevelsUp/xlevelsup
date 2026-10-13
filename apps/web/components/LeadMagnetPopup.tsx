@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import {
@@ -84,15 +84,7 @@ export default function LeadMagnetPopup() {
   useEffect(() => {
     if (state.success) {
       // Show success toast
-      toast.success('Email saved! Opening booking page...', {
-        duration: 3000,
-        position: 'top-center',
-        style: {
-          background: '#0a0a0a',
-          color: '#fff',
-          border: '1px solid #00ffff',
-        },
-      });
+      toast.success('Email saved! Opening booking page...', { duration: 3000 });
 
       // Wait 1.5 seconds, then open booking page and close popup
       const timer = setTimeout(() => {
@@ -107,15 +99,7 @@ export default function LeadMagnetPopup() {
   // Show error toast if submission failed
   useEffect(() => {
     if (state.error && !state.success) {
-      toast.error(state.error, {
-        duration: 4000,
-        position: 'top-center',
-        style: {
-          background: '#0a0a0a',
-          color: '#fff',
-          border: '1px solid #ff0000',
-        },
-      });
+      toast.error(state.error, { duration: 4000 });
     }
   }, [state.error, state.success]);
 
@@ -137,6 +121,7 @@ export default function LeadMagnetPopup() {
             <input
               type='email'
               name='email'
+              aria-label='Email'
               placeholder='your@email.com'
               required
               className='w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors'

@@ -8,7 +8,7 @@
 import { useActionState, useEffect, useRef } from 'react';
 import { reviewAttendanceChangeRequestAction } from '@/actions/erp/attendance-change-requests';
 import Button from '@/components/ui/Button';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { restoreFormValues } from '@/lib/utils/form';
 
 interface AttendanceChangeRequestReviewFormProps {

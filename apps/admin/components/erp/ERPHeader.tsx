@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { logout } from '@/actions/erp/auth';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSensitiveData } from './SensitiveDataContext';

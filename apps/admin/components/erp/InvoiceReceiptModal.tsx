@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Modal from '@/components/ui/Modal';
 import InvoiceReceipt from './InvoiceReceipt';
 import type { ReceiptData } from '@/types/billing';

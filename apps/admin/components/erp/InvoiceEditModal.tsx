@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Modal from '@/components/ui/Modal';
 import { updateServiceInvoice } from '@/actions/erp/billing';
 import { computeGstBreakdown, round2Amount, CGST_RATE_LABEL, SGST_RATE_LABEL } from '@/lib/billing-tax';

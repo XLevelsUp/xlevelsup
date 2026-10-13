@@ -3,7 +3,7 @@
 import { useFormStatus } from 'react-dom';
 import { useState, useEffect, useRef, useActionState } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Button from './ui/Button';
 import { captureLead, type CaptureLeadResult } from '@/actions/capture-lead';
 
@@ -105,15 +105,7 @@ export default function ContactForm({
             // Show success toast
             toast.success(
                 isSupport ? 'Request received. We\'ll be in touch.' : 'Success! Redirecting to booking...',
-                {
-                    duration: 3000,
-                    position: 'top-center',
-                    style: {
-                        background: '#0a0a0a',
-                        color: '#fff',
-                        border: '1px solid #00ffff',
-                    },
-                },
+                { duration: 3000 },
             );
 
             // Sales leads get booked straight onto a call. Support requests must
@@ -130,15 +122,7 @@ export default function ContactForm({
     // Only show error if there's an error AND we haven't succeeded
     useEffect(() => {
         if (state.error && !state.success) {
-            toast.error(state.error, {
-                duration: 4000,
-                position: 'top-center',
-                style: {
-                    background: '#0a0a0a',
-                    color: '#fff',
-                    border: '1px solid #ff0000',
-                },
-            });
+            toast.error(state.error, { duration: 4000 });
         }
     }, [state.error, state.success]);
 

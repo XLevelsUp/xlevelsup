@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { EditIcon, DeleteIcon } from './ActionIcons';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageHeader, PRIMARY_ACTION_CLASS, ROW_ACTION_CLASS } from './PageChrome';
 import type { CompanyHoliday } from '@/lib/erp/holidays';
 import {
@@ -119,15 +120,20 @@ export default function HolidaysManager({
 
   const handleToggleActive = async (holiday: CompanyHoliday) => {
     const nextActive = !holiday.is_active;
-    if (
-      !confirm(
-        nextActive
-          ? `Reactivate "${holiday.name}"? It will reappear on employee calendars.`
-          : `Archive "${holiday.name}"? It will be hidden from employee calendars but kept on record.`,
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog(
+      nextActive
+        ? {
+            title: `Reactivate "${holiday.name}"?`,
+            message: 'It will reappear on employee calendars.',
+            confirmLabel: 'Reactivate',
+          }
+        : {
+            title: `Archive "${holiday.name}"?`,
+            message: 'It will be hidden from employee calendars but kept on record.',
+            confirmLabel: 'Archive',
+          },
+    );
+    if (!confirmed) return;
     const result = await setHolidayActiveAction(holiday.id, nextActive);
     if (result.success) {
       toast.success(nextActive ? 'Holiday reactivated' : 'Holiday archived');

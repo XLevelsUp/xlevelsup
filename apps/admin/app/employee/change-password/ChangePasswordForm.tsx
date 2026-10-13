@@ -12,7 +12,7 @@ import {
 } from '@/actions/erp/employee-auth';
 import Button from '@/components/ui/Button';
 import PasswordField from '@/components/erp/PasswordField';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 
 interface ChangePasswordFormProps {
   employeeName: string;

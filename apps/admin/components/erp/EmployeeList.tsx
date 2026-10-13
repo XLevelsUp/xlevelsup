@@ -12,7 +12,7 @@ import { EditIcon, DeleteIcon } from './ActionIcons';
 import SensitiveValue from './SensitiveValue';
 import type { Employee, EmployeeCareerHistory, EmployeeCareerChangeType } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { deleteEmployeeAction } from '@/actions/erp/employees';
 import { getEmployeeCareerHistoryAction } from '@/actions/erp/employee-career';
 import { getEmployeePayrollHistoryAction } from '@/actions/erp/payroll';

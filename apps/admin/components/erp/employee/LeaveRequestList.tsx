@@ -7,7 +7,8 @@
 import { useState } from 'react';
 import type { LeaveRequest } from '@/types/erp';
 import { cancelLeaveRequestAction } from '@/actions/erp/leave-requests';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface LeaveRequestListProps {
   requests: LeaveRequest[];
@@ -21,9 +22,13 @@ export default function LeaveRequestList({
   const [cancelling, setCancelling] = useState<number | null>(null);
 
   const handleCancel = async (requestId: number) => {
-    if (!confirm('Are you sure you want to cancel this leave request?')) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: 'Cancel this leave request?',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep it',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setCancelling(requestId);
     const result = await cancelLeaveRequestAction(requestId, employeeId);

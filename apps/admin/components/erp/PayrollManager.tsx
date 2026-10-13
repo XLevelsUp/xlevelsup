@@ -23,7 +23,7 @@ import {
 } from './PageChrome';
 import type { PayrollWithEmployee } from '@/types/erp';
 import { formatCurrency, formatDisplayDate, getMonthName, computeNetSalary } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import {
   generatePayrollAction,
   updatePayrollStatusAction,

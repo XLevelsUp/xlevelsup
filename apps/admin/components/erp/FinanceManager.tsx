@@ -25,7 +25,7 @@ import { StatTile, BarBreakdown, TrendChart, type BarBreakdownItem } from './cha
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import type { ReceiptData } from '@/types/billing';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import {
   deleteLedgerEntryAction,
   approveLedgerEntryAction,
@@ -119,6 +119,8 @@ export default function FinanceManager({
   // boolean, so "no filter applied" and "filter set to false" stay distinct
   // both in this state and in the ?gst= URL param it mirrors.
   const [filterGst, setFilterGst] = useState(searchParams.get('gst') || '');
+  // 'yes' | 'no' | '' — same three-state reasoning, mirrors ?gstApplicable=.
+  const [filterGstApplicable, setFilterGstApplicable] = useState(searchParams.get('gstApplicable') || '');
 
   const yearOptions = Array.from({ length: 6 }, (_, i) => String(Number(defaultYear) - i));
 
@@ -126,7 +128,15 @@ export default function FinanceManager({
   // stacked fields filled a whole phone screen before any figure showed.
   // Wide containers always show every field (see `collapsibleField`).
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilterCount = [filterType, filterCategory, filterStatus, filterMode, filterPayee, filterGst].filter(Boolean).length;
+  const activeFilterCount = [
+    filterType,
+    filterCategory,
+    filterStatus,
+    filterMode,
+    filterPayee,
+    filterGst,
+    filterGstApplicable,
+  ].filter(Boolean).length;
   const collapsibleField = filtersOpen ? '' : 'hidden @3xl:block';
 
   // Apply filters to URL query params — accepts overrides so a field's
@@ -143,6 +153,7 @@ export default function FinanceManager({
     mode: string;
     payee: string;
     gst: string;
+    gstApplicable: string;
   }>) => {
     const next = {
       type: filterType,
@@ -154,6 +165,7 @@ export default function FinanceManager({
       mode: filterMode,
       payee: filterPayee,
       gst: filterGst,
+      gstApplicable: filterGstApplicable,
       ...overrides,
     };
     const params = new URLSearchParams();
@@ -171,6 +183,7 @@ export default function FinanceManager({
     if (next.mode) params.set('mode', next.mode);
     if (next.payee) params.set('payee', next.payee);
     if (next.gst) params.set('gst', next.gst);
+    if (next.gstApplicable) params.set('gstApplicable', next.gstApplicable);
     router.push(`/erp/finances?${params.toString()}`);
   };
 
@@ -189,6 +202,7 @@ export default function FinanceManager({
     setFilterMode('');
     setFilterPayee('');
     setFilterGst('');
+    setFilterGstApplicable('');
     setPeriodType('month');
     setFilterMonth(defaultMonth);
     setFilterYear(defaultYear);
@@ -892,6 +906,25 @@ export default function FinanceManager({
               <option value=''>All</option>
               <option value='claimed'>Claimed</option>
               <option value='unclaimed'>Not Claimed</option>
+            </select>
+          </FilterField>
+        )}
+        {/* "Is GST applicable?" is asked of expenses only, so either answer
+            narrows to expenses (see getLedgerEntries) — pointless on the
+            Income and Investments tabs, where it could only ever be empty. */}
+        {currentTab !== 'income' && currentTab !== 'investments' && (
+          <FilterField label='GST Applicable' className={collapsibleField}>
+            <select
+              value={filterGstApplicable}
+              onChange={(e) => {
+                setFilterGstApplicable(e.target.value);
+                applyFilters({ gstApplicable: e.target.value });
+              }}
+              className={FIELD_CLASS}
+            >
+              <option value=''>All</option>
+              <option value='yes'>GST applicable</option>
+              <option value='no'>No GST</option>
             </select>
           </FilterField>
         )}

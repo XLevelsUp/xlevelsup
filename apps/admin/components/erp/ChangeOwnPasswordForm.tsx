@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { changeOwnPasswordAction, logout } from '@/actions/erp/auth';
 import Button from '@/components/ui/Button';
 import PasswordField from './PasswordField';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 
 export default function ChangeOwnPasswordForm() {
   const router = useRouter();

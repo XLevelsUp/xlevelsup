@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import { bulkUpdateAttendanceAction } from '@/actions/erp/attendance';

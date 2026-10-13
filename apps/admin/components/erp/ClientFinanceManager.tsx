@@ -14,7 +14,7 @@ import {
   formatCurrency,
   formatDisplayDate,
 } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { deleteClientTransactionAction, recordTransactionPaymentAction } from '@/actions/erp/client-finances';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types/finance';
 import DeleteConfirmButton from './DeleteConfirmButton';

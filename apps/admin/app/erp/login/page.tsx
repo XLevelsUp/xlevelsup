@@ -4,7 +4,7 @@ import { useFormStatus } from 'react-dom';
 import { useState, useEffect, useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { m as motion } from 'framer-motion';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Button from '@/components/ui/Button';
 import { login, type AuthResult } from '@/actions/erp/auth';
 

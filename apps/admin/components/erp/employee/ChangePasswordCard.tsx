@@ -12,7 +12,7 @@ import { useActionState, useEffect } from 'react';
 import { changePasswordAction, employeeLogoutAction } from '@/actions/erp/employee-auth';
 import Button from '@/components/ui/Button';
 import PasswordField from '@/components/erp/PasswordField';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 
 export default function ChangePasswordCard() {
   // On an error React clears the form once the action resolves — fine for
