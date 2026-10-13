@@ -1,12 +1,14 @@
 'use server';
 
 /**
- * Server Actions for Salary Structures & Templates. All admin/HR-gated —
- * same access level as payroll and career changes.
+ * Server Actions for Salary Structures & Templates. Reads and templates are
+ * admin/HR-gated; adding or cancelling a structure changes pay, so it needs
+ * the approver — same as approving payroll or applying a career change.
  */
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
+import { requireApprover } from '@/lib/erp/approver';
 import {
   getSalaryStructureHistory,
   createSalaryStructure,
@@ -49,7 +51,10 @@ export async function createSalaryStructureAction(
   formData: FormData,
 ): Promise<SalaryStructureActionResult> {
   try {
-    const session = await requireRole(['admin', 'hr']);
+    // A new revision changes what payroll pays, so only the approver can add
+    // one directly — anyone else raises a salary revision (career change),
+    // which waits for the approver to apply it.
+    const session = await requireApprover();
 
     const validated = structureSchema.parse({
       employee_id: Number(formData.get('employee_id')),
@@ -78,7 +83,7 @@ export async function createSalaryStructureAction(
 
 export async function cancelSalaryStructureAction(id: number): Promise<SalaryStructureActionResult> {
   try {
-    await requireRole(['admin', 'hr']);
+    await requireApprover();
     await cancelSalaryStructure(id);
     revalidatePath('/erp/payroll');
     return { success: true };

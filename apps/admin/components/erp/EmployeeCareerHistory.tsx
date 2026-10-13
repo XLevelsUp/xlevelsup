@@ -11,7 +11,8 @@ import type { EmployeeCareerHistory } from '@/types/erp';
 import { CAREER_CHANGE_TYPE_LABELS } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import { applyCareerChangeAction, cancelCareerChangeAction } from '@/actions/erp/employee-career';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 import { useRouter } from 'next/navigation';
 import SensitiveValue from './SensitiveValue';
 
@@ -100,7 +101,12 @@ export default function EmployeeCareerHistoryComponent({
   const [cancelling, setCancelling] = useState<number | null>(null);
 
   const handleApply = async (id: number) => {
-    if (!confirm('Apply this career change to the employee record now?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Apply this career change now?',
+      message: 'The employee record will be updated immediately.',
+      confirmLabel: 'Apply change',
+    });
+    if (!confirmed) return;
     setApplying(id);
     try {
       const result = await applyCareerChangeAction(id);
@@ -116,7 +122,13 @@ export default function EmployeeCareerHistoryComponent({
   };
 
   const handleCancel = async (id: number) => {
-    if (!confirm('Cancel this scheduled career change?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Cancel this scheduled career change?',
+      confirmLabel: 'Cancel change',
+      cancelLabel: 'Keep it',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setCancelling(id);
     try {
       const result = await cancelCareerChangeAction(id);

@@ -25,6 +25,8 @@ export default async function FinancesPage({
     payee?: string;
     /** 'claimed' | 'unclaimed' — GST input-tax-credit claim filter. */
     gst?: string;
+    /** 'yes' | 'no' — the expense's "Is GST applicable?" answer. */
+    gstApplicable?: string;
   }>;
 }) {
   const session = await getSession();
@@ -95,6 +97,9 @@ export default async function FinancesPage({
     // — `false` is a legitimate filter value ("Not Claimed"), not an absent one.
     gstClaim:
       params.gst === 'claimed' ? true : params.gst === 'unclaimed' ? false : undefined,
+    // Same three-state reasoning as gstClaim.
+    gstApplicable:
+      params.gstApplicable === 'yes' ? true : params.gstApplicable === 'no' ? false : undefined,
   };
 
   const [initialEntries, employees, accounts, clients, financeSummary] = await Promise.all([

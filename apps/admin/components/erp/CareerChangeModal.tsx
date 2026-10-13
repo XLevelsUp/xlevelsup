@@ -12,7 +12,7 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { createCareerChangeAction } from '@/actions/erp/employee-career';
 import { getSalaryTemplatesAction } from '@/actions/erp/salary-structure';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import type {
   Employee,
   EmployeeCareerChangeType,

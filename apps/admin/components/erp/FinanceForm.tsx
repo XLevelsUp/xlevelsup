@@ -2,7 +2,7 @@
 
 import { useFormStatus } from 'react-dom';
 import { useEffect, useActionState, useState, useRef } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Button from '@/components/ui/Button';
 import { createLedgerEntryAction } from '@/actions/erp/finance';
 import { restoreFormValues } from '@/lib/utils/form';
@@ -46,6 +46,10 @@ export default function FinanceForm({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
+  // Controlled, not left to the form: React resets uncontrolled fields when
+  // the action resolves, and restoreFormValues only puts text values back,
+  // so a ticked box would silently clear after a validation error.
+  const [gstApplicable, setGstApplicable] = useState(false);
 
   // Salary expenses are always paid from the company's main operating
   // account, never an invoice-backed vendor bill — so once this account
@@ -511,6 +515,32 @@ export default function FinanceForm({
           </div>
         )}
       </div>
+
+      {/* GST — a vendor expense may or may not carry GST. Salary never does
+          (an internal payout, not a bill), so it isn't asked there; the
+          server enforces the same rule (readGstApplicable). */}
+      {type === 'expense' && !isSalaryExpense && (
+        <label
+          htmlFor='gst_applicable'
+          className='flex items-start gap-3 p-3 rounded-lg bg-dark-800 border border-gray-700 cursor-pointer hover:border-gray-600 transition-colors'
+        >
+          <input
+            type='checkbox'
+            id='gst_applicable'
+            name='gst_applicable'
+            value='true'
+            checked={gstApplicable}
+            onChange={(e) => setGstApplicable(e.target.checked)}
+            className='mt-0.5 w-4 h-4 rounded border-gray-700 bg-dark-800 accent-cyan cursor-pointer'
+          />
+          <span>
+            <span className='block text-sm font-medium text-white'>Is GST applicable for this expense?</span>
+            <span className='block text-xs text-gray-400 mt-0.5'>
+              Tick if the vendor charged GST on it (shown on their invoice).
+            </span>
+          </span>
+        </label>
+      )}
 
       {/* Description Field */}
       <div>

@@ -8,7 +8,8 @@ import { useState } from 'react';
 import type { LeaveRequestWithEmployee } from '@/types/erp';
 import { reviewLeaveRequestAction } from '@/actions/erp/leave-requests';
 import { batchUpdateEarnedLeaveAction } from '@/actions/erp/earned-leave';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
 import LeaveCalendar from './LeaveCalendar';
 import { Table, TableRow, TableCell } from './Table';
@@ -80,13 +81,13 @@ export default function LeaveManagementTable({
   };
 
   const handleAccrueEarnedLeaves = async () => {
-    if (
-      !confirm(
-        'Recalculate earned leave for every employee across all attendance history? Each weekend or company holiday worked for 6+ logged hours earns 1 day. Used earned leave is not affected.'
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: 'Recalculate earned leave for every employee?',
+      message:
+        'Runs across all attendance history. Each weekend or company holiday worked for 6+ logged hours earns 1 day. Used earned leave is not affected.',
+      confirmLabel: 'Recalculate',
+    });
+    if (!confirmed) return;
 
     setIsAccruing(true);
     const result = await batchUpdateEarnedLeaveAction();

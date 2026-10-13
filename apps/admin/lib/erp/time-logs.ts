@@ -95,7 +95,7 @@ async function ensureAttendanceOnClockOut(
 
   const { error: updateError } = await supabase
     .from('attendance')
-    .update({ status: 'present', notes: 'Auto-completed from clock-out' })
+    .update({ status: 'present', notes: 'Auto-completed from clock-out', updated_at: new Date().toISOString() })
     .eq('id', existing.id);
 
   if (updateError) {

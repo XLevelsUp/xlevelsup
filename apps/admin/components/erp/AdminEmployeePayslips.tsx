@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { regeneratePayslipAction } from '@/actions/erp/payroll';
 import type { EmployeePayrollHistoryRow } from '@/lib/erp/payroll';
 import { formatCurrency } from '@/lib/erp/utils';

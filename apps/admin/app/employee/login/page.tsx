@@ -8,7 +8,7 @@ import { useActionState, useEffect, Suspense, useRef, useState, startTransition 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { employeeLoginAction } from '@/actions/erp/employee-auth';
 import Button from '@/components/ui/Button';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { getCurrentPosition } from '@/lib/utils/geolocation';
 
 function EmployeeLoginForm() {
@@ -86,8 +86,7 @@ function EmployeeLoginForm() {
     } catch (error) {
       // Location failed, continue without it
       console.warn('Location capture failed:', error);
-      toast('Location unavailable - continuing without location', {
-        icon: '⚠️',
+      toast.warning('Location unavailable - continuing without location', {
         duration: 2000,
       });
     } finally {

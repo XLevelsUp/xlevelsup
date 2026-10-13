@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { clockInAction, clockOutAction } from '@/actions/erp/time-logs';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import type { TimeLogSummary } from '@/types/erp';
 import { getCurrentPosition } from '@/lib/utils/geolocation';
 import { formatDuration } from '@/lib/erp/utils';
@@ -47,8 +47,7 @@ export default function ClockInOut({
         month: 'short',
         year: 'numeric',
       });
-      toast(`You missed to clock out on ${formattedDate}. Please regularise it.`, {
-        icon: '⚠️',
+      toast.warning(`You missed to clock out on ${formattedDate}. Please regularise it.`, {
         duration: 8000,
         id: 'missed-clock-out-toast',
       });
@@ -197,9 +196,7 @@ export default function ClockInOut({
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Unknown error';
         console.warn('Location capture failed:', error);
-        toast(`Location unavailable (${errMsg}) - clocking out without location`, {
-          icon: '⚠️',
-        });
+        toast.warning(`Location unavailable (${errMsg}) - clocking out without location`);
       }
 
       const result = await clockOutAction(employeeId, undefined, location);

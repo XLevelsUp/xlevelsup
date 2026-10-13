@@ -10,7 +10,10 @@ import {
   authenticateEmployee,
   changeEmployeePassword,
   createEmployeeSession,
+  verifyEmployeePassword,
 } from '@/lib/erp/employee-auth';
+import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
+import { changePasswordSchema, newPasswordSchema } from '@/lib/erp/password-policy';
 import { createLoginLog } from '@/lib/erp/login-logs';
 import type { EmploymentType } from '@/types/erp';
 
@@ -18,18 +21,6 @@ import type { EmploymentType } from '@/types/erp';
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
-});
-
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z
-    .string()
-    .min(8, 'New password must be at least 8 characters')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain uppercase, lowercase, and number',
-    ),
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
 });
 
 /**
@@ -125,47 +116,41 @@ export async function employeeLogoutAction(): Promise<void> {
 }
 
 /**
- * Change password action
+ * Change password action — an employee changing their own portal password
+ * from their profile. Who is changing it always comes from the session,
+ * never from the client, and the current password must be confirmed.
  */
 export async function changePasswordAction(
-  employeeId: number,
   prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getEmployeeSession();
+    if (!session) {
+      return { success: false, error: 'Your session has expired. Please log in again.' };
+    }
+    // Signed in through the admin login (see getEmployeeSession) — that
+    // password lives on the admin account, not here.
+    if (session.viaAdminSession) {
+      return {
+        success: false,
+        error: 'You are signed in with your admin account, so there is no portal password to change here.',
+      };
+    }
+
     const currentPassword = formData.get('currentPassword') as string;
     const newPassword = formData.get('newPassword') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    // Validate input
+    // Validate input — rules, match and "different from current" all live
+    // in the shared schema (lib/erp/password-policy.ts).
     const validated = changePasswordSchema.parse({
       currentPassword,
       newPassword,
       confirmPassword,
     });
 
-    // Check if passwords match
-    if (validated.newPassword !== validated.confirmPassword) {
-      return {
-        success: false,
-        error: 'New passwords do not match',
-      };
-    }
-
-    // Verify current password by attempting to authenticate
-    const { authenticateEmployee } = await import('@/lib/erp/employee-auth');
-    const { getEmployeeById } = await import('@/lib/erp/employees');
-
-    const employee = await getEmployeeById(employeeId);
-    if (!employee) {
-      return { success: false, error: 'Employee not found' };
-    }
-
-    const authResult = await authenticateEmployee(
-      employee.email,
-      validated.currentPassword,
-    );
-    if (!authResult) {
+    if (!(await verifyEmployeePassword(session.id, validated.currentPassword))) {
       return {
         success: false,
         error: 'Current password is incorrect',
@@ -173,7 +158,7 @@ export async function changePasswordAction(
     }
 
     // Change password
-    await changeEmployeePassword(employeeId, validated.newPassword);
+    await changeEmployeePassword(session.id, validated.newPassword);
 
     return { success: true };
   } catch (error) {
@@ -186,41 +171,38 @@ export async function changePasswordAction(
 }
 
 /**
- * Force password change action (for first login)
+ * Force password change action (for first login). No current password is
+ * asked for, so it only works for the signed-in employee, and only while an
+ * admin has required a password change (require_password_change) — never
+ * for an employee ID sent from the client, which would let anyone reset
+ * anyone's password. A voluntary change goes through changePasswordAction.
  */
 export async function forceChangePasswordAction(
-  employeeId: number,
   prevState: { success: boolean; error?: string } | null,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log(
-      'Force change password - Employee ID:',
-      employeeId,
-      'Type:',
-      typeof employeeId,
-    );
-
-    if (!employeeId || typeof employeeId !== 'number') {
-      console.error('Invalid employee ID:', employeeId);
+    const session = await getEmployeeSession();
+    if (!session) {
       return {
         success: false,
-        error: 'Invalid employee ID. Please try logging in again.',
+        error: 'Your session has expired. Please log in again.',
       };
     }
+    if (!session.require_password_change) {
+      return {
+        success: false,
+        error: 'A password change is not required. To change your password, use your profile page.',
+      };
+    }
+    const employeeId = session.id;
 
     const newPassword = formData.get('newPassword') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
     // Validate input
     const schema = z.object({
-      newPassword: z
-        .string()
-        .min(8, 'Password must be at least 8 characters')
-        .regex(
-          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-          'Password must contain uppercase, lowercase, and number',
-        ),
+      newPassword: newPasswordSchema,
       confirmPassword: z.string().min(1, 'Please confirm your password'),
     });
 

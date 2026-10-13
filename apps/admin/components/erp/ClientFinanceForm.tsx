@@ -2,7 +2,7 @@
 
 import { useFormStatus } from 'react-dom';
 import { useEffect, useActionState, useState, useRef } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import Button from '@/components/ui/Button';
 import { createClientTransactionAction, updateClientTransactionAction } from '@/actions/erp/client-finances';
 import { restoreFormValues } from '@/lib/utils/form';

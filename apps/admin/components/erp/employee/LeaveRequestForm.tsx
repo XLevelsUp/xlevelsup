@@ -8,7 +8,7 @@ import { useActionState, useEffect, useState, useRef } from 'react';
 import { createLeaveRequestAction } from '@/actions/erp/leave-requests';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { restoreFormValues } from '@/lib/utils/form';
 import type { LeaveBalance } from '@/types/erp';
 

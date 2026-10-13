@@ -3,7 +3,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import { computeNetSalary, formatDate, getMonthName, splitGrossByTemplate } from '@/lib/erp/utils';
+import { computeNetSalary, formatCurrency, formatDate, getMonthName, splitGrossByTemplate } from '@/lib/erp/utils';
 import { insertLedgerEntry } from '@/lib/erp/finance';
 import { getEmployeeById } from '@/lib/erp/employees';
 import { generatePayslipPdf, uploadPayslipPdf } from '@/lib/erp/payslips';
@@ -163,7 +163,54 @@ export async function createPayroll(
 }
 
 /**
- * Update payroll adjustments (bonus, deduction, notes)
+ * Why a payroll row's figures can't be changed, for any status but draft.
+ *
+ * A finalized (paid) payslip is an immutable snapshot — if a later salary or
+ * attendance correction needs to happen, it belongs in a fresh payroll run,
+ * never a silent edit to a record an employee has already been paid (and
+ * downloaded a PDF for) against. An approved row is locked too, so what gets
+ * paid is exactly what the approver approved; to change it, the approver
+ * moves it back to draft first (updatePayrollStatus).
+ */
+function lockedPayrollMessage(status: Payroll['status']): string {
+  return status === 'paid'
+    ? 'Cannot modify a finalized (paid) payroll record'
+    : 'This payroll record is approved, so its figures are locked. The approver must move it back to Draft before it can be changed.';
+}
+
+/** Net pay can never go below zero — deductions can take it to nil at most. */
+function assertNonNegativeNet(netSalary: number): void {
+  if (netSalary < 0) {
+    throw new Error(
+      `Deductions exceed this month's pay — net salary would be ${formatCurrency(netSalary)}. Net pay cannot be negative.`,
+    );
+  }
+}
+
+/**
+ * Write new figures to a draft payroll row. The status filter is part of the
+ * update itself, so a row approved (or paid) after it was read is never
+ * changed underneath the approver.
+ */
+async function updateDraftPayroll(id: number, changes: Partial<Payroll>): Promise<Payroll> {
+  const { data, error } = await supabase
+    .from('payroll')
+    .update({ ...changes, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', 'draft')
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    const { data: current } = await supabase.from('payroll').select('status').eq('id', id).maybeSingle();
+    throw new Error(current ? lockedPayrollMessage(current.status) : 'Payroll record not found');
+  }
+  return data;
+}
+
+/**
+ * Update payroll adjustments (bonus, deduction, notes). Draft rows only.
  */
 export async function updatePayrollAdjustments(
   id: number,
@@ -179,13 +226,11 @@ export async function updatePayrollAdjustments(
     .single();
 
   if (fetchError) throw fetchError;
-  // A finalized (paid) payslip is an immutable snapshot — if a later salary
-  // or attendance correction needs to happen, it belongs in a fresh payroll
-  // run, never a silent edit to a record an employee has already been paid
-  // (and downloaded a PDF for) against.
-  if (payroll.status === 'paid') {
-    throw new Error('Cannot modify a finalized (paid) payroll record');
+  if (payroll.status !== 'draft') {
+    throw new Error(lockedPayrollMessage(payroll.status));
   }
+  if (bonus < 0) throw new Error('Bonus cannot be negative');
+  if (deduction < 0) throw new Error('Deduction cannot be negative');
 
   // Must go through computeNetSalary: gross_salary is the full contracted
   // salary, so a plain `gross + bonus - deduction` here would silently drop
@@ -203,29 +248,21 @@ export async function updatePayrollAdjustments(
     tds_deduction: payroll.tds_deduction,
     other_structured_deduction: payroll.other_structured_deduction,
   });
+  assertNonNegativeNet(netSalary);
 
-  const { data, error } = await supabase
-    .from('payroll')
-    .update({
-      bonus,
-      deduction,
-      net_salary: netSalary,
-      notes: notes || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  return updateDraftPayroll(id, {
+    bonus,
+    deduction,
+    net_salary: netSalary,
+    notes: notes || null,
+  });
 }
 
 /**
  * Update the structured deductions (PF/ESI/Professional Tax/TDS/Other) on a
  * payroll row. None of these are ever auto-applied — every field defaults to
  * 0 (see createPayroll) and only changes when an admin explicitly sets one
- * here. Blocked once the record is paid, same as updatePayrollAdjustments.
+ * here. Draft rows only, same as updatePayrollAdjustments.
  */
 export async function updatePayrollDeductions(
   id: number,
@@ -244,8 +281,8 @@ export async function updatePayrollDeductions(
     .single();
 
   if (fetchError) throw fetchError;
-  if (payroll.status === 'paid') {
-    throw new Error('Cannot modify a finalized (paid) payroll record');
+  if (payroll.status !== 'draft') {
+    throw new Error(lockedPayrollMessage(payroll.status));
   }
   for (const [label, value] of Object.entries(deductions)) {
     if (value < 0) throw new Error(`${label} cannot be negative`);
@@ -260,20 +297,12 @@ export async function updatePayrollDeductions(
     deduction: payroll.deduction,
     ...deductions,
   });
+  assertNonNegativeNet(netSalary);
 
-  const { data, error } = await supabase
-    .from('payroll')
-    .update({
-      ...deductions,
-      net_salary: netSalary,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  return updateDraftPayroll(id, {
+    ...deductions,
+    net_salary: netSalary,
+  });
 }
 
 /**
@@ -289,40 +318,52 @@ export async function updatePayrollStatus(
 ): Promise<Payroll> {
   const { data: existing, error: fetchError } = await supabase
     .from('payroll')
-    .select('status')
+    .select('status, net_salary')
     .eq('id', id)
     .single();
   if (fetchError) throw fetchError;
   if (existing.status === 'paid') {
     throw new Error('Cannot modify a finalized (paid) payroll record');
   }
+  if (status === 'approved') assertNonNegativeNet(existing.net_salary);
 
-  const updateData: Partial<Payroll> = {
-    status,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (status === 'approved') {
-    updateData.approved_by = userId;
-    updateData.approved_at = new Date().toISOString();
-  }
+  // Moving back to draft unlocks the figures, so the earlier approval no
+  // longer stands — it is cleared and has to be given again.
+  const updateData: Partial<Payroll> =
+    status === 'approved'
+      ? { status, approved_by: userId, approved_at: new Date().toISOString() }
+      : { status, approved_by: null, approved_at: null };
+  updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('payroll')
     .update(updateData)
     .eq('id', id)
+    .neq('status', 'paid')
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error('Cannot modify a finalized (paid) payroll record');
   return data;
 }
 
 /**
  * Mark a payroll record as paid via bank transfer, with a mandatory
- * reference ID. Creates the matching financial_ledger outflow entry first —
- * a payroll run is never left marked "paid" without a financial record
- * backing it — then flips the payroll status.
+ * reference ID, and record the matching financial_ledger outflow entry.
+ *
+ * Exactly one ledger entry per payroll row, even with a double submit or two
+ * tabs:
+ *  1. The row is claimed first — moved to 'paid' by an update that only
+ *     matches while it is still approved. Only one request
+ *     can win that; any other gets nothing back and stops before touching
+ *     the ledger.
+ *  2. The ledger entry is written for the claimed row. If a previous attempt
+ *     already wrote one (it succeeded but the status update never landed),
+ *     that entry is kept instead of adding a second. A unique index on
+ *     financial_ledger(payroll_id) for payroll entries backs this up.
+ *  3. If the ledger write fails, the claim is released, so a row is never
+ *     left marked "paid" without a financial record backing it.
  */
 export async function markPayrollPaid(
   id: number,
@@ -336,54 +377,83 @@ export async function markPayrollPaid(
   if (record.status === 'paid') {
     throw new Error('This payroll record is already marked as paid');
   }
+  // Only approved figures are ever paid — a draft has to be approved first.
+  if (record.status !== 'approved') {
+    throw new Error('This payroll record must be approved before it can be marked paid');
+  }
+  assertNonNegativeNet(record.net_salary);
 
-  // Generate and attach the payslip. Non-fatal: a PDF hiccup must never
-  // block the actual payment from being recorded — the ledger entry (with
-  // its reference ID) is what matters most, the payslip is a convenience
-  // attached alongside it.
-  let receiptPath: string | null = null;
-  try {
-    const rendered = await renderPayslipForPayroll(record, { preview: false });
-    if (rendered) {
-      receiptPath = await uploadPayslipPdf(rendered.pdf, rendered.employeeIdDisplay, record.month);
-    }
-  } catch (err) {
-    console.error('Failed to generate/upload payslip:', err);
+  const now = new Date().toISOString();
+  const { data: claimed, error: claimError } = await supabase
+    .from('payroll')
+    .update({ status: 'paid', paid_by: userId, paid_at: now, finalized_at: now, updated_at: now })
+    .eq('id', id)
+    .eq('status', 'approved')
+    .select()
+    .maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimed) {
+    throw new Error('This payroll record was changed or paid by someone else just now. Refresh and check it before trying again.');
   }
 
-  const ledgerEntry: LedgerFormData = {
-    transaction_type: 'payroll',
-    direction: 'outflow',
-    category: 'Salary',
-    amount: record.net_salary,
-    transaction_date: formatDate(new Date()),
-    payment_mode: 'Bank Transfer',
-    payment_status: 'completed',
-    employee_id: record.employee_id,
-    payroll_id: record.id,
-    payee_name: record.employee_name,
-    reference_number: referenceNumber,
-    description: `Salary payment — ${record.employee_name} (${getMonthName(record.month)})`,
-    approval_status: 'paid',
-    receipt_path: receiptPath,
+  /** Undo the claim — back to approved, with its approval intact. */
+  const releaseClaim = async () => {
+    const { error } = await supabase
+      .from('payroll')
+      .update({ status: 'approved', paid_by: null, paid_at: null, finalized_at: null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('status', 'paid');
+    if (error) console.error('Failed to release payroll paid claim:', error);
   };
-  await insertLedgerEntry(ledgerEntry, userId);
 
-  const { data, error } = await supabase
-    .from('payroll')
-    .update({
-      status: 'paid',
-      paid_by: userId,
-      paid_at: new Date().toISOString(),
-      finalized_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select()
-    .single();
+  try {
+    // A ledger entry left behind by an earlier attempt that never finished
+    // flipping the status: that payment is already recorded — keep it.
+    if (await getPayrollLedgerEntry(id)) {
+      return claimed;
+    }
 
-  if (error) throw error;
-  return data;
+    // From the claimed row: its figures can no longer change (edits need a
+    // draft row), so the ledger and payslip match exactly what was paid.
+    const paidRecord: PayrollWithEmployee = { ...record, ...claimed };
+
+    // Generate and attach the payslip. Non-fatal: a PDF hiccup must never
+    // block the actual payment from being recorded — the ledger entry (with
+    // its reference ID) is what matters most, the payslip is a convenience
+    // attached alongside it.
+    let receiptPath: string | null = null;
+    try {
+      const rendered = await renderPayslipForPayroll(paidRecord, { preview: false });
+      if (rendered) {
+        receiptPath = await uploadPayslipPdf(rendered.pdf, rendered.employeeIdDisplay, paidRecord.month);
+      }
+    } catch (err) {
+      console.error('Failed to generate/upload payslip:', err);
+    }
+
+    const ledgerEntry: LedgerFormData = {
+      transaction_type: 'payroll',
+      direction: 'outflow',
+      category: 'Salary',
+      amount: paidRecord.net_salary,
+      transaction_date: formatDate(new Date()),
+      payment_mode: 'Bank Transfer',
+      payment_status: 'completed',
+      employee_id: paidRecord.employee_id,
+      payroll_id: paidRecord.id,
+      payee_name: paidRecord.employee_name,
+      reference_number: referenceNumber,
+      description: `Salary payment — ${paidRecord.employee_name} (${getMonthName(paidRecord.month)})`,
+      approval_status: 'paid',
+      receipt_path: receiptPath,
+    };
+    await insertLedgerEntry(ledgerEntry, userId);
+  } catch (err) {
+    await releaseClaim();
+    throw err;
+  }
+
+  return claimed;
 }
 
 /**
@@ -484,9 +554,11 @@ export async function regeneratePaidPayslip(payrollId: number): Promise<void> {
 }
 
 /**
- * Delete a payroll record. Paid (finalized) records are permanent — they
- * back a ledger payment and an issued payslip, and deleting one would let
- * the month be generated and paid a second time.
+ * Delete a draft payroll record. Paid (finalized) records are permanent —
+ * they back a ledger payment and an issued payslip, and deleting one would
+ * let the month be generated and paid a second time. Approved records are
+ * kept too: deleting and regenerating one would change approved figures
+ * without the approver (see lockedPayrollMessage).
  */
 export async function deletePayroll(id: number): Promise<void> {
   const { data: existing, error: fetchError } = await supabase
@@ -495,37 +567,46 @@ export async function deletePayroll(id: number): Promise<void> {
     .eq('id', id)
     .maybeSingle();
   if (fetchError) throw fetchError;
-  if (existing?.status === 'paid') {
-    throw new Error('Cannot delete a finalized (paid) payroll record');
+  if (existing && existing.status !== 'draft') {
+    throw new Error(
+      existing.status === 'paid'
+        ? 'Cannot delete a finalized (paid) payroll record'
+        : 'Cannot delete an approved payroll record. The approver must move it back to Draft first.',
+    );
   }
 
-  const { error } = await supabase.from('payroll').delete().eq('id', id).neq('status', 'paid');
+  const { error } = await supabase.from('payroll').delete().eq('id', id).eq('status', 'draft');
   if (error) throw error;
 }
 
 /**
- * Delete all not-yet-paid payroll records for a given month (e.g. to
- * regenerate from scratch). Paid records are always kept — see deletePayroll.
+ * Delete all draft payroll records for a given month (e.g. to regenerate
+ * from scratch). Approved and paid records are always kept — see
+ * deletePayroll.
  */
 export async function deletePayrollByMonth(
   month: string,
-): Promise<{ deleted: number; keptPaid: number }> {
+): Promise<{ deleted: number; keptPaid: number; keptApproved: number }> {
   const { data, error } = await supabase
     .from('payroll')
     .delete()
     .eq('month', month)
-    .neq('status', 'paid')
+    .eq('status', 'draft')
     .select('id');
   if (error) throw error;
 
-  const { count, error: countError } = await supabase
+  const { data: kept, error: keptError } = await supabase
     .from('payroll')
-    .select('id', { count: 'exact', head: true })
+    .select('status')
     .eq('month', month)
-    .eq('status', 'paid');
-  if (countError) throw countError;
+    .neq('status', 'draft');
+  if (keptError) throw keptError;
 
-  return { deleted: (data || []).length, keptPaid: count || 0 };
+  return {
+    deleted: (data || []).length,
+    keptPaid: (kept || []).filter((r) => r.status === 'paid').length,
+    keptApproved: (kept || []).filter((r) => r.status === 'approved').length,
+  };
 }
 
 /**

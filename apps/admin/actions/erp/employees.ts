@@ -2,6 +2,8 @@
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
+import { isApprover } from '@/lib/erp/approver';
+import { APPROVER_EMPLOYEE_ID } from '@/config/approvals.config';
 import {
   getAllEmployees,
   getEmployeeById,
@@ -143,7 +145,7 @@ export async function updateEmployeeAction(
   formData: FormData,
 ): Promise<EmployeeActionResult> {
   try {
-    await requireRole(['admin', 'hr']);
+    const session = await requireRole(['admin', 'hr']);
 
     const rawData = {
       employee_id: (formData.get('employee_id') as string) || undefined,
@@ -168,6 +170,23 @@ export async function updateEmployeeAction(
     };
 
     const validatedData = employeeSchema.parse(rawData);
+
+    // Pay changes need the approver. Anyone else changes salary through a
+    // salary revision (career change), which waits for the approver.
+    const current = await getEmployeeById(id);
+    if (!current) return { success: false, error: 'Employee not found' };
+    const amountChanged = (a?: number | null, b?: number | null) => Number(a ?? 0) !== Number(b ?? 0);
+    const payChanged =
+      validatedData.salary_type !== current.salary_type ||
+      amountChanged(validatedData.monthly_salary, current.monthly_salary) ||
+      amountChanged(validatedData.hourly_rate, current.hourly_rate);
+    if (payChanged && !(await isApprover(session))) {
+      return {
+        success: false,
+        error: `Salary changes need the approver (${APPROVER_EMPLOYEE_ID}). Raise a salary revision from Career Change instead.`,
+      };
+    }
+
     const employee = await updateEmployee(id, validatedData);
 
     revalidatePath('/erp/employees');

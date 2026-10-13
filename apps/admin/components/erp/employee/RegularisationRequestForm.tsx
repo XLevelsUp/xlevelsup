@@ -13,7 +13,7 @@ import {
 } from '@/actions/erp/attendance-change-requests';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { restoreFormValues } from '@/lib/utils/form';
 import type { AttendanceRegularisationType } from '@/types/erp';
 

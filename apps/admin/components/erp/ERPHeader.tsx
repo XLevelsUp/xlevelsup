@@ -3,10 +3,13 @@
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { logout } from '@/actions/erp/auth';
-import toast from 'react-hot-toast';
-import { useState } from 'react';
+import { toast } from '@/lib/toast';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSensitiveData } from './SensitiveDataContext';
 import UpcomingEventsPanel from './UpcomingEventsPanel';
+import ChangeOwnPasswordForm from './ChangeOwnPasswordForm';
+import Modal from '@/components/ui/Modal';
 
 interface ERPHeaderProps {
   userEmail: string;
@@ -26,6 +29,13 @@ export default function ERPHeader({
   const pathname = usePathname();
   const router = useRouter();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // SSR-safe portal gate for the Change Password dialog (document doesn't
+  // exist during server render) — same pattern as UpcomingEventsPanel.tsx.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
   const { visible: financialsVisible, toggle: toggleFinancialsVisible } = useSensitiveData();
 
   // Generate page title and breadcrumbs from pathname
@@ -179,6 +189,19 @@ export default function ERPHeader({
                 <button
                   onClick={() => {
                     setShowProfileDropdown(false);
+                    setShowChangePassword(true);
+                  }}
+                  className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-white rounded-md hover:bg-gray-850 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>Change Password</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileDropdown(false);
                     handleLogout();
                   }}
                   className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-400 hover:text-red-300 rounded-md hover:bg-red-500/10 transition-colors mt-1"
@@ -193,6 +216,26 @@ export default function ERPHeader({
           )}
         </div>
       </div>
+
+      {/* Portaled to <body>: this header's backdrop-blur makes it the
+          containing block for fixed-position children, so a modal rendered
+          in place would be clipped to the 64px header — same reason
+          UpcomingEventsPanel portals its drawer. */}
+      {mounted &&
+        createPortal(
+          <Modal
+            isOpen={showChangePassword}
+            onClose={() => setShowChangePassword(false)}
+            title="Change Password"
+            maxWidthClassName="max-w-md"
+          >
+            <p className="text-sm text-gray-400 mb-4">
+              Update the password you use to log in to the admin panel as {userEmail}.
+            </p>
+            <ChangeOwnPasswordForm />
+          </Modal>,
+          document.body,
+        )}
     </header>
   );
 }

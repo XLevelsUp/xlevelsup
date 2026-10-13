@@ -10,7 +10,7 @@ import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import type { Employee, Attendance, LeaveBalance, LeaveRequestWithEmployee, TimeLog } from '@/types/erp';
 import { formatDisplayDate, formatDateSpan, getMonthName, formatDuration } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
 import { getEmployeeLeaveBalanceAction } from '@/actions/erp/leave-requests';
 import DeleteConfirmButton from './DeleteConfirmButton';

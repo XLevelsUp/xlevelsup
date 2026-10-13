@@ -26,14 +26,14 @@ import { getAllEmployees } from '@/lib/erp/employees';
 import { getPayslipSignedUrl } from '@/lib/erp/payslips';
 import { getMonthlyAttendanceByEmployeeDate } from '@/lib/erp/attendance';
 import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
-import { getApprovedLeaveStatusByEmployeeDate } from '@/lib/erp/leave-requests';
+import { getApprovedLeaveByEmployeeDate } from '@/lib/erp/leave-requests';
 import { getOffDayWork } from '@/lib/erp/earned-leave';
 import {
   getWorkingDayDatesInMonth,
   calculatePayroll,
   getMonthDateRange,
   splitGrossByTemplate,
-  type PayrollAttendanceStatus,
+  type PayrollDayRecord,
 } from '@/lib/erp/utils';
 import { revalidatePath } from 'next/cache';
 import type { Payroll, PayrollWithEmployee } from '@/types/erp';
@@ -50,6 +50,8 @@ export interface PayrollBulkSummary {
   deletedCount?: number;
   /** Paid (finalized) records a month delete left in place. */
   keptPaidCount?: number;
+  /** Approved (locked) records a month delete left in place. */
+  keptApprovedCount?: number;
   /** Why a generate run was refused — see MissingAttendance. */
   missingAttendance?: MissingAttendance[];
 }
@@ -57,7 +59,7 @@ export interface PayrollBulkSummary {
 /** One employee's attendance gaps that block a payroll run. */
 export interface MissingAttendance {
   employee: string;
-  /** Working days with no attendance row (and no approved leave). */
+  /** Working days with no attendance row (and no approved full-day leave). */
   dates: string[];
   /** Weekend/holiday days worked but never clocked out, or with no hours logged. */
   offDayDates: string[];
@@ -133,7 +135,7 @@ export async function generatePayrollAction(
 
     // One query for the whole run, rather than one per employee.
     const attendanceByEmployee = await getMonthlyAttendanceByEmployeeDate(month);
-    const leaveByEmployee = await getApprovedLeaveStatusByEmployeeDate(workingDayDates);
+    const leaveByEmployee = await getApprovedLeaveByEmployeeDate(workingDayDates);
     const defaultTemplate = await getDefaultSalaryTemplate();
 
     // Weekend/holiday work that was never clocked out or has no hours logged.
@@ -200,12 +202,16 @@ export async function generatePayrollAction(
         continue;
       }
 
-      // Approved leave fills only the days attendance has no row for — a
-      // recorded attendance row always wins.
-      const attendanceByDate = new Map<string, PayrollAttendanceStatus>([
-        ...(leaveByEmployee.get(employee.id) || []),
-        ...(attendanceByEmployee.get(employee.id) || []),
-      ]);
+      // Attendance and approved leave side by side, per date — which one a
+      // day counts as is decided in calculatePayroll (resolvePayrollDay).
+      const employeeAttendance = attendanceByEmployee.get(employee.id);
+      const employeeLeave = leaveByEmployee.get(employee.id);
+      const daysByDate = new Map<string, PayrollDayRecord>();
+      for (const date of workingDayDates) {
+        const attendance = employeeAttendance?.get(date);
+        const leave = employeeLeave?.get(date);
+        if (attendance || leave) daysByDate.set(date, { attendance, leave });
+      }
 
       // A converted intern is only salaried from the conversion date — the
       // days before it were internship (stipend), so they're outside the
@@ -222,7 +228,7 @@ export async function generatePayrollAction(
       const calculation = calculatePayroll(
         effectiveGrossSalary,
         workingDayDates,
-        attendanceByDate,
+        daysByDate,
         { from: salariedFrom, to: employee.end_date },
       );
 
@@ -359,8 +365,8 @@ const deductionsSchema = z.object({
 /**
  * Update the structured deductions (PF/ESI/Professional Tax/TDS/Other) on a
  * payroll row. Every field defaults to 0 — nothing here is ever auto-applied;
- * an admin must explicitly enter an amount. Blocked once the record is paid
- * (see updatePayrollDeductions).
+ * an admin must explicitly enter an amount. Draft rows only — approved and
+ * paid figures are locked (see updatePayrollDeductions).
  */
 export async function updatePayrollDeductionsAction(
   id: number,
@@ -481,7 +487,8 @@ export async function deletePayrollAction(
 }
 
 /**
- * Delete all payroll records for a month (so it can be regenerated from scratch)
+ * Delete all draft payroll records for a month (so it can be regenerated
+ * from scratch). Approved and paid records are kept.
  */
 export async function deletePayrollForMonthAction(
   month: string,
@@ -493,10 +500,13 @@ export async function deletePayrollForMonthAction(
       return { success: false, error: 'Invalid month format' };
     }
 
-    const { deleted, keptPaid } = await deletePayrollByMonth(month);
+    const { deleted, keptPaid, keptApproved } = await deletePayrollByMonth(month);
 
     revalidatePath('/erp/payroll');
-    return { success: true, payroll: { deletedCount: deleted, keptPaidCount: keptPaid } };
+    return {
+      success: true,
+      payroll: { deletedCount: deleted, keptPaidCount: keptPaid, keptApprovedCount: keptApproved },
+    };
   } catch (error) {
     console.error('Delete payroll for month error:', error);
     return { success: false, error: 'Failed to delete payroll for month' };

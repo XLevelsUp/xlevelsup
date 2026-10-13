@@ -1,12 +1,14 @@
 'use server';
 
 /**
- * Server actions for the "Upcoming Events" panel (admin/erp header) —
- * merges employee birthdays, work anniversaries, and company holidays
- * (public + floater) into one sorted timeline.
+ * Server actions for the "Upcoming Events" panel (admin/erp header) and the
+ * calendar sidebar (admin and employee dashboards) — merges employee
+ * birthdays, work anniversaries, and company holidays (public + floater)
+ * into one sorted timeline.
  */
 
 import { getSession } from '@/lib/auth';
+import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import {
   getUpcomingBirthdays,
   getUpcomingAnniversaries,
@@ -76,16 +78,23 @@ function mergeEvents(
 }
 
 /**
+ * Any logged-in ERP user (admin, HR, or staff with admin login) or any
+ * logged-in employee on the portal can see the calendar — none of it is
+ * sensitive, unlike salary/financial data: names and dates only, never a
+ * birth year or age.
+ */
+async function canViewEvents(): Promise<boolean> {
+  return !!(await getSession()) || !!(await getEmployeeSession());
+}
+
+/**
  * Get all upcoming events (birthdays, anniversaries, holidays) within
- * `withinDays` of today, merged and sorted soonest-first. Any logged-in
- * ERP user (admin, HR, or staff with admin login) can view this — none of
- * it is sensitive, unlike salary/financial data.
+ * `withinDays` of today, merged and sorted soonest-first.
  */
 export async function getUpcomingEventsAction(
   withinDays: number = 30,
 ): Promise<UpcomingEvent[]> {
-  const session = await getSession();
-  if (!session) return [];
+  if (!(await canViewEvents())) return [];
 
   const [birthdays, anniversaries, holidays] = await Promise.all([
     getUpcomingBirthdays(withinDays),
@@ -105,8 +114,7 @@ export async function getMonthEventsAction(
   year: number,
   month: number,
 ): Promise<UpcomingEvent[]> {
-  const session = await getSession();
-  if (!session) return [];
+  if (!(await canViewEvents())) return [];
 
   const [birthdays, anniversaries, holidays] = await Promise.all([
     getBirthdaysInMonth(year, month),

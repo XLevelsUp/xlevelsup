@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { Table, TableRow, TableCell } from './Table';
 import MonthPicker from './MonthPicker';
 import InvoiceReceiptModal from './InvoiceReceiptModal';

@@ -93,7 +93,7 @@ export async function createSalaryStructure(
     source_career_history_id?: number | null;
   },
   createdBy: number | null,
-  options: { becomesFullTime?: boolean } = {},
+  options: { becomesFullTime?: boolean; pending?: boolean } = {},
 ): Promise<EmployeeSalaryStructure> {
   const grossSalary = assertGrossMatchesComponents(data);
   if (grossSalary <= 0) {
@@ -142,7 +142,9 @@ export async function createSalaryStructure(
       other_allowance: data.other_allowance,
       gross_salary: grossSalary,
       effective_from: data.effective_from,
-      status: 'active',
+      // 'pending' rows are invisible to payroll (getEffectiveSalaryStructure
+      // reads only 'active') until the approver activates them.
+      status: options.pending ? 'pending' : 'active',
       source_career_history_id: data.source_career_history_id ?? null,
       created_by: createdBy,
     })
@@ -158,6 +160,10 @@ export async function createSalaryStructure(
  * intern_conversion) when it results in a full-time employee with a
  * breakdown supplied. Tags the row with source_career_history_id so
  * cancelCareerChangeById can find and cancel it if the change is cancelled.
+ *
+ * `pending`: the change was raised by someone other than the approver, so
+ * the structure must not reach payroll until the approver applies the
+ * change (activateSalaryStructureByCareerHistoryId).
  */
 export async function createSalaryStructureFromCareerChange(
   employeeId: number,
@@ -165,6 +171,7 @@ export async function createSalaryStructureFromCareerChange(
   effectiveDate: string,
   careerHistoryId: number,
   createdBy: number | null,
+  { pending = false }: { pending?: boolean } = {},
 ): Promise<EmployeeSalaryStructure> {
   return createSalaryStructure(
     {
@@ -174,8 +181,18 @@ export async function createSalaryStructureFromCareerChange(
       source_career_history_id: careerHistoryId,
     },
     createdBy,
-    { becomesFullTime: true },
+    { becomesFullTime: true, pending },
   );
+}
+
+/** Make a career change's pending structure (if any) count for payroll — on approval. */
+export async function activateSalaryStructureByCareerHistoryId(careerHistoryId: number): Promise<void> {
+  const { error } = await supabase
+    .from('employee_salary_structure')
+    .update({ status: 'active', updated_at: new Date().toISOString() })
+    .eq('source_career_history_id', careerHistoryId)
+    .eq('status', 'pending');
+  if (error) throw error;
 }
 
 /**
@@ -209,7 +226,7 @@ export async function cancelSalaryStructureByCareerHistoryId(careerHistoryId: nu
     .from('employee_salary_structure')
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('source_career_history_id', careerHistoryId)
-    .eq('status', 'active');
+    .in('status', ['active', 'pending']);
   if (error) throw error;
 }
 

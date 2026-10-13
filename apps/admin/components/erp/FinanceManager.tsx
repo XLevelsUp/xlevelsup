@@ -25,7 +25,7 @@ import { StatTile, BarBreakdown, TrendChart, type BarBreakdownItem } from './cha
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import type { ReceiptData } from '@/types/billing';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import {
   deleteLedgerEntryAction,
   approveLedgerEntryAction,
@@ -119,6 +119,8 @@ export default function FinanceManager({
   // boolean, so "no filter applied" and "filter set to false" stay distinct
   // both in this state and in the ?gst= URL param it mirrors.
   const [filterGst, setFilterGst] = useState(searchParams.get('gst') || '');
+  // 'yes' | 'no' | '' — same three-state reasoning, mirrors ?gstApplicable=.
+  const [filterGstApplicable, setFilterGstApplicable] = useState(searchParams.get('gstApplicable') || '');
 
   const yearOptions = Array.from({ length: 6 }, (_, i) => String(Number(defaultYear) - i));
 
@@ -126,7 +128,15 @@ export default function FinanceManager({
   // stacked fields filled a whole phone screen before any figure showed.
   // Wide containers always show every field (see `collapsibleField`).
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilterCount = [filterType, filterCategory, filterStatus, filterMode, filterPayee, filterGst].filter(Boolean).length;
+  const activeFilterCount = [
+    filterType,
+    filterCategory,
+    filterStatus,
+    filterMode,
+    filterPayee,
+    filterGst,
+    filterGstApplicable,
+  ].filter(Boolean).length;
   const collapsibleField = filtersOpen ? '' : 'hidden @3xl:block';
 
   // Apply filters to URL query params — accepts overrides so a field's
@@ -143,6 +153,7 @@ export default function FinanceManager({
     mode: string;
     payee: string;
     gst: string;
+    gstApplicable: string;
   }>) => {
     const next = {
       type: filterType,
@@ -154,6 +165,7 @@ export default function FinanceManager({
       mode: filterMode,
       payee: filterPayee,
       gst: filterGst,
+      gstApplicable: filterGstApplicable,
       ...overrides,
     };
     const params = new URLSearchParams();
@@ -171,6 +183,7 @@ export default function FinanceManager({
     if (next.mode) params.set('mode', next.mode);
     if (next.payee) params.set('payee', next.payee);
     if (next.gst) params.set('gst', next.gst);
+    if (next.gstApplicable) params.set('gstApplicable', next.gstApplicable);
     router.push(`/erp/finances?${params.toString()}`);
   };
 
@@ -189,6 +202,7 @@ export default function FinanceManager({
     setFilterMode('');
     setFilterPayee('');
     setFilterGst('');
+    setFilterGstApplicable('');
     setPeriodType('month');
     setFilterMonth(defaultMonth);
     setFilterYear(defaultYear);
@@ -653,6 +667,23 @@ export default function FinanceManager({
     );
   };
 
+  /** The Add Expense form's "Is GST applicable?" answer, for expense rows —
+   * a small tag beside the claimed checkbox, so what's eligible to claim is
+   * visible at a glance. */
+  const renderGstApplicable = (entry: FinancialLedgerEntry) =>
+    entry.transaction_type === 'expense' && (
+      <span
+        className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap border ${
+          entry.gst_applicable
+            ? 'bg-cyan/10 text-cyan border-cyan/30'
+            : 'bg-dark-800 text-gray-500 border-gray-800'
+        }`}
+        title={entry.gst_applicable ? 'GST applicable on this expense' : 'No GST on this expense'}
+      >
+        {entry.gst_applicable ? 'GST' : 'No GST'}
+      </span>
+    );
+
   const renderRowActions = (entry: FinancialLedgerEntry) => (
     <>
       {entry.approval_status === 'pending' &&
@@ -878,6 +909,25 @@ export default function FinanceManager({
             </select>
           </FilterField>
         )}
+        {/* "Is GST applicable?" is asked of expenses only, so either answer
+            narrows to expenses (see getLedgerEntries) — pointless on the
+            Income and Investments tabs, where it could only ever be empty. */}
+        {currentTab !== 'income' && currentTab !== 'investments' && (
+          <FilterField label='GST Applicable' className={collapsibleField}>
+            <select
+              value={filterGstApplicable}
+              onChange={(e) => {
+                setFilterGstApplicable(e.target.value);
+                applyFilters({ gstApplicable: e.target.value });
+              }}
+              className={FIELD_CLASS}
+            >
+              <option value=''>All</option>
+              <option value='yes'>GST applicable</option>
+              <option value='no'>No GST</option>
+            </select>
+          </FilterField>
+        )}
         <FilterField label='Payee / Vendor' className={collapsibleField}>
           <input
             type='search'
@@ -1080,7 +1130,14 @@ export default function FinanceManager({
                         <TableCell>{renderAmount(entry)}</TableCell>
                         <TableCell>{renderReceipt(entry, <span className='text-xs text-gray-600'>—</span>)}</TableCell>
                         <TableCell>
-                          {entry.direction === 'outflow' ? renderGstClaim(entry) : <span className='text-xs text-gray-600'>—</span>}
+                          {entry.direction === 'outflow' ? (
+                            <div className='flex items-center gap-2'>
+                              {renderGstApplicable(entry)}
+                              {renderGstClaim(entry)}
+                            </div>
+                          ) : (
+                            <span className='text-xs text-gray-600'>—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className='flex items-center gap-2'>
@@ -1137,6 +1194,7 @@ export default function FinanceManager({
 
                       <div className='mt-3 flex flex-wrap items-center gap-2'>
                         {renderReceipt(entry, null)}
+                        {renderGstApplicable(entry)}
                         {entry.direction === 'outflow' && renderGstClaim(entry, true)}
                         {renderRowActions(entry)}
                         <button
@@ -1311,6 +1369,10 @@ export default function FinanceManager({
               <DetailField label='Payment Mode' value={detailsEntry.payment_mode} />
               <DetailField label='Reference ID' value={detailsEntry.reference_number} mono />
               <DetailField label='Invoice Number' value={detailsEntry.invoice_number} mono />
+              <DetailField
+                label='GST Applicable'
+                value={detailsEntry.transaction_type === 'expense' ? (detailsEntry.gst_applicable ? 'Yes' : 'No') : undefined}
+              />
               <DetailField label='Client' value={detailsEntry.client_name} />
               <DetailField label='Project' value={detailsEntry.project_name} />
               <DetailField label='Payee' value={detailsEntry.payee_name} />

@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { getMyPayslipUrlAction } from '@/actions/erp/employee-payslips';
 import type { EmployeePayslip } from '@/lib/erp/payroll';
 import { formatCurrency, getMonthName } from '@/lib/erp/utils';

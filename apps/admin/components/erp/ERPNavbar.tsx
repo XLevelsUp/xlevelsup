@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { logout } from '@/actions/erp/auth';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 
 interface ERPNavbarProps {
   userEmail: string;

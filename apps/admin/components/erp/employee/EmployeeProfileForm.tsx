@@ -12,7 +12,7 @@ import { useActionState, useEffect, useRef, useState } from 'react';
 import { updateOwnBasicDetailsAction } from '@/actions/erp/employees';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import { restoreFormValues } from '@/lib/utils/form';
 import type { Employee } from '@/types/erp';
 

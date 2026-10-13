@@ -11,13 +11,14 @@ import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import type { Expense, Employee, ExpenseStatus } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/toast';
 import {
   updateExpenseStatusAction,
   deleteExpenseAction,
   markExpenseReimbursedAction,
 } from '@/actions/erp/expenses';
 import DeleteConfirmButton from './DeleteConfirmButton';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -84,7 +85,11 @@ export default function ExpenseManager({
   };
 
   const handleMarkReimbursed = async (id: number) => {
-    if (!confirm('Mark this expense as reimbursed?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Mark this expense as reimbursed?',
+      confirmLabel: 'Mark reimbursed',
+    });
+    if (!confirmed) return;
 
     const result = await markExpenseReimbursedAction(id);
     if (result.success) {

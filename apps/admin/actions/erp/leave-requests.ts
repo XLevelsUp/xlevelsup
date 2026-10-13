@@ -23,6 +23,7 @@ import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { requireRole } from '@/lib/auth';
 import { requireApprover } from '@/lib/erp/approver';
 import { getTodayIST } from '@/lib/erp/utils';
+import { PayrollLockedError } from '@/lib/erp/payroll-lock';
 
 /**
  * Floater leave may only be taken ON a designated floater holiday, one day at
@@ -257,6 +258,9 @@ export async function createLeaveRequestAction(
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
     }
+    if (error instanceof PayrollLockedError) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: 'Failed to create leave request' };
   }
 }
@@ -403,6 +407,9 @@ export async function cancelLeaveRequestAction(
     return { success: true };
   } catch (error) {
     console.error('Cancel leave request error:', error);
+    if (error instanceof PayrollLockedError) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: 'Failed to cancel leave request' };
   }
 }

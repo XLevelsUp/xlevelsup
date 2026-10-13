@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * Persistent right-hand calendar widget for the ERP dashboard — a compact
- * month grid (dots mark days with events) plus a list of what those events
- * are, merging birthdays, work anniversaries and company holidays.
+ * Persistent right-hand calendar widget for the ERP dashboard and the
+ * employee portal dashboard — a compact month grid (dots mark days with
+ * events) plus a list of what those events are, merging birthdays, work
+ * anniversaries and company holidays.
  *
  * Distinct from UpcomingEventsPanel (the header's slide-over drawer, opened
  * on click): this is always visible rather than something you have to
@@ -11,7 +12,8 @@
  * the icon/color/date-label mapping in eventDisplayHelpers.ts, so a holiday
  * added there shows up identically in both places without extra wiring.
  *
- * The initial month is server-fetched (see app/erp/dashboard/page.tsx) so
+ * The initial month is server-fetched (see app/erp/dashboard/page.tsx and
+ * app/employee/dashboard/page.tsx) so
  * the widget paints with real data on first load rather than an empty grid
  * that fills in a moment later; navigating to a different month fetches
  * client-side via the same getMonthEventsAction the drawer already uses.
