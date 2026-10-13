@@ -44,7 +44,19 @@ function SubmitButton() {
     );
 }
 
-export default function ContactForm() {
+/**
+ * `support` locks the service field to "Support" and skips the booking
+ * redirect — a client reporting a problem should not be sent to a sales call.
+ */
+type ContactFormVariant = 'contact' | 'support';
+
+const SUPPORT_SERVICE = 'Support';
+
+export default function ContactForm({
+    variant = 'contact',
+}: { variant?: ContactFormVariant } = {}) {
+    const isSupport = variant === 'support';
+
     // `state.success` already is the success flag — mirroring it into component
     // state meant an effect had to copy one into the other on every submit.
     // Render reads it directly now; this ref only guards the one-shot toast and
@@ -56,7 +68,7 @@ export default function ContactForm() {
         name: '',
         email: '',
         phone: '',
-        service: '',
+        service: isSupport ? SUPPORT_SERVICE : '',
     });
 
     // useActionState requires action with signature: (state, formData) => Promise<state>
@@ -91,22 +103,28 @@ export default function ContactForm() {
             celebratedRef.current = true;
 
             // Show success toast
-            toast.success('Success! Redirecting to booking...', {
-                duration: 3000,
-                position: 'top-center',
-                style: {
-                    background: '#0a0a0a',
-                    color: '#fff',
-                    border: '1px solid #00ffff',
+            toast.success(
+                isSupport ? 'Request received. We\'ll be in touch.' : 'Success! Redirecting to booking...',
+                {
+                    duration: 3000,
+                    position: 'top-center',
+                    style: {
+                        background: '#0a0a0a',
+                        color: '#fff',
+                        border: '1px solid #00ffff',
+                    },
                 },
-            });
+            );
 
-            // Wait 1.5 seconds for user to see success, then redirect
-            setTimeout(() => {
-                window.open('https://cal.com/pranesh-s-zomkol/growth-audit', '_blank');
-            }, 1500);
+            // Sales leads get booked straight onto a call. Support requests must
+            // not — someone reporting a broken site has no use for a sales page.
+            if (!isSupport) {
+                setTimeout(() => {
+                    window.open('https://cal.com/pranesh-s-zomkol/growth-audit', '_blank');
+                }, 1500);
+            }
         }
-    }, [state.success]);
+    }, [state.success, isSupport]);
 
     // Show error toast if submission failed (form data is preserved)
     // Only show error if there's an error AND we haven't succeeded
@@ -185,23 +203,46 @@ export default function ContactForm() {
 
                     <div>
                         <label htmlFor="service" className="block text-sm font-medium mb-2">
-                            Service Interested In *
+                            {isSupport ? 'Request Type' : 'Service Interested In *'}
                         </label>
-                        <select
-                            id="service"
-                            name="service"
-                            value={formData.service}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
-                            required
-                        >
-                            <option value="">Select a service</option>
-                            {services.map((service) => (
-                                <option key={service} value={service}>
-                                    {service}
-                                </option>
-                            ))}
-                        </select>
+                        {isSupport ? (
+                            // Fixed value, not a disabled <select>: a disabled control
+                            // submits nothing, which would fail the action's required
+                            // `service` check. A hidden input carries the value while
+                            // the visible box just shows it.
+                            <>
+                                <input type="hidden" name="service" value={SUPPORT_SERVICE} />
+                                <div
+                                    className="w-full px-4 py-3 rounded-lg glass text-gray-300"
+                                    aria-describedby="service-note"
+                                >
+                                    {SUPPORT_SERVICE}
+                                </div>
+                                <p id="service-note" className="mt-2 text-xs text-gray-500">
+                                    Describing a new project instead?{' '}
+                                    <a href="/contact" className="text-cyan underline underline-offset-4">
+                                        Start an enquiry
+                                    </a>
+                                    .
+                                </p>
+                            </>
+                        ) : (
+                            <select
+                                id="service"
+                                name="service"
+                                value={formData.service}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 rounded-lg glass focus:outline-none focus:border-cyan transition-colors"
+                                required
+                            >
+                                <option value="">Select a service</option>
+                                {services.map((service) => (
+                                    <option key={service} value={service}>
+                                        {service}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     <SubmitButton />
@@ -227,8 +268,14 @@ export default function ContactForm() {
                             <path d="M5 13l4 4L19 7"></path>
                         </svg>
                     </div>
-                    <h3 className="text-2xl font-bold mb-2 gradient-text">Success!</h3>
-                    <p className="text-gray-300">Redirecting to booking page...</p>
+                    <h3 className="text-2xl font-bold mb-2 gradient-text">
+                        {isSupport ? 'Request received' : 'Success!'}
+                    </h3>
+                    <p className="text-gray-300">
+                        {isSupport
+                            ? 'We\'ll reply within the response times above. Urgent? Call us.'
+                            : 'Redirecting to booking page...'}
+                    </p>
                 </motion.div>
             )}
         </AnimatePresence>

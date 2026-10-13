@@ -37,6 +37,7 @@ const COMPANY = [
     { href: '/work', label: 'Work' },
     { href: '/careers', label: 'Careers' },
     { href: '/contact', label: 'Contact' },
+    { href: '/support', label: 'Support' },
     { href: '/privacy', label: 'Privacy Policy' },
 ];
 
