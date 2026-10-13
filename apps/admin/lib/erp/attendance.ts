@@ -3,7 +3,8 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import type { PayrollAttendanceStatus } from '@/lib/erp/utils';
+import type { PayrollAttendanceEntry, PayrollAttendanceStatus } from '@/lib/erp/utils';
+import { assertPayrollNotGenerated, monthsOf } from '@/lib/erp/payroll-lock';
 import type {
   Attendance,
   AttendanceFormData,
@@ -70,6 +71,8 @@ export async function createAttendance(
   data: AttendanceFormData,
   createdBy: number,
 ): Promise<Attendance> {
+  await assertPayrollNotGenerated([data.employee_id], monthsOf([data.date]));
+
   const { data: attendance, error } = await supabase
     .from('attendance')
     .insert({
@@ -96,6 +99,8 @@ export async function updateAttendance(
   date: string,
   data: AttendanceFormData,
 ): Promise<Attendance> {
+  await assertPayrollNotGenerated([employeeId], monthsOf([date]));
+
   const { data: attendance, error } = await supabase
     .from('attendance')
     .update({
@@ -122,6 +127,8 @@ export async function deleteAttendance(
   employeeId: number,
   date: string,
 ): Promise<void> {
+  await assertPayrollNotGenerated([employeeId], monthsOf([date]));
+
   const { error } = await supabase
     .from('attendance')
     .delete()
@@ -146,6 +153,10 @@ export async function bulkUpsertAttendance(
   createdBy: number,
   halfDayPeriod: Attendance['half_day_period'] = null,
 ): Promise<{ created: number; updated: number }> {
+  // All or nothing: one locked employee-month refuses the whole batch, so a
+  // bulk edit is never half-applied.
+  await assertPayrollNotGenerated(employeeIds, monthsOf(dates));
+
   const { data: existing, error: fetchError } = await supabase
     .from('attendance')
     .select('id, employee_id, date')
@@ -261,7 +272,7 @@ export async function getMonthlyAttendanceSummary(
 
 /**
  * Attendance for a whole month, for every employee at once, as
- * employee_id -> (YYYY-MM-DD -> status).
+ * employee_id -> (YYYY-MM-DD -> status and when it last changed).
  *
  * Payroll needs the per-date status rather than the bare counts that
  * getMonthlyAttendanceSummary returns, so it can tell a working day apart
@@ -270,7 +281,7 @@ export async function getMonthlyAttendanceSummary(
  */
 export async function getMonthlyAttendanceByEmployeeDate(
   month: string,
-): Promise<Map<number, Map<string, PayrollAttendanceStatus>>> {
+): Promise<Map<number, Map<string, PayrollAttendanceEntry>>> {
   const startDate = `${month}-01`;
   const nextMonth = new Date(month + '-01');
   nextMonth.setMonth(nextMonth.getMonth() + 1);
@@ -278,13 +289,13 @@ export async function getMonthlyAttendanceByEmployeeDate(
 
   const { data, error } = await supabase
     .from('attendance')
-    .select('employee_id, date, status')
+    .select('employee_id, date, status, created_at, updated_at')
     .gte('date', startDate)
     .lt('date', nextMonthStr);
 
   if (error) throw error;
 
-  const byEmployee = new Map<number, Map<string, PayrollAttendanceStatus>>();
+  const byEmployee = new Map<number, Map<string, PayrollAttendanceEntry>>();
 
   for (const record of data || []) {
     // `date` can come back as a full timestamp depending on the column type;
@@ -293,10 +304,15 @@ export async function getMonthlyAttendanceByEmployeeDate(
 
     let dates = byEmployee.get(record.employee_id);
     if (!dates) {
-      dates = new Map<string, PayrollAttendanceStatus>();
+      dates = new Map<string, PayrollAttendanceEntry>();
       byEmployee.set(record.employee_id, dates);
     }
-    dates.set(dateKey, record.status as PayrollAttendanceStatus);
+    // When it last changed, so payroll can tell whether it or an approved
+    // leave for the same day is the more recent decision.
+    dates.set(dateKey, {
+      status: record.status as PayrollAttendanceStatus,
+      changed_at: record.updated_at ?? record.created_at ?? null,
+    });
   }
 
   return byEmployee;

@@ -6,7 +6,11 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import { createSalaryStructureFromCareerChange, cancelSalaryStructureByCareerHistoryId } from '@/lib/erp/salary-structure';
+import {
+  createSalaryStructureFromCareerChange,
+  cancelSalaryStructureByCareerHistoryId,
+  activateSalaryStructureByCareerHistoryId,
+} from '@/lib/erp/salary-structure';
 import type {
   EmployeeCareerHistory,
   EmployeeCareerHistoryWithNames,
@@ -232,9 +236,11 @@ export async function insertEmployeeCareerHistory(
   // Other breakdown was supplied (see CareerChangeModal.tsx), also create the
   // structured employee_salary_structure row — in addition to the flat
   // monthly_salary update above, which is kept for backward-compatible
-  // display/history. Inserted immediately regardless of isFuture: the
-  // structure's own effective_from date already governs when payroll
-  // generation will pick it up, so there's nothing to defer.
+  // display/history. Inserted immediately: the structure's own
+  // effective_from date governs when payroll generation picks it up. But
+  // when anyone other than the approver raised the change, it's inserted as
+  // 'pending' — invisible to payroll — and only becomes active when the
+  // approver applies the change (applyCareerChangeById).
   const breakdownSupplied =
     formData.new_basic_salary !== undefined &&
     formData.new_hra !== undefined &&
@@ -264,6 +270,7 @@ export async function insertEmployeeCareerHistory(
         formData.effective_date,
         data.id,
         requestedBy,
+        { pending: !requesterIsApprover },
       );
     }
   }
@@ -350,6 +357,10 @@ export async function applyCareerChangeById(
     new_salary_type: record.new_salary_type,
     new_salary: record.new_salary,
   });
+
+  // The approver applying it is the approval: a structure raised with the
+  // change by someone else now counts for payroll.
+  await activateSalaryStructureByCareerHistoryId(historyId);
 
   // Mark history record as applied
   const { error: updateError } = await supabase

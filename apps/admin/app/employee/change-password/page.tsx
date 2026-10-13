@@ -14,6 +14,11 @@ export default async function ChangePasswordPage() {
   if (!session) {
     redirect('/employee/login');
   }
+  // Only for a required change (forceChangePasswordAction refuses anything
+  // else) — a voluntary change lives on the profile page.
+  if (!session.require_password_change) {
+    redirect('/employee/profile');
+  }
 
   return (
     <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-4'>
@@ -43,10 +48,7 @@ export default async function ChangePasswordPage() {
 
         {/* Password Change Form */}
         <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 shadow-xl'>
-          <ChangePasswordForm
-            employeeId={session.id}
-            employeeName={session.name}
-          />
+          <ChangePasswordForm employeeName={session.name} />
         </div>
       </div>
     </div>

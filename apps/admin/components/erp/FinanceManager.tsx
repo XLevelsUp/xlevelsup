@@ -653,6 +653,23 @@ export default function FinanceManager({
     );
   };
 
+  /** The Add Expense form's "Is GST applicable?" answer, for expense rows —
+   * a small tag beside the claimed checkbox, so what's eligible to claim is
+   * visible at a glance. */
+  const renderGstApplicable = (entry: FinancialLedgerEntry) =>
+    entry.transaction_type === 'expense' && (
+      <span
+        className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap border ${
+          entry.gst_applicable
+            ? 'bg-cyan/10 text-cyan border-cyan/30'
+            : 'bg-dark-800 text-gray-500 border-gray-800'
+        }`}
+        title={entry.gst_applicable ? 'GST applicable on this expense' : 'No GST on this expense'}
+      >
+        {entry.gst_applicable ? 'GST' : 'No GST'}
+      </span>
+    );
+
   const renderRowActions = (entry: FinancialLedgerEntry) => (
     <>
       {entry.approval_status === 'pending' &&
@@ -1080,7 +1097,14 @@ export default function FinanceManager({
                         <TableCell>{renderAmount(entry)}</TableCell>
                         <TableCell>{renderReceipt(entry, <span className='text-xs text-gray-600'>—</span>)}</TableCell>
                         <TableCell>
-                          {entry.direction === 'outflow' ? renderGstClaim(entry) : <span className='text-xs text-gray-600'>—</span>}
+                          {entry.direction === 'outflow' ? (
+                            <div className='flex items-center gap-2'>
+                              {renderGstApplicable(entry)}
+                              {renderGstClaim(entry)}
+                            </div>
+                          ) : (
+                            <span className='text-xs text-gray-600'>—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className='flex items-center gap-2'>
@@ -1137,6 +1161,7 @@ export default function FinanceManager({
 
                       <div className='mt-3 flex flex-wrap items-center gap-2'>
                         {renderReceipt(entry, null)}
+                        {renderGstApplicable(entry)}
                         {entry.direction === 'outflow' && renderGstClaim(entry, true)}
                         {renderRowActions(entry)}
                         <button
@@ -1311,6 +1336,10 @@ export default function FinanceManager({
               <DetailField label='Payment Mode' value={detailsEntry.payment_mode} />
               <DetailField label='Reference ID' value={detailsEntry.reference_number} mono />
               <DetailField label='Invoice Number' value={detailsEntry.invoice_number} mono />
+              <DetailField
+                label='GST Applicable'
+                value={detailsEntry.transaction_type === 'expense' ? (detailsEntry.gst_applicable ? 'Yes' : 'No') : undefined}
+              />
               <DetailField label='Client' value={detailsEntry.client_name} />
               <DetailField label='Project' value={detailsEntry.project_name} />
               <DetailField label='Payee' value={detailsEntry.payee_name} />

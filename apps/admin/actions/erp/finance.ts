@@ -54,7 +54,21 @@ const ledgerEntrySchema = z.object({
   approval_status: z.enum(['pending', 'approved', 'rejected', 'paid']).nullable().optional(),
   account_id: z.number().nullable().optional(),
   receipt_path: z.string().nullable().optional(),
+  gst_applicable: z.boolean().optional(),
 });
+
+/**
+ * The Add Expense form's "Is GST applicable?" checkbox. Only a non-salary
+ * expense can carry GST — salary is an internal payout, never a GST bill —
+ * so anything else is stored as not applicable whatever was submitted.
+ */
+function readGstApplicable(formData: FormData, data: Pick<LedgerFormData, 'transaction_type' | 'category'>): boolean {
+  return (
+    data.transaction_type === 'expense' &&
+    data.category !== 'Salary' &&
+    formData.get('gst_applicable') === 'true'
+  );
+}
 
 export interface FinanceActionResult {
   success: boolean;
@@ -193,6 +207,10 @@ export async function createLedgerEntryAction(
       rawData.receipt_path = await uploadReceiptFile(receiptFile);
     }
 
+    // After the employee clamp above, so a reimbursement never carries it.
+    // Only sent when true: the column defaults to false, so leaving it out
+    // means the same thing.
+    if (readGstApplicable(formData, rawData)) rawData.gst_applicable = true;
     rawData.payee_name = await resolveSalaryPayeeName(rawData);
 
     const validatedData = ledgerEntrySchema.parse(rawData);

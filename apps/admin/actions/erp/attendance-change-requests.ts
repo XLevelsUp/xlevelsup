@@ -16,6 +16,7 @@ import {
 } from '@/lib/erp/attendance-change-requests';
 import { checkLeaveBalanceAvailable } from '@/lib/erp/leave-requests';
 import { requireApprover } from '@/lib/erp/approver';
+import { PayrollLockedError } from '@/lib/erp/payroll-lock';
 import type { AttendanceStatus, AttendanceRegularisationType } from '@/types/erp';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,6 +248,9 @@ export async function createAttendanceChangeRequestAction(
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
     }
+    if (error instanceof PayrollLockedError) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: 'Failed to create request' };
   }
 }
@@ -313,6 +317,9 @@ export async function createAttendanceRegularisationRequestAction(
     console.error('Create regularisation request error:', error);
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
+    }
+    if (error instanceof PayrollLockedError) {
+      return { success: false, error: error.message };
     }
     return { success: false, error: 'Failed to submit regularisation request' };
   }

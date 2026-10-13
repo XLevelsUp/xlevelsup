@@ -11,7 +11,8 @@ import type {
 } from '@/types/erp';
 import { getNonFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
 import { syncEarnedLeaveBalance } from '@/lib/erp/earned-leave';
-import { isAttendanceWorkingDay, type PayrollAttendanceStatus } from '@/lib/erp/utils';
+import { isAttendanceWorkingDay, type PayrollLeaveEntry } from '@/lib/erp/utils';
+import { assertPayrollNotGenerated, monthsInRange } from '@/lib/erp/payroll-lock';
 
 /**
  * A leave_requests row as PostgREST returns it from the joined select, with
@@ -219,6 +220,11 @@ export async function createLeaveRequest(
   employeeId: number,
   data: LeaveRequestFormData,
 ): Promise<LeaveRequest> {
+  // Leave for a month already in payroll could never be approved.
+  if (data.leave_type !== 'wfh') {
+    await assertPayrollNotGenerated([employeeId], monthsInRange(data.start_date, data.end_date), 'leave');
+  }
+
   // Half-day requests are always 0.5 day (for a single working day);
   // otherwise count working days across the range as before.
   const totalDays = data.is_half_day
@@ -282,36 +288,39 @@ export async function updateLeaveRequest(
 }
 
 /**
- * What approved leave says about each of the given dates, per employee — for
- * payroll to fall back on where a working day has no attendance row.
- * Approving leave only updates the leave balance; it never writes attendance,
- * so without this an approved leave day would read as unrecorded.
+ * Approved leave covering each of the given dates, per employee, for payroll
+ * to weigh against the day's attendance row (see resolvePayrollDay in
+ * lib/erp/utils.ts). Approving leave only updates the leave balance; it never
+ * writes attendance, so without this an approved leave day would read as
+ * unrecorded — or a day marked absent before the leave was approved would
+ * stay loss of pay.
  *
- * Unpaid leave maps to 'unpaid-leave' and every other leave type to
- * 'paid-leave'. WFH (not leave — the day is still worked and clocked) and
- * half-day requests (the other half still has to be recorded) are left out,
- * so those days stay unrecorded until attendance is entered.
+ * Unpaid leave counts as unpaid and every other leave type as paid — paid
+ * types are only approved while the balance covers them (see
+ * checkLeaveBalanceAvailable), so anything beyond the allowance has to be
+ * taken as unpaid leave and is deducted. A half-day request covers half the
+ * day. WFH is left out: it isn't leave, the day is still worked and clocked.
  */
-export async function getApprovedLeaveStatusByEmployeeDate(
+export async function getApprovedLeaveByEmployeeDate(
   dates: string[],
-): Promise<Map<number, Map<string, PayrollAttendanceStatus>>> {
-  const byEmployee = new Map<number, Map<string, PayrollAttendanceStatus>>();
+): Promise<Map<number, Map<string, PayrollLeaveEntry>>> {
+  const byEmployee = new Map<number, Map<string, PayrollLeaveEntry>>();
   if (dates.length === 0) return byEmployee;
 
   const sorted = [...dates].sort();
   const { data, error } = await supabase
     .from('leave_requests')
-    .select('employee_id, leave_type, start_date, end_date, is_half_day')
+    .select('employee_id, leave_type, start_date, end_date, is_half_day, reviewed_at, updated_at')
     .eq('status', 'approved')
     .neq('leave_type', 'wfh')
-    .eq('is_half_day', false)
     .lte('start_date', sorted[sorted.length - 1])
     .gte('end_date', sorted[0]);
   if (error) throw error;
 
   for (const request of data || []) {
-    const status: PayrollAttendanceStatus =
-      request.leave_type === 'unpaid' ? 'unpaid-leave' : 'paid-leave';
+    const share = request.is_half_day ? 0.5 : 1;
+    const isPaid = request.leave_type !== 'unpaid';
+    const approvedAt: string | null = request.reviewed_at ?? request.updated_at ?? null;
     let byDate = byEmployee.get(request.employee_id);
     if (!byDate) {
       byDate = new Map();
@@ -319,9 +328,14 @@ export async function getApprovedLeaveStatusByEmployeeDate(
     }
     // All YYYY-MM-DD, so a string compare is a date compare.
     for (const date of sorted) {
-      if (date >= request.start_date && date <= request.end_date) {
-        byDate.set(date, status);
+      if (date < request.start_date || date > request.end_date) continue;
+      const entry = byDate.get(date) ?? { paid: 0, unpaid: 0, approved_at: null };
+      if (isPaid) entry.paid += share;
+      else entry.unpaid += share;
+      if (approvedAt && (!entry.approved_at || Date.parse(approvedAt) > Date.parse(entry.approved_at))) {
+        entry.approved_at = approvedAt;
       }
+      byDate.set(date, entry);
     }
   }
 
@@ -349,6 +363,15 @@ export async function cancelLeaveRequest(
     throw new Error('Leave request not found or cannot be cancelled');
 
   const wasApproved = existingRequest.status === 'approved';
+  // Withdrawing approved leave changes how payroll counts those days — not
+  // allowed once their month is in payroll. (WFH isn't read by payroll.)
+  if (wasApproved && existingRequest.leave_type !== 'wfh') {
+    await assertPayrollNotGenerated(
+      [employeeId],
+      monthsInRange(existingRequest.start_date, existingRequest.end_date),
+      'leave',
+    );
+  }
 
   // Update the leave request status to cancelled
   const { error } = await supabase
@@ -424,6 +447,15 @@ export async function reviewLeaveRequest(
     throw new Error('Leave request not found or already reviewed');
 
   if (status === 'approved') {
+    // Approved leave changes how payroll counts those days (see
+    // getApprovedLeaveByEmployeeDate) — not once their month is in payroll.
+    if (existingRequest.leave_type !== 'wfh') {
+      await assertPayrollNotGenerated(
+        [existingRequest.employee_id],
+        monthsInRange(existingRequest.start_date, existingRequest.end_date),
+        'leave',
+      );
+    }
     const balanceError = await checkLeaveBalanceAvailable(
       existingRequest.employee_id,
       existingRequest.leave_type,

@@ -78,6 +78,29 @@ export async function authenticateEmployee(
 }
 
 /**
+ * Whether `password` is this employee's current portal password. Unlike
+ * authenticateEmployee, a pure check — no last_login update — for
+ * confirming the current password before changing it.
+ */
+export async function verifyEmployeePassword(
+  employeeId: number,
+  password: string,
+): Promise<boolean> {
+  const { data: employee, error } = await supabase
+    .from('employees')
+    .select('password_hash')
+    .eq('id', employeeId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Database error verifying password:', error.message);
+    return false;
+  }
+  if (!employee?.password_hash) return false;
+  return bcrypt.compare(password, employee.password_hash);
+}
+
+/**
  * Change employee password
  */
 export async function changeEmployeePassword(

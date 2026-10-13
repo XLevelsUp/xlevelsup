@@ -163,6 +163,113 @@ export type PayrollAttendanceStatus =
   | 'holiday'
   | 'in_progress';
 
+/** A day's attendance row as payroll reads it. */
+export interface PayrollAttendanceEntry {
+  status: PayrollAttendanceStatus;
+  /** When the row last changed (updated_at, else created_at) — see resolvePayrollDay. */
+  changed_at: string | null;
+}
+
+/**
+ * Approved leave covering one working day. `paid` + `unpaid` is the share of
+ * the day on leave: 1 for a full day, 0.5 for a half-day request (two
+ * half-day requests on the same date add up to a full day).
+ */
+export interface PayrollLeaveEntry {
+  paid: number;
+  unpaid: number;
+  /** When the (latest) leave covering this day was approved. */
+  approved_at: string | null;
+}
+
+/** Everything payroll knows about one working day. */
+export interface PayrollDayRecord {
+  attendance?: PayrollAttendanceEntry;
+  leave?: PayrollLeaveEntry;
+}
+
+/** How one working day splits across the payroll day counters. Sums to 1. */
+interface PayrollDayShare {
+  present: number;
+  half: number;
+  paidLeave: number;
+  unpaidLeave: number;
+  absent: number;
+  payable: number;
+}
+
+const EMPTY_SHARE: PayrollDayShare = { present: 0, half: 0, paidLeave: 0, unpaidLeave: 0, absent: 0, payable: 0 };
+
+/** The share of a day (1 = whole day, 0.5 = the half not on leave) an attendance status accounts for. */
+function attendanceShare(status: PayrollAttendanceStatus, portion: number): PayrollDayShare {
+  switch (status) {
+    case 'paid-leave':
+      return { ...EMPTY_SHARE, paidLeave: portion, payable: portion };
+    case 'unpaid-leave':
+      return { ...EMPTY_SHARE, unpaidLeave: portion };
+    case 'absent':
+      return { ...EMPTY_SHARE, absent: portion };
+    case 'half-day':
+      // A whole-day half-day row: half worked, half unpaid. When half the day
+      // is already on leave, the half-day row is just the worked half.
+      return portion === 1
+        ? { ...EMPTY_SHARE, half: 1, payable: 0.5 }
+        : { ...EMPTY_SHARE, present: portion, payable: portion };
+    // 'present', 'in_progress' (clocked in, not yet out), and 'holiday'
+    // logged against a working day.
+    default:
+      return { ...EMPTY_SHARE, present: portion, payable: portion };
+  }
+}
+
+/**
+ * Decide what one working day counts as, from its attendance row and any
+ * approved leave. Returns null when the day isn't accounted for.
+ *
+ *  - Full-day leave and an attendance row: whichever changed most recently
+ *    wins. Leave approved after the day was marked absent pays it as leave
+ *    (the balance was used for it); attendance re-recorded after the leave
+ *    was approved overrides the leave. Without timestamps to compare, the
+ *    attendance row wins.
+ *  - Half-day leave: the leave covers its half — paid, or deducted if it was
+ *    unpaid leave — and the attendance row says what happened in the other
+ *    half. With no attendance row the other half is unaccounted for.
+ */
+export function resolvePayrollDay(day: PayrollDayRecord | undefined): PayrollDayShare | null {
+  const attendance = day?.attendance;
+  const leave = day?.leave;
+  const leaveDays = leave ? Math.min(1, leave.paid + leave.unpaid) : 0;
+
+  if (!leave || leaveDays <= 0) {
+    return attendance ? attendanceShare(attendance.status, 1) : null;
+  }
+
+  // Scale to the day, so overlapping requests can never count more than one.
+  const paid = leave.paid * (leaveDays / (leave.paid + leave.unpaid));
+  const unpaid = leaveDays - paid;
+  const leaveShare: PayrollDayShare = { ...EMPTY_SHARE, paidLeave: paid, unpaidLeave: unpaid, payable: paid };
+
+  if (leaveDays >= 1) {
+    if (!attendance) return leaveShare;
+    const leaveIsNewer =
+      !!leave.approved_at &&
+      !!attendance.changed_at &&
+      Date.parse(leave.approved_at) > Date.parse(attendance.changed_at);
+    return leaveIsNewer ? leaveShare : attendanceShare(attendance.status, 1);
+  }
+
+  if (!attendance) return null;
+  const rest = attendanceShare(attendance.status, 1 - leaveDays);
+  return {
+    present: rest.present,
+    half: rest.half,
+    paidLeave: leaveShare.paidLeave + rest.paidLeave,
+    unpaidLeave: leaveShare.unpaidLeave + rest.unpaidLeave,
+    absent: rest.absent,
+    payable: leaveShare.payable + rest.payable,
+  };
+}
+
 /** Round a money amount to paise, so stored totals don't drift on float error. */
 export function roundMoney(amount: number): number {
   return Math.round((amount + Number.EPSILON) * 100) / 100;
@@ -206,7 +313,9 @@ export function splitGrossByTemplate(gross: number, template: SalaryComponents &
  *    clock-in cannot push someone above their monthly salary (it used to:
  *    22 or 23 payable days in a 21-day month). Weekend and holiday work is
  *    never paid — it earns earned leave instead (lib/erp/earned-leave.ts).
- *  - A working day with no attendance row at all is NOT paid. Pay is only
+ *  - A working day nobody accounted for — no attendance row and no
+ *    approved full-day leave, or a half-day leave whose other half has no
+ *    attendance row — is NOT paid (see resolvePayrollDay). Pay is only
  *    ever earned by a recorded day, so a gap can never quietly pay someone
  *    for a day nobody accounted for. These days are returned in
  *    `unrecorded_dates`, and generatePayrollAction refuses to run while any
@@ -221,7 +330,7 @@ export function splitGrossByTemplate(gross: number, template: SalaryComponents &
 export function calculatePayroll(
   monthSalary: number,
   workingDayDates: string[],
-  attendanceByDate: Map<string, PayrollAttendanceStatus>,
+  daysByDate: Map<string, PayrollDayRecord>,
   employment?: { from?: string | null; to?: string | null },
 ): PayrollCalculation {
   const totalWorkingDays = workingDayDates.length;
@@ -249,34 +358,18 @@ export function calculatePayroll(
       continue;
     }
 
-    const status = attendanceByDate.get(date);
-
-    switch (status) {
-      case 'paid-leave':
-        paidLeaveDays++;
-        payableDays += 1;
-        break;
-      case 'half-day':
-        halfDays++;
-        payableDays += 0.5;
-        break;
-      case 'unpaid-leave':
-        unpaidLeaveDays++;
-        break;
-      case 'absent':
-        absentDays++;
-        break;
-      // No row at all — unpaid, per the rule above.
-      case undefined:
-        unrecordedDates.push(date);
-        break;
-      // 'present', 'in_progress' (clocked in, not yet out), and 'holiday'
-      // logged against a working day.
-      default:
-        presentDays++;
-        payableDays += 1;
-        break;
+    const share = resolvePayrollDay(daysByDate.get(date));
+    // Not accounted for — unpaid, per the rule above.
+    if (!share) {
+      unrecordedDates.push(date);
+      continue;
     }
+    presentDays += share.present;
+    halfDays += share.half;
+    paidLeaveDays += share.paidLeave;
+    unpaidLeaveDays += share.unpaidLeave;
+    absentDays += share.absent;
+    payableDays += share.payable;
   }
 
   const perDaySalary = totalWorkingDays > 0 ? monthSalary / totalWorkingDays : 0;

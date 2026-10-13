@@ -5,6 +5,7 @@
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
 import { checkLeaveBalanceAvailable } from '@/lib/erp/leave-requests';
+import { assertPayrollNotGenerated, monthsOf } from '@/lib/erp/payroll-lock';
 import type {
   AttendanceChangeRequest,
   AttendanceChangeRequestWithEmployee,
@@ -263,6 +264,9 @@ export async function createAttendanceChangeRequest(
     attendance_id?: number | null;
   },
 ): Promise<AttendanceChangeRequest> {
+  // A request for a month that's already in payroll could never be approved.
+  await assertPayrollNotGenerated([employeeId], monthsOf([requestData.request_date]));
+
   const { data, error } = await supabase
     .from('attendance_change_requests')
     .insert({
@@ -298,6 +302,8 @@ export async function createAttendanceRegularisationRequest(
   employeeId: number,
   formData: AttendanceRegularisationFormData,
 ): Promise<AttendanceChangeRequest> {
+  await assertPayrollNotGenerated([employeeId], monthsOf([formData.request_date]));
+
   // For regularisation requests the "requested_status" is always 'present'
   // (we're correcting clock times, not attendance status)
   const { data, error } = await supabase
@@ -347,6 +353,11 @@ export async function reviewAttendanceChangeRequest(
   if (fetchError) throw fetchError;
   if (!request) throw new Error('Request not found');
   if (request.status !== 'pending') throw new Error('Request has already been reviewed');
+  // Rejecting changes nothing, so it stays allowed; approving would change
+  // attendance (or the clock times behind it) for a month already in payroll.
+  if (status === 'approved') {
+    await assertPayrollNotGenerated([request.employee_id], monthsOf([request.request_date]));
+  }
 
   if (
     status === 'approved' &&

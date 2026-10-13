@@ -129,6 +129,9 @@ export default function PayrollManager({
   const [markingPaid, setMarkingPaid] = useState(false);
   const [deductionsRecord, setDeductionsRecord] = useState<PayrollWithEmployee | null>(null);
   const [savingDeductions, setSavingDeductions] = useState(false);
+  // Net pay as the deductions form currently stands, so a negative net is
+  // caught before saving.
+  const [deductionsNet, setDeductionsNet] = useState(0);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(
     () => new Set(eligibleEmployees.map((e) => e.id)),
   );
@@ -250,8 +253,10 @@ export default function PayrollManager({
 
     if (result.success) {
       const kept = result.payroll?.keptPaidCount ?? 0;
+      const keptApproved = result.payroll?.keptApprovedCount ?? 0;
       toast.success(
-        `Deleted ${result.payroll?.deletedCount ?? 0} payroll record(s) for ${getMonthName(deleteMonthValue)}.` +
+        `Deleted ${result.payroll?.deletedCount ?? 0} draft payroll record(s) for ${getMonthName(deleteMonthValue)}.` +
+          (keptApproved > 0 ? ` ${keptApproved} approved record(s) were kept — move them back to Draft to delete them.` : '') +
           (kept > 0 ? ` ${kept} paid (finalized) record(s) were kept.` : '') +
           ' You can now generate fresh ones for this month.',
         { duration: 5000 },
@@ -356,11 +361,23 @@ export default function PayrollManager({
     );
   };
 
+  // Only a draft's figures can change — approved ones are locked so what is
+  // paid is exactly what was approved (move it back to Draft to edit).
   const renderEditDeductions = (record: PayrollWithEmployee, asChip = false) =>
-    record.status !== 'paid' && (
+    record.status === 'approved' ? (
+      <span
+        className='text-[11px] text-gray-500 whitespace-nowrap'
+        title='Approved figures are locked. Move it back to Draft to change them.'
+      >
+        Locked
+      </span>
+    ) : record.status === 'draft' && (
       <button
         type='button'
-        onClick={() => setDeductionsRecord(record)}
+        onClick={() => {
+          setDeductionsRecord(record);
+          setDeductionsNet(record.net_salary);
+        }}
         className={
           asChip
             ? `${ROW_ACTION_CLASS} border-gray-700 text-gray-300 hover:text-white hover:border-gray-500`
@@ -396,7 +413,10 @@ export default function PayrollManager({
       >
         <option value='draft'>Draft</option>
         <option value='approved'>Approved</option>
-        <option value='paid'>Paid</option>
+        {/* Only approved figures can be paid — approve a draft first. */}
+        <option value='paid' disabled={record.status !== 'approved'}>
+          Paid
+        </option>
       </select>
     );
 
@@ -419,7 +439,7 @@ export default function PayrollManager({
             ? 'Payslip'
             : 'Preview'}
       </button>
-      {record.status !== 'paid' && (
+      {record.status === 'draft' && (
         <DeleteConfirmButton
           onConfirm={() => handleDelete(record.id)}
           message='Are you sure you want to delete this payroll record?'
@@ -736,16 +756,18 @@ export default function PayrollManager({
       >
         <div className='space-y-4'>
           <p className='text-gray-300'>
-            This permanently deletes the draft and approved payroll records for
-            the selected month. Use this when you need to re-run payroll for a
+            This permanently deletes the draft payroll records for the
+            selected month. Use this when you need to re-run payroll for a
             month from scratch — after deleting, use{' '}
             <span className='font-medium text-white'>Generate Payroll</span> to
             create fresh records for the same month.
           </p>
           <div className='bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300'>
-            This cannot be undone. Paid records are finalized and are always
-            kept — they back an issued payslip and a ledger payment, and
-            deleting them would allow the month to be paid twice.
+            This cannot be undone. Approved records are locked and kept — the
+            approver must move them back to Draft first. Paid records are
+            finalized and are always kept — they back an issued payslip and a
+            ledger payment, and deleting them would allow the month to be paid
+            twice.
           </div>
           <div>
             <label className='block text-sm font-medium mb-2'>Month *</label>
@@ -761,7 +783,7 @@ export default function PayrollManager({
             onBeforeOpen={canDeleteMonth}
             message={
               deleteMonthValue
-                ? `This will permanently delete the draft and approved payroll records for ${getMonthName(deleteMonthValue)}. Paid records are kept. This cannot be undone. Continue?`
+                ? `This will permanently delete the draft payroll records for ${getMonthName(deleteMonthValue)}. Approved and paid records are kept. This cannot be undone. Continue?`
                 : ''
             }
             confirmLabel='Delete'
@@ -833,7 +855,24 @@ export default function PayrollManager({
         title='Edit Deductions'
       >
         {deductionsRecord && (
-          <form onSubmit={handleSaveDeductions} className='space-y-4'>
+          <form
+            onSubmit={handleSaveDeductions}
+            onInput={(e) => {
+              const fd = new FormData(e.currentTarget);
+              const amount = (name: string) => parseFloat(fd.get(name) as string) || 0;
+              setDeductionsNet(
+                computeNetSalary({
+                  ...deductionsRecord,
+                  pf_deduction: amount('pf_deduction'),
+                  esi_deduction: amount('esi_deduction'),
+                  professional_tax_deduction: amount('professional_tax_deduction'),
+                  tds_deduction: amount('tds_deduction'),
+                  other_structured_deduction: amount('other_structured_deduction'),
+                }).net_salary,
+              );
+            }}
+            className='space-y-4'
+          >
             <div className='bg-dark-800/50 border border-gray-700 rounded-lg p-3'>
               <p className='text-sm font-medium text-white'>{deductionsRecord.employee_name}</p>
               <p className='text-xs text-gray-400'>{getMonthName(deductionsRecord.month)}</p>
@@ -862,7 +901,17 @@ export default function PayrollManager({
                 </div>
               ))}
             </div>
-            <Button type='submit' variant='primary' className='w-full' disabled={savingDeductions}>
+            <div
+              className={`rounded-lg border p-3 text-sm flex items-center justify-between gap-3 ${
+                deductionsNet < 0 ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-gray-700 bg-dark-800/50 text-gray-300'
+              }`}
+            >
+              <span>{deductionsNet < 0 ? 'Deductions exceed pay — net cannot be negative' : 'Net pay after deductions'}</span>
+              <span className='font-semibold tabular-nums'>
+                <SensitiveValue>{formatCurrency(deductionsNet)}</SensitiveValue>
+              </span>
+            </div>
+            <Button type='submit' variant='primary' className='w-full' disabled={savingDeductions || deductionsNet < 0}>
               {savingDeductions ? 'Saving…' : 'Save Deductions'}
             </Button>
           </form>

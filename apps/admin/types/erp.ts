@@ -54,6 +54,9 @@ export interface Employee {
   last_login?: string | null;
   account_status?: 'active' | 'suspended' | 'locked';
   user_id?: number | null;
+  // Marks the employees the approval flow treats as admins. Not yet read by
+  // anything — the approval rules built on it come next.
+  is_admin?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -495,6 +498,10 @@ export interface FinancialLedgerEntry {
    * of this interface's amendable-after-creation fields. */
   gst_claim: boolean;
 
+  /** Whether GST applies to this expense at all — the "Is GST applicable?"
+   * question on the Add Expense form. NOT NULL in the DB (default false). */
+  gst_applicable: boolean;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at?: string;
@@ -532,6 +539,9 @@ export interface LedgerFormData {
   /** Only set by the dedicated toggle action (see toggleGstClaimAction) —
    * not part of the create/edit form. */
   gst_claim?: boolean;
+
+  /** "Is GST applicable for this expense?" — expenses only (never Salary). */
+  gst_applicable?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -554,7 +564,9 @@ export interface EmployeeSalaryStructure {
   other_allowance: number;
   gross_salary: number;
   effective_from: string; // YYYY-MM-DD
-  status: 'active' | 'cancelled';
+  // 'pending' = raised through a career change the approver hasn't applied
+  // yet; payroll ignores it until it is activated.
+  status: 'active' | 'pending' | 'cancelled';
   source_career_history_id?: number | null;
   created_by?: number | null;
   created_at: string;

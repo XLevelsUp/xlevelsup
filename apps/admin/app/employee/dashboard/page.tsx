@@ -10,7 +10,10 @@ import {
 import { getEmployeeById } from '@/lib/erp/employees';
 import { getTimeLogSummary } from '@/lib/erp/time-logs';
 import { employeeLogoutAction } from '@/actions/erp/employee-auth';
+import { getMonthEventsAction } from '@/actions/erp/events';
+import { getTodayIST } from '@/lib/erp/utils';
 import ClockInOut from '@/components/erp/employee/ClockInOut';
+import UpcomingEventsSidebar from '@/components/erp/UpcomingEventsSidebar';
 import Link from 'next/link';
 
 export default async function EmployeeDashboardPage() {
@@ -19,6 +22,11 @@ export default async function EmployeeDashboardPage() {
   const leaveRequests = await getEmployeeLeaveRequests(session.id);
   const leaveBalances = await getEmployeeLeaveBalance(session.id);
   const timeLogSummary = await getTimeLogSummary(session.id);
+  // This month's birthdays, anniversaries and holidays for the calendar
+  // sidebar — fetched here so it paints with real content on first load,
+  // same as the admin dashboard; other months load client-side.
+  const { year, month } = getTodayIST();
+  const monthEvents = await getMonthEventsAction(year, month);
 
   // Get pending leave requests. WFH is a work arrangement, not leave — the
   // employee still worked that day — so it's excluded here, matching how
@@ -35,7 +43,7 @@ export default async function EmployeeDashboardPage() {
     <div className='min-h-screen bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a]'>
       {/* Header */}
       <header className='bg-[#1a1a1a] border-b border-gray-800'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4'>
+        <div className='max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 py-4'>
           <div className='flex items-center justify-between'>
             <div>
               <h1 className='text-2xl font-bold bg-gradient-to-r from-[var(--cyan)] to-[var(--purple)] bg-clip-text text-transparent'>
@@ -57,8 +65,13 @@ export default async function EmployeeDashboardPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+      {/* Main Content — widened from max-w-7xl (header too, so they line
+          up) so the calendar sidebar fits alongside without squeezing the
+          cards; same layout as the admin dashboard. Below xl the sidebar
+          drops under the content. */}
+      <main className='max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+        <div className='grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start'>
+          <div className='min-w-0'>
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6'>
           {/* Clock In/Out - Takes 1 column */}
           <div className='lg:col-span-1'>
@@ -204,6 +217,10 @@ export default async function EmployeeDashboardPage() {
               </p>
             </Link>
           </div>
+        </div>
+          </div>
+
+          <UpcomingEventsSidebar initialEvents={monthEvents} year={year} month={month} />
         </div>
       </main>
     </div>
