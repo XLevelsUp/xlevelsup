@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { CompanyHoliday } from '@/lib/erp/holidays';
+import Spinner from '@/components/ui/Spinner';
 
 interface EmployeeHolidayCalendarProps {
   holidays: CompanyHoliday[];
@@ -63,6 +64,8 @@ export default function EmployeeHolidayCalendar({
   const [monthIndex, setMonthIndex] = useState(new Date().getMonth());
   const [year, setYear] = useState(initialYear);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  // Another year's holidays come from a server re-render of the page.
+  const [isLoadingYear, startYearTransition] = useTransition();
 
   const holidaysByDate = new Map<string, CompanyHoliday>();
   holidays.forEach((h) => holidaysByDate.set(h.date, h));
@@ -70,7 +73,9 @@ export default function EmployeeHolidayCalendar({
   const changeYear = (nextYear: number) => {
     setYear(nextYear);
     setSelectedDate('');
-    router.push(`/employee/holidays?year=${nextYear}`);
+    startYearTransition(() => {
+      router.push(`/employee/holidays?year=${nextYear}`);
+    });
   };
 
   const shiftMonth = (delta: number) => {
@@ -127,6 +132,11 @@ export default function EmployeeHolidayCalendar({
           <h2 className='text-xl font-bold text-white flex items-center gap-2'>
             <span>📅</span>
             <span>{MONTHS[monthIndex]} {year}</span>
+            {isLoadingYear && (
+              <span role='status' aria-label={`Loading ${year} holidays`} className='text-[var(--cyan)]'>
+                <Spinner />
+              </span>
+            )}
           </h2>
           <div className='flex items-center gap-2 bg-[#0c0c0e]/80 border border-gray-800 p-1.5 rounded-lg'>
             <button

@@ -10,7 +10,8 @@
  * - Location tracking on clock in/out
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
+import Link from 'next/link';
 import { clockInAction, clockOutAction } from '@/actions/erp/time-logs';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -28,21 +29,33 @@ export default function ClockInOut({
   employeeId,
   initialSummary,
 }: ClockInOutProps) {
-  const [summary] = useState<TimeLogSummary>(initialSummary);
+  // Read from props, not copied into state: the clock actions revalidate this
+  // page, so Next sends the fresh summary back in the same response as the
+  // action. A useState copy would pin the pre-click value — which is why this
+  // used to need a full window.location.reload() to show the new status.
+  const summary = initialSummary;
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Pending from the click until the action AND the re-rendered page it
+  // returns have both landed, so the loader never ends on stale data.
+  const [isProcessing, startTransition] = useTransition();
+  // Which step the pending job is on — getting a GPS fix can take seconds on
+  // its own, so say so rather than a generic "Processing...".
+  const [step, setStep] = useState<'locating' | 'saving'>('locating');
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   // Set mounted state to avoid hydration mismatch
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the hydration guard: flips once after mount so time-dependent text renders client-side only.
     setIsMounted(true);
   }, []);
 
-  // Show toast warning if there is a missed clock-out
+  // Show toast warning if there is a missed clock-out. Keyed on the date, not
+  // the object, so a refreshed summary for the same day doesn't re-toast.
+  const missedClockOutDate = summary.missed_clock_out?.date;
   useEffect(() => {
-    if (isMounted && summary.missed_clock_out) {
-      const formattedDate = new Date(summary.missed_clock_out.date).toLocaleDateString('en-IN', {
+    if (isMounted && missedClockOutDate) {
+      const formattedDate = new Date(missedClockOutDate).toLocaleDateString('en-IN', {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -52,11 +65,12 @@ export default function ClockInOut({
         id: 'missed-clock-out-toast',
       });
     }
-  }, [isMounted, summary.missed_clock_out]);
+  }, [isMounted, missedClockOutDate]);
 
   // Update timer every second when clocked in
   useEffect(() => {
     if (!summary.is_clocked_in || !summary.active_session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the live timer when the session (an external clock) ends.
       setCurrentTime(0);
       return;
     }
@@ -126,41 +140,42 @@ export default function ClockInOut({
   };
 
   // Handle clock in
-  const handleClockIn = async () => {
-    setIsProcessing(true);
-    try {
-      // Get location first
-      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
-      
+  const handleClockIn = () => {
+    // Set outside the transition: updates made inside one are held back
+    // until the whole job finishes, which would hide this label.
+    setStep('locating');
+    startTransition(async () => {
       try {
-        const position = await getCurrentPosition();
-        location = {
-          latitude: position.latitude,
-          longitude: position.longitude,
-          accuracy: position.accuracy,
-        };
-        toast.success('Location captured');
+        // Get location first
+        let location: { latitude: number; longitude: number; accuracy: number } | undefined;
+
+        try {
+          const position = await getCurrentPosition();
+          location = {
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracy: position.accuracy,
+          };
+          toast.success('Location captured');
+        } catch (error) {
+          // Toast suppressed for now — clock-in should feel uninterrupted even
+          // when location can't be captured; still logged for debugging.
+          console.warn('Location capture failed:', error);
+        }
+
+        setStep('saving');
+        const result = await clockInAction(employeeId, location);
+
+        if (result.success) {
+          toast.success('Clocked in successfully!');
+        } else {
+          toast.error(result.error || 'Failed to clock in');
+        }
       } catch (error) {
-        // Toast suppressed for now — clock-in should feel uninterrupted even
-        // when location can't be captured; still logged for debugging.
-        console.warn('Location capture failed:', error);
+        console.error('Clock in failed:', error);
+        toast.error('An error occurred');
       }
-
-      const result = await clockInAction(employeeId, location);
-
-      if (result.success) {
-        toast.success('Clocked in successfully!');
-        // Refresh page to get updated data
-        window.location.reload();
-      } else {
-        toast.error(result.error || 'Failed to clock in');
-      }
-    } catch (error) {
-      console.error('Clock in failed:', error);
-      toast.error('An error occurred');
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   // Handle clock out
@@ -177,43 +192,41 @@ export default function ClockInOut({
   };
 
   // Perform the actual clock out
-  const performClockOut = async () => {
-    setIsProcessing(true);
+  const performClockOut = () => {
     setShowWarningModal(false);
-
-    try {
-      // Get location first
-      let location: { latitude: number; longitude: number; accuracy: number } | undefined;
-      
+    setStep('locating');
+    startTransition(async () => {
       try {
-        const position = await getCurrentPosition();
-        location = {
-          latitude: position.latitude,
-          longitude: position.longitude,
-          accuracy: position.accuracy,
-        };
-        toast.success('Location captured');
+        // Get location first
+        let location: { latitude: number; longitude: number; accuracy: number } | undefined;
+
+        try {
+          const position = await getCurrentPosition();
+          location = {
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracy: position.accuracy,
+          };
+          toast.success('Location captured');
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.warn('Location capture failed:', error);
+          toast.warning(`Location unavailable (${errMsg}) - clocking out without location`);
+        }
+
+        setStep('saving');
+        const result = await clockOutAction(employeeId, undefined, location);
+
+        if (result.success) {
+          toast.success('Clocked out successfully!');
+        } else {
+          toast.error(result.error || 'Failed to clock out');
+        }
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Unknown error';
-        console.warn('Location capture failed:', error);
-        toast.warning(`Location unavailable (${errMsg}) - clocking out without location`);
+        console.error('Clock out failed:', error);
+        toast.error('An error occurred');
       }
-
-      const result = await clockOutAction(employeeId, undefined, location);
-
-      if (result.success) {
-        toast.success('Clocked out successfully!');
-        // Refresh page to get updated data
-        window.location.reload();
-      } else {
-        toast.error(result.error || 'Failed to clock out');
-      }
-    } catch (error) {
-      console.error('Clock out failed:', error);
-      toast.error('An error occurred');
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   const totalHours = getTotalHours();
@@ -241,12 +254,12 @@ export default function ClockInOut({
                     })}
                   </strong>.
                 </p>
-                <a
+                <Link
                   href={`/employee/attendance?date=${summary.missed_clock_out.date}&missed=true`}
                   className='text-xs font-semibold text-cyan hover:underline hover:text-cyan/80 transition-colors'
                 >
                   Regularise Missed Clock-Out →
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -348,18 +361,20 @@ export default function ClockInOut({
               onClick={handleClockOut}
               variant='secondary'
               className='w-full !bg-red-600 hover:!bg-red-700 !outline-red-700 !shadow-red-500'
-              disabled={isProcessing}
+              loading={isProcessing}
+              loadingText={step === 'locating' ? 'Getting your location…' : 'Clocking out…'}
             >
-              {isProcessing ? 'Processing...' : '🔴 Clock Out'}
+              🔴 Clock Out
             </Button>
           ) : (
             <Button
               onClick={handleClockIn}
               variant='primary'
               className='w-full'
-              disabled={isProcessing}
+              loading={isProcessing}
+              loadingText={step === 'locating' ? 'Getting your location…' : 'Clocking in…'}
             >
-              {isProcessing ? 'Processing...' : '🟢 Clock In'}
+              🟢 Clock In
             </Button>
           )}
         </div>

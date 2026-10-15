@@ -169,7 +169,7 @@ export default function RegularisationRequestForm({
     return await createAttendanceRegularisationRequestAction(employeeId, prevState, formData);
   };
 
-  const [state, formAction] = useActionState(handleFormAction, null);
+  const [state, formAction, isPending] = useActionState(handleFormAction, null);
 
   useEffect(() => {
     if (state?.success) {
@@ -181,7 +181,8 @@ export default function RegularisationRequestForm({
       setCurrentClockIn(null);
       setCurrentClockOut(null);
       setAttendanceId(null);
-      setTimeout(() => window.location.reload(), 1000);
+      // No reload needed: the action revalidates this page, so the updated
+      // records and request list arrived with its response.
     } else if (state?.error) {
       toast.error(state.error);
       // React resets uncontrolled fields once the action resolves, even
@@ -373,6 +374,8 @@ export default function RegularisationRequestForm({
         variant="primary"
         className="w-full"
         disabled={!selectedDate || !requestType}
+        loading={isPending}
+        loadingText="Submitting…"
       >
         Submit Regularisation Request
       </Button>

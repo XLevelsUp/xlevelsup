@@ -242,6 +242,10 @@ export async function createAttendanceChangeRequestAction(
       attendance_id: validated.attendance_id,
     });
 
+    // Sends the refreshed page (records + "My Regularisation Requests") back
+    // with this response, so the form needn't reload the whole page.
+    revalidatePath('/employee/attendance');
+
     return { success: true };
   } catch (error) {
     console.error('Create attendance change request error:', error);
@@ -311,6 +315,8 @@ export async function createAttendanceRegularisationRequestAction(
       employee_note: validated.employee_note,
       attendance_id: validated.attendance_id,
     });
+
+    revalidatePath('/employee/attendance');
 
     return { success: true };
   } catch (error) {

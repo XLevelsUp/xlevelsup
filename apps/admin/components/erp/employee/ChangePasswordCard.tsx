@@ -74,8 +74,16 @@ export default function ChangePasswordCard() {
           disabled={isPending}
         />
 
-        <Button type='submit' variant='primary' className='w-full' disabled={isPending}>
-          {isPending ? 'Changing Password...' : 'Change Password'}
+        {/* Stays busy after success too: logout + redirect to the login page
+            still follow, and the button shouldn't look clickable meanwhile. */}
+        <Button
+          type='submit'
+          variant='primary'
+          className='w-full'
+          loading={isPending || !!state?.success}
+          loadingText={state?.success ? 'Signing you out…' : 'Changing password…'}
+        >
+          Change Password
         </Button>
 
         <p className='text-xs text-gray-500 text-center'>

@@ -4,11 +4,12 @@
  * Leave Request List Component (Employee Portal)
  */
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import type { LeaveRequest } from '@/types/erp';
 import { cancelLeaveRequestAction } from '@/actions/erp/leave-requests';
 import { toast } from '@/lib/toast';
 import { confirmDialog } from '@/components/ui/ConfirmDialog';
+import Spinner from '@/components/ui/Spinner';
 
 interface LeaveRequestListProps {
   requests: LeaveRequest[];
@@ -20,6 +21,9 @@ export default function LeaveRequestList({
   employeeId,
 }: LeaveRequestListProps) {
   const [cancelling, setCancelling] = useState<number | null>(null);
+  // Pending until the action and the refreshed list/balances it returns (it
+  // revalidates /employee/leave) have both landed — no page reload needed.
+  const [isPending, startTransition] = useTransition();
 
   const handleCancel = async (requestId: number) => {
     const confirmed = await confirmDialog({
@@ -31,15 +35,19 @@ export default function LeaveRequestList({
     if (!confirmed) return;
 
     setCancelling(requestId);
-    const result = await cancelLeaveRequestAction(requestId, employeeId);
-    setCancelling(null);
-
-    if (result.success) {
-      toast.success('Leave request cancelled');
-      window.location.reload();
-    } else {
-      toast.error(result.error || 'Failed to cancel request');
-    }
+    startTransition(async () => {
+      try {
+        const result = await cancelLeaveRequestAction(requestId, employeeId);
+        if (result.success) {
+          toast.success('Leave request cancelled');
+        } else {
+          toast.error(result.error || 'Failed to cancel request');
+        }
+      } catch (error) {
+        console.error('Cancel leave request failed:', error);
+        toast.error('Failed to cancel request');
+      }
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -136,10 +144,18 @@ export default function LeaveRequestList({
                 request.status === 'approved') && (
                 <button
                   onClick={() => handleCancel(request.id)}
-                  disabled={cancelling === request.id}
-                  className='px-3 py-1 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded border border-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                  disabled={isPending}
+                  aria-busy={(isPending && cancelling === request.id) || undefined}
+                  className='inline-flex items-center gap-1.5 px-3 py-1 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded border border-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                 >
-                  {cancelling === request.id ? 'Cancelling...' : 'Cancel'}
+                  {isPending && cancelling === request.id ? (
+                    <>
+                      <Spinner className='h-3.5 w-3.5' />
+                      Cancelling…
+                    </>
+                  ) : (
+                    'Cancel'
+                  )}
                 </button>
               )}
             </div>

@@ -13,6 +13,7 @@ import { toast } from '@/lib/toast';
 import { getMyPayslipUrlAction } from '@/actions/erp/employee-payslips';
 import type { EmployeePayslip } from '@/lib/erp/payroll';
 import { formatCurrency, getMonthName } from '@/lib/erp/utils';
+import Spinner from '@/components/ui/Spinner';
 
 export default function PayslipList({ payslips }: { payslips: EmployeePayslip[] }) {
   const [openingId, setOpeningId] = useState<number | null>(null);
@@ -78,9 +79,16 @@ export default function PayslipList({ payslips }: { payslips: EmployeePayslip[] 
             type='button'
             onClick={() => handleView(payslip)}
             disabled={openingId === payslip.id}
-            className='px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--cyan)]/10 text-[var(--cyan)] border border-[var(--cyan)]/30 hover:bg-[var(--cyan)]/20 transition-colors disabled:opacity-50 whitespace-nowrap'
+            className='inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--cyan)]/10 text-[var(--cyan)] border border-[var(--cyan)]/30 hover:bg-[var(--cyan)]/20 transition-colors disabled:opacity-50 whitespace-nowrap'
           >
-            {openingId === payslip.id ? 'Opening…' : '📄 View / Download'}
+            {openingId === payslip.id ? (
+              <>
+                <Spinner className='h-3.5 w-3.5' />
+                Opening…
+              </>
+            ) : (
+              '📄 View / Download'
+            )}
           </button>
         </div>
       ))}
