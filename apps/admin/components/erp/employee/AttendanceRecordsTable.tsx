@@ -6,10 +6,11 @@
  * with option to request changes
  */
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { AttendanceWithChangeRequest, TimeLog } from '@/types/erp';
 import { formatDuration } from '@/lib/erp/utils';
+import Spinner from '@/components/ui/Spinner';
 
 interface AttendanceRecordsTableProps {
   records: AttendanceWithChangeRequest[];
@@ -27,6 +28,9 @@ export default function AttendanceRecordsTable({
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
   const [selectedDateStr, setSelectedDateStr] = useState<string>('');
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  // A picked day reaches the request form via the URL, i.e. a server
+  // re-render of the page — track it so the wait is visible.
+  const [isLoadingDay, startDayTransition] = useTransition();
 
   const formatTime = (timeString: string) => {
     try {
@@ -172,7 +176,9 @@ export default function AttendanceRecordsTable({
       params.delete('status');
     }
 
-    router.push(`/employee/attendance?${params.toString()}`, { scroll: false });
+    startDayTransition(() => {
+      router.push(`/employee/attendance?${params.toString()}`, { scroll: false });
+    });
 
     // Scroll smoothly to the request form once it re-renders with the new date
     setTimeout(() => {
@@ -256,6 +262,13 @@ export default function AttendanceRecordsTable({
             📋 Table View
           </button>
         </div>
+
+        {isLoadingDay && (
+          <span role='status' className='inline-flex items-center gap-1.5 text-xs text-[var(--cyan)]'>
+            <Spinner className='h-3.5 w-3.5' />
+            Loading {selectedDateStr}…
+          </span>
+        )}
 
         {/* Calendar Navigation */}
         {viewMode === 'calendar' && (

@@ -15,6 +15,10 @@ export interface ButtonProps {
   type?: 'button' | 'submit' | 'reset';
   className?: string;
   disabled?: boolean;
+  /** Shows a spinner and disables the button until the job it started is done. */
+  loading?: boolean;
+  /** Label shown beside the spinner while loading; defaults to `children`. */
+  loadingText?: React.ReactNode;
 }
 
 export interface ModalProps {

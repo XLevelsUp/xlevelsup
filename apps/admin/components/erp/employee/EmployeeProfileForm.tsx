@@ -126,8 +126,8 @@ export default function EmployeeProfileForm({ employee }: EmployeeProfileFormPro
         </div>
 
         {/* Submit Button */}
-        <Button type='submit' variant='primary' className='w-full' disabled={isPending}>
-          {isPending ? 'Saving...' : 'Save Changes'}
+        <Button type='submit' variant='primary' className='w-full' loading={isPending} loadingText='Saving…'>
+          Save Changes
         </Button>
       </form>
     </div>

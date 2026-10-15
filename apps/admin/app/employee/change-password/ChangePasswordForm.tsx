@@ -101,9 +101,10 @@ export default function ChangePasswordForm({ employeeName }: ChangePasswordFormP
         type='submit'
         variant='primary'
         className='w-full'
-        disabled={isChanging}
+        loading={isChanging}
+        loadingText={state?.success ? 'Signing you out…' : 'Changing password…'}
       >
-        {isChanging ? 'Changing Password...' : 'Change Password'}
+        Change Password
       </Button>
 
       {/* Info */}

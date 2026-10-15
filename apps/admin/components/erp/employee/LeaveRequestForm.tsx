@@ -473,9 +473,10 @@ export default function LeaveRequestForm({
           type='submit'
           variant='primary'
           className='w-full'
-          disabled={isPending}
+          loading={isPending}
+          loadingText='Submitting…'
         >
-          {isPending ? 'Submitting...' : 'Submit Request'}
+          Submit Request
         </Button>
       </form>
     </div>

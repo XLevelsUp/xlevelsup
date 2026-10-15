@@ -14,6 +14,7 @@ import { getMonthEventsAction } from '@/actions/erp/events';
 import { getTodayIST } from '@/lib/erp/utils';
 import ClockInOut from '@/components/erp/employee/ClockInOut';
 import UpcomingEventsSidebar from '@/components/erp/UpcomingEventsSidebar';
+import SubmitButton from '@/components/ui/SubmitButton';
 import Link from 'next/link';
 
 export default async function EmployeeDashboardPage() {
@@ -54,12 +55,12 @@ export default async function EmployeeDashboardPage() {
               </p>
             </div>
             <form action={employeeLogoutAction}>
-              <button
-                type='submit'
+              <SubmitButton
+                pendingText='Logging out…'
                 className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm'
               >
                 Logout
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

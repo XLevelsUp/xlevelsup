@@ -208,13 +208,18 @@ function EmployeeLoginForm() {
               type='submit'
               variant='primary'
               className='w-full'
-              disabled={isPending || isCapturingLocation}
+              // Stays busy after a successful login until the portal page
+              // replaces this one — the redirect still has to load it.
+              loading={isCapturingLocation || isPending || !!state?.success}
+              loadingText={
+                isCapturingLocation
+                  ? 'Getting your location…'
+                  : state?.success
+                    ? 'Opening your portal…'
+                    : 'Logging in…'
+              }
             >
-              {isCapturingLocation
-                ? 'Capturing location...'
-                : isPending
-                  ? 'Logging in...'
-                  : 'Login'}
+              Login
             </Button>
           </form>
         </div>

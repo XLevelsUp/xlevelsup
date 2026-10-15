@@ -19,6 +19,9 @@ import RegularisationRequestForm from '@/components/erp/employee/RegularisationR
 import { getTimeLogsByRange, getTimeLogSummary } from '@/lib/erp/time-logs';
 import { employeeLogoutAction } from '@/actions/erp/employee-auth';
 import ClockInOut from '@/components/erp/employee/ClockInOut';
+import Link from 'next/link';
+import SubmitButton from '@/components/ui/SubmitButton';
+import LinkPendingSpinner from '@/components/ui/LinkPendingSpinner';
 
 export default async function EmployeeAttendancePage({
   searchParams,
@@ -99,20 +102,20 @@ export default async function EmployeeAttendancePage({
             </div>
             {session.employment_type === 'freelancer' ? (
               <form action={employeeLogoutAction}>
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingText="Logging out…"
                   className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                 >
                   Logout
-                </button>
+                </SubmitButton>
               </form>
             ) : (
-              <a
+              <Link
                 href="/employee/dashboard"
                 className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
               >
                 ← Back to Dashboard
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -169,27 +172,33 @@ export default async function EmployeeAttendancePage({
             <div className="lg:col-span-1">
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto overscroll-contain">
                 {/* Tab switcher */}
+                {/* Soft navigations (was a full page reload per tab click),
+                    with a spinner while the other form renders server-side. */}
                 <div className="flex gap-1 mb-5 bg-[#0a0a0a] p-1 rounded-lg">
-                  <a
+                  <Link
                     href="?tab=regularisation"
-                    className={`flex-1 text-center text-xs py-2 rounded-md transition-colors font-medium ${
+                    scroll={false}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs py-2 rounded-md transition-colors font-medium ${
                       activeTab === 'regularisation'
                         ? 'bg-[var(--cyan)] text-black'
                         : 'text-gray-400 hover:text-gray-200'
                     }`}
                   >
                     🕒 Time Regularisation
-                  </a>
-                  <a
+                    <LinkPendingSpinner />
+                  </Link>
+                  <Link
                     href="?tab=status"
-                    className={`flex-1 text-center text-xs py-2 rounded-md transition-colors font-medium ${
+                    scroll={false}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs py-2 rounded-md transition-colors font-medium ${
                       activeTab === 'status'
                         ? 'bg-[var(--cyan)] text-black'
                         : 'text-gray-400 hover:text-gray-200'
                     }`}
                   >
                     📋 Status Change
-                  </a>
+                    <LinkPendingSpinner />
+                  </Link>
                 </div>
 
                 {activeTab === 'regularisation' ? (
