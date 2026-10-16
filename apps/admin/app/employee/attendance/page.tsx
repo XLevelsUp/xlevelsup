@@ -36,52 +36,20 @@ export default async function EmployeeAttendancePage({
 }) {
   const session = await requireEmployeeAuth();
   const params = await searchParams;
-  const timeLogSummary = await getTimeLogSummary(session.id);
 
   // Get attendance records for the last 3 months
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const startDate = threeMonthsAgo.toISOString().split('T')[0];
 
-  let attendanceRecords: AttendanceWithChangeRequest[] = [];
-  let changeRequests: AttendanceChangeRequest[] = [];
-  let timeLogs: TimeLog[] = [];
-  let isFeatureAvailable = true;
-
-  try {
-    const { error: testError } = await supabase
-      .from('attendance_change_requests')
-      .select('id')
-      .limit(1);
-
-    if (testError && testError.code === '42P01') {
-      isFeatureAvailable = false;
-    } else {
-      attendanceRecords = await getEmployeeAttendanceWithRequests(session.id, startDate);
-      changeRequests = await getEmployeeAttendanceChangeRequests(session.id);
-      timeLogs = await getTimeLogsByRange(
-        session.id,
-        startDate,
-        new Date().toISOString().split('T')[0],
-      );
-    }
-  } catch (error) {
-    console.error('Attendance page error:', error);
-    isFeatureAvailable = false;
-  }
-
-  if (!isFeatureAvailable) {
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('employee_id', session.id)
-      .gte('date', startDate)
-      .order('date', { ascending: false });
-
-    if (!error && data) {
-      attendanceRecords = data;
-    }
-  }
+  // Independent, so loaded side by side — this page is also what every clock
+  // in/out and request submitted here re-renders, so its load time is part of
+  // each click. loadAttendanceHistory never rejects.
+  const [timeLogSummary, { attendanceRecords, changeRequests, timeLogs, isFeatureAvailable }] =
+    await Promise.all([
+      getTimeLogSummary(session.id),
+      loadAttendanceHistory(session.id, startDate),
+    ]);
 
   // Determine active form tab from URL param (default: regularisation)
   const activeTab = params?.tab === 'status' ? 'status' : 'regularisation';
@@ -237,4 +205,47 @@ export default async function EmployeeAttendancePage({
       </div>
     </div>
   );
+}
+
+/**
+ * The page's attendance history. Regularisation needs the
+ * attendance_change_requests table (db/migrations/add-regularisation-fields.sql);
+ * if any of these queries fail — the joined one fails when that table is
+ * missing — fall back to plain attendance rows and flag the feature as
+ * unavailable. This used to spend an extra query on every render probing for
+ * the table first; the failed join already says the same thing.
+ */
+async function loadAttendanceHistory(
+  employeeId: number,
+  startDate: string,
+): Promise<{
+  attendanceRecords: AttendanceWithChangeRequest[];
+  changeRequests: AttendanceChangeRequest[];
+  timeLogs: TimeLog[];
+  isFeatureAvailable: boolean;
+}> {
+  try {
+    const [attendanceRecords, changeRequests, timeLogs] = await Promise.all([
+      getEmployeeAttendanceWithRequests(employeeId, startDate),
+      getEmployeeAttendanceChangeRequests(employeeId),
+      getTimeLogsByRange(employeeId, startDate, new Date().toISOString().split('T')[0]),
+    ]);
+    return { attendanceRecords, changeRequests, timeLogs, isFeatureAvailable: true };
+  } catch (error) {
+    console.error('Attendance page error:', error);
+  }
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .gte('date', startDate)
+    .order('date', { ascending: false });
+
+  return {
+    attendanceRecords: !error && data ? data : [],
+    changeRequests: [],
+    timeLogs: [],
+    isFeatureAvailable: false,
+  };
 }

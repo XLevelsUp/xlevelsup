@@ -2,6 +2,7 @@
  * Employee Portal Auth Helpers
  */
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { verifyEmployeeSession } from '@/lib/erp/employee-auth';
 import { getSession as getErpSession } from '@/lib/auth';
@@ -18,8 +19,14 @@ import { redirect } from 'next/navigation';
  * to view their own attendance or file a leave request. The bridge only
  * activates for a `users` row that's actually linked via `employees.user_id`
  * — an unlinked admin gets no self-service access, same as today.
+ *
+ * Wrapped in React's cache() so one server render looks the session up once:
+ * the employee layout, the page (via requireEmployeeAuth) and the events
+ * sidebar (canViewEvents) each ask for it, and each ask used to cost a JWT
+ * verify plus a database round trip. Outside a render (server actions) cache()
+ * doesn't memoize, so every action still reads the live cookie and DB flags.
  */
-export async function getEmployeeSession(): Promise<EmployeeSession | null> {
+export const getEmployeeSession = cache(async (): Promise<EmployeeSession | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get('employee_session')?.value;
 
@@ -29,7 +36,7 @@ export async function getEmployeeSession(): Promise<EmployeeSession | null> {
   }
 
   return getBridgedEmployeeSession();
-}
+});
 
 /**
  * The JWT snapshots account flags at login and lives for 7 days, so an

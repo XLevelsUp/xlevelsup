@@ -15,10 +15,10 @@ export interface ActionResult {
   success: boolean;
   error?: string;
   /**
-   * Payload shape varies by action — a TimeLog for clock-in, a
-   * { timeLog, totalHoursToday } pair for clock-out, a TimeLogSummary for the
-   * summary action. `unknown` rather than a union because no caller reads it
-   * today; narrow it at the call site if one ever does.
+   * Payload shape varies by action — a TimeLog for clock-in, a { timeLog }
+   * for clock-out, a TimeLogSummary for the summary action. `unknown` rather
+   * than a union because no caller reads it today; narrow it at the call site
+   * if one ever does.
    */
   data?: unknown;
 }
@@ -66,9 +66,8 @@ export async function clockOutAction(
   },
 ): Promise<ActionResult> {
   try {
-    // Get summary to check if less than 8 hours
-    const summary = await getTimeLogSummary(employeeId);
-
+    // No summary lookup first: the under-9-hours warning is shown client-side
+    // before this runs, and the revalidated page brings the fresh totals.
     const timeLog = await dbClockOut(employeeId, notes, location);
 
     revalidatePath('/employee/dashboard');
@@ -76,10 +75,7 @@ export async function clockOutAction(
 
     return {
       success: true,
-      data: {
-        timeLog,
-        totalHoursToday: summary.total_hours_today,
-      },
+      data: { timeLog },
     };
   } catch (error: unknown) {
     console.error('Clock out error:', error);
