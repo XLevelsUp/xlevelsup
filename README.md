@@ -95,6 +95,13 @@ On Vercel, set the root directory per project and leave "Include files outside
 the root directory" enabled so the root lockfile and `tsconfig.base.json`
 resolve.
 
+Admin's functions are pinned to `sin1` (Singapore) in `apps/admin/vercel.json`,
+next to its Supabase project in `ap-southeast-1`. Every server render and
+action makes several sequential Supabase queries, so on Vercel's default
+`iad1` (US East) each one crossed the globe. That file overrides the
+dashboard's Function Region setting; if the database ever moves, move this
+with it.
+
 Env vars per project are exactly what each `env.example` lists. The marketing
 project must **not** be given `SUPABASE_SERVICE_ROLE_KEY` or `JWT_SECRET`.
 

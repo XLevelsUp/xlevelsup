@@ -529,15 +529,24 @@ export async function reviewLeaveRequest(
 export async function getEmployeeLeaveBalance(
   employeeId: number,
   year?: number,
+  /**
+   * `syncEarned: false` skips the earned-leave recompute (four or five
+   * sequential queries) for a caller that never shows the earned balance —
+   * the employee dashboard only reads the annual one. Anything that displays
+   * or checks earned leave must keep the default.
+   */
+  { syncEarned = true }: { syncEarned?: boolean } = {},
 ): Promise<LeaveBalance[]> {
   const currentYear = year || new Date().getFullYear();
 
   // Earned leave is derived from off-day work, so bring it up to date before
   // it's shown. Never let a sync failure hide the other balances.
-  try {
-    await syncEarnedLeaveBalance(employeeId, currentYear);
-  } catch (error) {
-    console.error('Failed to sync earned leave balance:', error);
+  if (syncEarned) {
+    try {
+      await syncEarnedLeaveBalance(employeeId, currentYear);
+    } catch (error) {
+      console.error('Failed to sync earned leave balance:', error);
+    }
   }
 
   const { data, error } = await supabase

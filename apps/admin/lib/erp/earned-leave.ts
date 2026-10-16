@@ -19,7 +19,9 @@
  * separate step: syncEarnedLeaveBalance recomputes total_allocated from
  * scratch, and runs whenever a balance is read or checked (see
  * lib/erp/leave-requests.ts), so an approved weekend regularisation shows up
- * as earned leave the next time anyone looks.
+ * as earned leave the next time anyone looks. The one exception is the
+ * employee dashboard, which never shows the earned balance and so reads
+ * balances without syncing (getEmployeeLeaveBalance's `syncEarned: false`).
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
@@ -58,14 +60,13 @@ function isOffDay(date: string, holidays: Set<string>): boolean {
  * with the hours its time logs add up to. Pass employeeId for one employee,
  * or omit it for everyone.
  */
-export async function getOffDayWork(
+/** Every worked attendance row in [startDate, endDate], paged past PostgREST's cap. */
+async function getWorkedAttendanceRows(
   startDate: string,
   endDate: string,
   employeeId?: number,
-): Promise<OffDayWork[]> {
-  const holidays = await getNonFloaterHolidayDateSetInRange(startDate, endDate);
-
-  const offDayRows: { employee_id: number; date: string; status: string }[] = [];
+): Promise<{ employee_id: number; date: string; status: string }[]> {
+  const rows: { employee_id: number; date: string; status: string }[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     let query = supabase
       .from('attendance')
@@ -79,11 +80,25 @@ export async function getOffDayWork(
     const { data, error } = await query;
     if (error) throw error;
     for (const row of data || []) {
-      const date = String(row.date).substring(0, 10);
-      if (isOffDay(date, holidays)) offDayRows.push({ ...row, date });
+      rows.push({ ...row, date: String(row.date).substring(0, 10) });
     }
     if (!data || data.length < PAGE_SIZE) break;
   }
+  return rows;
+}
+
+export async function getOffDayWork(
+  startDate: string,
+  endDate: string,
+  employeeId?: number,
+): Promise<OffDayWork[]> {
+  // Independent reads, fetched side by side and filtered once both are in.
+  const [holidays, workedRows] = await Promise.all([
+    getNonFloaterHolidayDateSetInRange(startDate, endDate),
+    getWorkedAttendanceRows(startDate, endDate, employeeId),
+  ]);
+
+  const offDayRows = workedRows.filter((row) => isOffDay(row.date, holidays));
   if (offDayRows.length === 0) return [];
 
   const { data: logs, error: logError } = await supabase
@@ -125,17 +140,19 @@ export async function syncEarnedLeaveBalance(
   employeeId: number,
   year: number,
 ): Promise<number> {
-  const work = await getOffDayWork(`${year}-01-01`, `${year}-12-31`, employeeId);
-  const earned = work.filter((w) => w.earns_leave).length;
-
-  const { data: existing, error } = await supabase
-    .from('leave_balances')
-    .select('id, total_allocated')
-    .eq('employee_id', employeeId)
-    .eq('year', year)
-    .eq('leave_type', 'earned')
-    .maybeSingle();
+  // The stored row doesn't depend on the off-day history, so read both at once.
+  const [work, { data: existing, error }] = await Promise.all([
+    getOffDayWork(`${year}-01-01`, `${year}-12-31`, employeeId),
+    supabase
+      .from('leave_balances')
+      .select('id, total_allocated')
+      .eq('employee_id', employeeId)
+      .eq('year', year)
+      .eq('leave_type', 'earned')
+      .maybeSingle(),
+  ]);
   if (error) throw error;
+  const earned = work.filter((w) => w.earns_leave).length;
 
   if (existing) {
     if (Number(existing.total_allocated) !== earned) {

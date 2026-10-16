@@ -40,8 +40,12 @@ export async function getCurrentPosition(): Promise<GeolocationData> {
 
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000, // 10 seconds
-      maximumAge: 0, // Don't use cached position
+      // Every clock in/out waits on this before its request even starts, and
+      // falls back to no location on timeout — so keep the worst case short.
+      timeout: 8000,
+      // A fix from the last minute is still where the employee is, and it
+      // comes back instantly — e.g. clocking in right after logging in.
+      maximumAge: 60000,
     };
 
     navigator.geolocation.getCurrentPosition(

@@ -14,8 +14,10 @@ import Link from 'next/link';
 
 export default async function EmployeeLeavePage() {
   const session = await requireFullPortalAccess();
-  const leaveRequests = await getEmployeeLeaveRequests(session.id);
-  const leaveBalances = await getEmployeeLeaveBalance(session.id);
+  const [leaveRequests, leaveBalances] = await Promise.all([
+    getEmployeeLeaveRequests(session.id),
+    getEmployeeLeaveBalance(session.id),
+  ]);
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a]'>

@@ -167,25 +167,26 @@ export async function getMissedClockOut(
     if (logsError) throw logsError;
     if (!activeLogs || activeLogs.length === 0) return null;
 
-    // For each active log, check if there is a pending or approved attendance change request
-    for (const log of activeLogs) {
-      const { data: requests, error: reqError } = await supabase
-        .from('attendance_change_requests')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .eq('request_date', log.date)
-        .in('status', ['pending', 'approved'])
-        .limit(1);
+    // Which of those days already have a pending or approved change request —
+    // one lookup for all of them, rather than a query per day.
+    const { data: requests, error: reqError } = await supabase
+      .from('attendance_change_requests')
+      .select('request_date')
+      .eq('employee_id', employeeId)
+      .in('request_date', [...new Set(activeLogs.map((log) => String(log.date).substring(0, 10)))])
+      .in('status', ['pending', 'approved']);
 
-      if (reqError) throw reqError;
+    if (reqError) throw reqError;
 
-      // If no pending or approved change request exists, this is an unregularized missed clock-out
-      if (!requests || requests.length === 0) {
-        return log;
-      }
-    }
+    const regularisedDates = new Set(
+      (requests || []).map((r) => String(r.request_date).substring(0, 10)),
+    );
 
-    return null;
+    // Newest first (the query's order): the latest day with no pending or
+    // approved change request is the unregularized missed clock-out.
+    return (
+      activeLogs.find((log) => !regularisedDates.has(String(log.date).substring(0, 10))) ?? null
+    );
   } catch (error) {
     console.error('Error fetching missed clock out:', error);
     return null;
@@ -198,7 +199,12 @@ export async function getMissedClockOut(
 export async function getTimeLogSummary(
   employeeId: number,
 ): Promise<TimeLogSummary> {
-  const timeLogs = await getTimeLogsByDate(employeeId);
+  // Independent lookups, so run side by side. getMissedClockOut never rejects.
+  const [timeLogs, missedClockOut] = await Promise.all([
+    getTimeLogsByDate(employeeId),
+    // Any unregularized missed clock-out from previous days
+    getMissedClockOut(employeeId),
+  ]);
 
   const activeSession = timeLogs.find((log) => log.status === 'active') || null;
   const completedSessions = timeLogs.filter(
@@ -210,9 +216,6 @@ export async function getTimeLogSummary(
     (sum, log) => sum + (log.total_hours || 0),
     0,
   );
-
-  // Get any unregularized missed clock-out from previous days
-  const missedClockOut = await getMissedClockOut(employeeId);
 
   // Don't calculate current session hours on server side to avoid hydration mismatch
   // Client will calculate this dynamically

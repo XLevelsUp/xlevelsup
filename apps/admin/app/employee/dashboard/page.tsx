@@ -19,15 +19,20 @@ import Link from 'next/link';
 
 export default async function EmployeeDashboardPage() {
   const session = await requireFullPortalAccess();
-  const employee = await getEmployeeById(session.id);
-  const leaveRequests = await getEmployeeLeaveRequests(session.id);
-  const leaveBalances = await getEmployeeLeaveBalance(session.id);
-  const timeLogSummary = await getTimeLogSummary(session.id);
-  // This month's birthdays, anniversaries and holidays for the calendar
-  // sidebar — fetched here so it paints with real content on first load,
-  // same as the admin dashboard; other months load client-side.
   const { year, month } = getTodayIST();
-  const monthEvents = await getMonthEventsAction(year, month);
+  // Independent reads, so they run side by side — this page is also what
+  // every clock in/out re-renders, so its load time is part of each click.
+  const [employee, leaveRequests, leaveBalances, timeLogSummary, monthEvents] = await Promise.all([
+    getEmployeeById(session.id),
+    getEmployeeLeaveRequests(session.id),
+    // Only the annual balance is shown here, so skip the earned-leave recompute.
+    getEmployeeLeaveBalance(session.id, undefined, { syncEarned: false }),
+    getTimeLogSummary(session.id),
+    // This month's birthdays, anniversaries and holidays for the calendar
+    // sidebar — fetched here so it paints with real content on first load,
+    // same as the admin dashboard; other months load client-side.
+    getMonthEventsAction(year, month),
+  ]);
 
   // Get pending leave requests. WFH is a work arrangement, not leave — the
   // employee still worked that day — so it's excluded here, matching how
