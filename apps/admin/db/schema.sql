@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     total_days NUMERIC(4,1) NOT NULL, -- Supports half-days (e.g., 2.5 days)
     reason TEXT NOT NULL,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
-    reviewed_by INTEGER REFERENCES employees(id),
+    -- The reviewing admin's login (see db/migrations/fix-leave-requests-reviewed-by-fk.sql).
+    reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMP,
     review_comments TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

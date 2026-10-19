@@ -6,7 +6,12 @@
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
-import { requireApprover, isApprover } from '@/lib/erp/approver';
+import {
+  requireAdminApprover,
+  isAdminApprover,
+  isOwnEmployeeRecord,
+  OWN_PAY_CHANGE_ERROR,
+} from '@/lib/erp/approver';
 import {
   insertEmployeeCareerHistory,
   fetchEmployeeCareerHistory,
@@ -14,6 +19,7 @@ import {
   fetchPendingEffectiveChanges,
   applyCareerChangeById,
   cancelCareerChangeById,
+  getCareerChangeEmployeeId,
   hasPendingCareerChange,
 } from '@/lib/erp/employee-career';
 import { getEmployeeById } from '@/lib/erp/employees';
@@ -224,9 +230,14 @@ export async function createCareerChangeAction(
       // `session.id` type-checked once cast, but at runtime the JWT carries only
       // userId/email/role — so this passed `undefined` as requested_by.
       session.userId,
-      // Only the approver's own changes take effect straight away; anyone
-      // else's wait as pending until the approver applies them.
-      { requesterIsApprover: await isApprover(session) },
+      // An admin's changes take effect straight away — except to their own
+      // record, which waits as pending for another admin to apply, as does
+      // anything raised by a non-admin.
+      {
+        requesterIsApprover:
+          isAdminApprover(session) &&
+          !(await isOwnEmployeeRecord(session, validated.employee_id)),
+      },
     );
 
     revalidatePath('/erp/employees');
@@ -244,13 +255,17 @@ export async function createCareerChangeAction(
 }
 
 /**
- * Apply a pending_effective career change (Admin explicitly applies on/after effective date).
+ * Apply a pending_effective career change (Admin explicitly applies on/after
+ * effective date). Any admin may, but not to their own record.
  */
 export async function applyCareerChangeAction(
   historyId: number,
 ): Promise<CareerChangeActionResult> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
+    if (await isOwnEmployeeRecord(session, await getCareerChangeEmployeeId(historyId))) {
+      return { success: false, error: OWN_PAY_CHANGE_ERROR };
+    }
     await applyCareerChangeById(historyId, session.userId);
     revalidatePath('/erp/employees');
     return { success: true };
@@ -264,13 +279,17 @@ export async function applyCareerChangeAction(
 }
 
 /**
- * Cancel a pending / pending_effective career change.
+ * Cancel a pending / pending_effective career change. Any admin may, but not
+ * on their own record — cancelling can undo a scheduled cut or demotion.
  */
 export async function cancelCareerChangeAction(
   historyId: number,
 ): Promise<CareerChangeActionResult> {
   try {
-    await requireApprover();
+    const session = await requireAdminApprover();
+    if (await isOwnEmployeeRecord(session, await getCareerChangeEmployeeId(historyId))) {
+      return { success: false, error: OWN_PAY_CHANGE_ERROR };
+    }
     await cancelCareerChangeById(historyId);
     revalidatePath('/erp/employees');
     return { success: true };

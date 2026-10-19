@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
-import { requireApprover } from '@/lib/erp/approver';
+import { requireAdminApprover, assertNotOwn } from '@/lib/erp/approver';
 import {
   getAllPayroll,
   getPayrollById,
@@ -404,13 +404,24 @@ export async function updatePayrollDeductionsAction(
  * paid always goes through markPayrollPaidAction instead — it requires a
  * bank transfer reference ID and creates the matching ledger entry, and
  * that requirement must not be bypassable from this generic setter.
+ *
+ * Any admin may, but not approve their own payroll record. Moving one back
+ * to draft stays open to them.
  */
 export async function updatePayrollStatusAction(
   id: number,
   status: 'draft' | 'approved',
 ): Promise<PayrollActionResult<Payroll>> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
+
+    if (status === 'approved') {
+      const existing = await getPayrollById(id);
+      if (!existing) {
+        return { success: false, error: 'Payroll record not found' };
+      }
+      await assertNotOwn(session, 'payroll', { forEmployeeId: existing.employee_id });
+    }
 
     const payroll = await updatePayrollStatus(id, status, session.userId);
 
@@ -432,14 +443,15 @@ const markPaidSchema = z.object({
 /**
  * Mark payroll as paid via bank transfer. Requires a reference ID — this is
  * enforced here, not just in the UI, and creates the matching financial
- * ledger entry as part of the same operation (see markPayrollPaid).
+ * ledger entry as part of the same operation (see markPayrollPaid). Any
+ * admin may, but not for their own payroll record.
  */
 export async function markPayrollPaidAction(
   id: number,
   referenceNumber: string,
 ): Promise<PayrollActionResult<Payroll>> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const validated = markPaidSchema.parse({ reference_number: referenceNumber });
 
@@ -447,6 +459,7 @@ export async function markPayrollPaidAction(
     if (!existing) {
       return { success: false, error: 'Payroll record not found' };
     }
+    await assertNotOwn(session, 'payroll', { forEmployeeId: existing.employee_id });
 
     const payroll = await markPayrollPaid(id, validated.reference_number, session.userId);
 

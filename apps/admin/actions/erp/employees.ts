@@ -2,8 +2,7 @@
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
-import { isApprover } from '@/lib/erp/approver';
-import { APPROVER_EMPLOYEE_ID } from '@/config/approvals.config';
+import { isAdminApprover, isOwnEmployeeRecord, OWN_PAY_CHANGE_ERROR } from '@/lib/erp/approver';
 import {
   getAllEmployees,
   getEmployeeById,
@@ -171,8 +170,9 @@ export async function updateEmployeeAction(
 
     const validatedData = employeeSchema.parse(rawData);
 
-    // Pay changes need the approver. Anyone else changes salary through a
-    // salary revision (career change), which waits for the approver.
+    // Pay changes need an admin, and never to their own pay. Anyone else
+    // (or an admin for themselves) changes salary through a salary revision
+    // (career change), which waits for an admin to apply it.
     const current = await getEmployeeById(id);
     if (!current) return { success: false, error: 'Employee not found' };
     const amountChanged = (a?: number | null, b?: number | null) => Number(a ?? 0) !== Number(b ?? 0);
@@ -180,10 +180,16 @@ export async function updateEmployeeAction(
       validatedData.salary_type !== current.salary_type ||
       amountChanged(validatedData.monthly_salary, current.monthly_salary) ||
       amountChanged(validatedData.hourly_rate, current.hourly_rate);
-    if (payChanged && !(await isApprover(session))) {
+    if (payChanged && !isAdminApprover(session)) {
       return {
         success: false,
-        error: `Salary changes need the approver (${APPROVER_EMPLOYEE_ID}). Raise a salary revision from Career Change instead.`,
+        error: 'Salary changes need an admin. Raise a salary revision from Career Change instead.',
+      };
+    }
+    if (payChanged && (await isOwnEmployeeRecord(session, id))) {
+      return {
+        success: false,
+        error: `${OWN_PAY_CHANGE_ERROR} Raise a salary revision from Career Change instead.`,
       };
     }
 

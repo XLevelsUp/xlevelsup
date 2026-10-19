@@ -13,11 +13,17 @@ import { restoreFormValues } from '@/lib/utils/form';
 
 interface AttendanceChangeRequestReviewFormProps {
   requestId: number;
+  /**
+   * False when the reviewing admin raised this request themselves — another
+   * admin has to approve it (the server enforces this too).
+   */
+  canApprove?: boolean;
   onSuccess?: () => void;
 }
 
 export default function AttendanceChangeRequestReviewForm({
   requestId,
+  canApprove = true,
   onSuccess,
 }: AttendanceChangeRequestReviewFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -57,13 +63,23 @@ export default function AttendanceChangeRequestReviewForm({
         <label className='block text-sm font-medium mb-2'>
           Decision <span className='text-red-500'>*</span>
         </label>
+        {!canApprove && (
+          <p className='mb-3 text-sm text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2'>
+            This is your own request, so another admin has to approve it. You can still reject
+            it to withdraw it.
+          </p>
+        )}
         <div className='flex gap-4'>
-          <label className='flex items-center space-x-2 cursor-pointer'>
+          <label
+            className={`flex items-center space-x-2 ${canApprove ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+            title={canApprove ? undefined : 'Another admin has to approve your own request'}
+          >
             <input
               type='radio'
               name='status'
               value='approved'
               required
+              disabled={!canApprove}
               className='w-4 h-4 text-green-500 focus:ring-green-500'
             />
             <span className='text-sm'>Approve</span>

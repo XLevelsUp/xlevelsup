@@ -6,6 +6,7 @@
 import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllAttendanceChangeRequests } from '@/lib/erp/attendance-change-requests';
+import { getLinkedEmployeeId } from '@/lib/erp/approver';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import AttendanceChangeRequestsManagementTable from '@/components/erp/AttendanceChangeRequestsManagementTable';
 import { PageHeader } from '@/components/erp/PageChrome';
@@ -22,10 +23,13 @@ export default async function AttendanceChangeRequestsPage() {
     redirect(denied);
   }
 
-  const allRequests = await getAllAttendanceChangeRequests();
-  const pendingRequests = await getAllAttendanceChangeRequests({
-    status: 'pending',
-  });
+  // currentEmployeeId: this admin's own employee record (if linked) — their
+  // own requests need another admin to approve.
+  const [allRequests, pendingRequests, currentEmployeeId] = await Promise.all([
+    getAllAttendanceChangeRequests(),
+    getAllAttendanceChangeRequests({ status: 'pending' }),
+    getLinkedEmployeeId(session),
+  ]);
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
@@ -60,7 +64,10 @@ export default async function AttendanceChangeRequestsPage() {
             />
           </div>
 
-          <AttendanceChangeRequestsManagementTable requests={allRequests} />
+          <AttendanceChangeRequestsManagementTable
+            requests={allRequests}
+            currentEmployeeId={currentEmployeeId}
+          />
         </div>
       </main>
     </ERPLayoutWrapper>

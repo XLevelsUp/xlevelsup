@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { requireRole, requireAuth } from '@/lib/auth';
-import { requireApprover } from '@/lib/erp/approver';
+import { requireAdminApprover, assertNotOwn } from '@/lib/erp/approver';
 import {
   getAllExpenses,
   getExpenseById,
@@ -119,7 +119,8 @@ export async function updateExpenseAction(
 }
 
 /**
- * Update expense status
+ * Update expense status. Any admin may, but not approve or pay out an
+ * expense they submitted themselves.
  */
 export async function updateExpenseStatusAction(
   id: number,
@@ -127,11 +128,14 @@ export async function updateExpenseStatusAction(
   rejectionReason?: string,
 ): Promise<ExpenseActionResult> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const existing = await getExpenseById(id);
     if (!existing) {
       return { success: false, error: 'Expense not found' };
+    }
+    if (status === 'approved' || status === 'paid') {
+      await assertNotOwn(session, 'expense', { raisedBy: existing.submitted_by });
     }
 
     const expense = await updateExpenseStatus(
@@ -170,18 +174,20 @@ export async function deleteExpenseAction(
 }
 
 /**
- * Mark expense as reimbursed
+ * Mark expense as reimbursed. Any admin may, but not for an expense they
+ * submitted themselves.
  */
 export async function markExpenseReimbursedAction(
   id: number,
 ): Promise<ExpenseActionResult> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const existing = await getExpenseById(id);
     if (!existing) {
       return { success: false, error: 'Expense not found' };
     }
+    await assertNotOwn(session, 'expense', { raisedBy: existing.submitted_by });
 
     const { data: expense, error } = await supabase
       .from('expenses')

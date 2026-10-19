@@ -21,7 +21,7 @@ import {
 import { getFloaterHolidayDateSetInRange } from '@/lib/erp/holidays';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { requireRole } from '@/lib/auth';
-import { requireApprover } from '@/lib/erp/approver';
+import { requireAdminApprover, assertNotOwn } from '@/lib/erp/approver';
 import { getTodayIST } from '@/lib/erp/utils';
 import { PayrollLockedError } from '@/lib/erp/payroll-lock';
 
@@ -431,8 +431,9 @@ export async function getEmployeeLeaveBalanceAction(
 }
 
 /**
- * Review (approve/reject) an employee's leave request. The reviewer
- * identity is always the verified session, never a client-supplied id.
+ * Review (approve/reject) an employee's leave request — any admin may, but
+ * never approve their own. The reviewer identity is always the verified
+ * session, never a client-supplied id.
  */
 export async function reviewLeaveRequestAction(
   leaveRequestId: number,
@@ -440,7 +441,7 @@ export async function reviewLeaveRequestAction(
   reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const data = {
       status,
@@ -456,6 +457,9 @@ export async function reviewLeaveRequestAction(
     }
     if (leaveRequest.status !== 'pending') {
       return { success: false, error: 'This leave request has already been reviewed' };
+    }
+    if (validated.status === 'approved') {
+      await assertNotOwn(session, 'leave request', { forEmployeeId: leaveRequest.employee_id });
     }
 
     await reviewLeaveRequest(
