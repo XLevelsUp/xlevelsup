@@ -16,12 +16,29 @@ import { assertPayrollNotGenerated, monthsInRange } from '@/lib/erp/payroll-lock
 
 /**
  * A leave_requests row as PostgREST returns it from the joined select, with
- * employee and reviewer nested under their relation names rather than
- * flattened into the employee_name / reviewer_name fields callers see.
+ * the employee nested under its relation name rather than flattened into the
+ * employee_name fields callers see.
  */
 interface LeaveRequestJoinedRow extends LeaveRequest {
   employee: { name: string; employee_id: string; department: string } | null;
-  reviewer: { name: string } | null;
+}
+
+/**
+ * Reviewer names keyed by users.id. leave_requests.reviewed_by holds the
+ * reviewing admin's users.id (the verified session, see
+ * reviewLeaveRequestAction), and users has no name — it lives on the
+ * employee record linked to that login. The column's foreign key points at
+ * employees(id) instead (db/migrations/fix-leave-requests-reviewed-by-fk.sql
+ * corrects it), so embedding through it named whichever employee happened
+ * to share the admin's user id.
+ */
+async function getReviewerNamesByUserId(): Promise<Map<number, string>> {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('user_id, name')
+    .not('user_id', 'is', null);
+  if (error) throw error;
+  return new Map((data || []).map((e) => [e.user_id as number, e.name as string]));
 }
 
 /**
@@ -143,8 +160,7 @@ export async function getAllLeaveRequests(filters?: {
     .select(
       `
       *,
-      employee:employees!employee_id(id, employee_id, name, department),
-      reviewer:employees!reviewed_by(name)
+      employee:employees!employee_id(id, employee_id, name, department)
     `,
     )
     .order('created_at', { ascending: false });
@@ -165,7 +181,10 @@ export async function getAllLeaveRequests(filters?: {
     query = query.lte('end_date', filters.end_date);
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, reviewerNames] = await Promise.all([
+    query,
+    getReviewerNamesByUserId(),
+  ]);
 
   if (error) throw error;
 
@@ -176,7 +195,7 @@ export async function getAllLeaveRequests(filters?: {
       employee_name: item.employee?.name || 'Unknown',
       employee_id_display: item.employee?.employee_id || '',
       employee_department: item.employee?.department || '',
-      reviewer_name: item.reviewer?.name || null,
+      reviewer_name: (item.reviewed_by && reviewerNames.get(item.reviewed_by)) || null,
     })) || []
   );
 }
