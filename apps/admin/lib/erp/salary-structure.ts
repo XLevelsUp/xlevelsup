@@ -143,7 +143,7 @@ export async function createSalaryStructure(
       gross_salary: grossSalary,
       effective_from: data.effective_from,
       // 'pending' rows are invisible to payroll (getEffectiveSalaryStructure
-      // reads only 'active') until the approver activates them.
+      // reads only 'active') until an admin activates them.
       status: options.pending ? 'pending' : 'active',
       source_career_history_id: data.source_career_history_id ?? null,
       created_by: createdBy,
@@ -161,9 +161,10 @@ export async function createSalaryStructure(
  * breakdown supplied. Tags the row with source_career_history_id so
  * cancelCareerChangeById can find and cancel it if the change is cancelled.
  *
- * `pending`: the change was raised by someone other than the approver, so
- * the structure must not reach payroll until the approver applies the
- * change (activateSalaryStructureByCareerHistoryId).
+ * `pending`: the change was raised by someone who can't approve it (a
+ * non-admin, or an admin for their own record), so the structure must not
+ * reach payroll until another admin applies the change
+ * (activateSalaryStructureByCareerHistoryId).
  */
 export async function createSalaryStructureFromCareerChange(
   employeeId: number,
@@ -200,6 +201,17 @@ export async function activateSalaryStructureByCareerHistoryId(careerHistoryId: 
  * Refused once a paid payroll month was generated from it: that month really
  * was paid on this structure, so it must stay in the history.
  */
+/** Whose salary structure row this is (employees.id), or null if it doesn't exist. */
+export async function getSalaryStructureEmployeeId(id: number): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('employee_salary_structure')
+    .select('employee_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.employee_id ?? null;
+}
+
 export async function cancelSalaryStructure(id: number): Promise<void> {
   const { count, error: paidError } = await supabase
     .from('payroll')

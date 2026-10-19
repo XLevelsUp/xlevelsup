@@ -7,8 +7,8 @@
  *
  * The lock is per employee and month, and lasts as long as any payroll row
  * (draft, approved or paid) exists for it. To correct a month: delete the
- * draft row (an approved one must first be moved back to Draft by the
- * approver), fix attendance, then generate again. Paid months stay frozen.
+ * draft row (an approved one must first be moved back to Draft by an
+ * admin), fix attendance, then generate again. Paid months stay frozen.
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
@@ -93,6 +93,6 @@ export async function assertPayrollNotGenerated(
     `Payroll is already generated for ${shown}${more}, so ${what} for that month can't be changed. ` +
       (anyPaid
         ? 'Paid months are final.'
-        : 'To correct it, delete the draft payroll record first (an approved one must be moved back to Draft by the approver), then generate payroll again.'),
+        : 'To correct it, delete the draft payroll record first (an approved one must be moved back to Draft by an admin), then generate payroll again.'),
   );
 }

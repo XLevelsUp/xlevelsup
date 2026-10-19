@@ -763,8 +763,8 @@ export default function PayrollManager({
             create fresh records for the same month.
           </p>
           <div className='bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300'>
-            This cannot be undone. Approved records are locked and kept — the
-            approver must move them back to Draft first. Paid records are
+            This cannot be undone. Approved records are locked and kept — an
+            admin must move them back to Draft first. Paid records are
             finalized and are always kept — they back an issued payslip and a
             ledger payment, and deleting them would allow the month to be paid
             twice.

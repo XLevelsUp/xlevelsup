@@ -2,7 +2,12 @@
 
 import { z } from 'zod';
 import { requireAuth, requireRole, ERP_FULL_ACCESS_ROLES, FINANCE_READ_ROLES } from '@/lib/auth';
-import { requireApprover } from '@/lib/erp/approver';
+import {
+  requireAdminApprover,
+  assertNotOwn,
+  isOwnEmployeeRecord,
+  ownApprovalError,
+} from '@/lib/erp/approver';
 import {
   getLedgerEntries,
   getLedgerEntryById,
@@ -74,6 +79,11 @@ export interface FinanceActionResult {
   success: boolean;
   error?: string;
   entry?: FinancialLedgerEntry;
+}
+
+/** Approval states that sign an entry off (as opposed to pending / rejected). */
+function isApprovedStatus(status: string | null | undefined): boolean {
+  return status === 'approved' || status === 'paid';
 }
 
 /**
@@ -200,6 +210,15 @@ export async function createLedgerEntryAction(
       rawData.employee_id = employeeId;
       rawData.payment_status = 'pending';
       rawData.approval_status = 'pending';
+    } else if (
+      isApprovedStatus(rawData.approval_status) &&
+      (await isOwnEmployeeRecord(session, rawData.employee_id))
+    ) {
+      // An entry that pays the admin themselves (employee-tagged entries are
+      // salary/reimbursement payouts to that employee) can't be recorded as
+      // already approved by them — it waits for another admin, same as
+      // approveLedgerEntryAction enforces.
+      rawData.approval_status = 'pending';
     }
 
     const receiptFile = formData.get('receipt');
@@ -265,6 +284,24 @@ export async function updateLedgerEntryAction(
     };
 
     rawData.payee_name = await resolveSalaryPayeeName(rawData);
+
+    // Editing is not a way round approval: an entry that pays this admin can
+    // only be approved/paid by another admin (approveLedgerEntryAction). It
+    // can still be edited once another admin has approved it, as long as the
+    // edit doesn't change who it pays or its approval state.
+    if (
+      isApprovedStatus(rawData.approval_status) &&
+      (await isOwnEmployeeRecord(session, rawData.employee_id))
+    ) {
+      const existing = await getLedgerEntryById(id);
+      if (
+        !existing ||
+        existing.employee_id !== rawData.employee_id ||
+        existing.approval_status !== rawData.approval_status
+      ) {
+        return { success: false, error: ownApprovalError('payment') };
+      }
+    }
 
     const validatedData = ledgerEntrySchema.parse(rawData);
     const entry = await updateLedgerEntryById(id, validatedData, session.userId);
@@ -406,8 +443,8 @@ export async function deleteLedgerEntryAction(
 
 /**
  * Approve/reject a reimbursement, expense, or invoice-generated income entry.
- * Approver-only (see lib/erp/approver.ts) — including entries the approver
- * created themselves.
+ * Any admin may (see lib/erp/approver.ts), but not approve or pay out an
+ * entry that pays them — another admin has to.
  */
 export async function approveLedgerEntryAction(
   id: number,
@@ -415,11 +452,14 @@ export async function approveLedgerEntryAction(
   comments?: string,
 ): Promise<FinanceActionResult> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const existing = await getLedgerEntryById(id);
     if (!existing) {
       return { success: false, error: 'Ledger entry not found' };
+    }
+    if (isApprovedStatus(status)) {
+      await assertNotOwn(session, 'payment', { forEmployeeId: existing.employee_id });
     }
 
     const entry = await approveLedgerEntry(id, status, session.userId, comments);

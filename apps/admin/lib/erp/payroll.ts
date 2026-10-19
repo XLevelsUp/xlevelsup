@@ -175,7 +175,7 @@ export async function createPayroll(
 function lockedPayrollMessage(status: Payroll['status']): string {
   return status === 'paid'
     ? 'Cannot modify a finalized (paid) payroll record'
-    : 'This payroll record is approved, so its figures are locked. The approver must move it back to Draft before it can be changed.';
+    : 'This payroll record is approved, so its figures are locked. An admin must move it back to Draft before it can be changed.';
 }
 
 /** Net pay can never go below zero — deductions can take it to nil at most. */
@@ -571,7 +571,7 @@ export async function deletePayroll(id: number): Promise<void> {
     throw new Error(
       existing.status === 'paid'
         ? 'Cannot delete a finalized (paid) payroll record'
-        : 'Cannot delete an approved payroll record. The approver must move it back to Draft first.',
+        : 'Cannot delete an approved payroll record. An admin must move it back to Draft first.',
     );
   }
 

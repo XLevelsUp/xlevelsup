@@ -222,7 +222,11 @@ export default function CareerChangeModal({
         toast.success(
           isFutureDate
             ? `${CAREER_CHANGE_TYPE_LABELS[changeType]} scheduled for ${effectiveDate}. Apply it manually on/after that date.`
-            : `${CAREER_CHANGE_TYPE_LABELS[changeType]} applied successfully!`,
+            : // Saved as pending rather than applied: raised for the admin's own
+              // record (or by a non-admin), so another admin has to apply it.
+              result.data?.status === 'pending_effective'
+              ? `${CAREER_CHANGE_TYPE_LABELS[changeType]} saved — it takes effect once another admin applies it.`
+              : `${CAREER_CHANGE_TYPE_LABELS[changeType]} applied successfully!`,
           { duration: 4000 },
         );
         onSuccess?.();

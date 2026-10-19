@@ -18,6 +18,8 @@ import { formatDateSpan } from '@/lib/erp/utils';
 
 interface LeaveManagementTableProps {
   requests: LeaveRequestWithEmployee[];
+  /** This admin's own employee record, if linked — they can't approve its requests. */
+  currentEmployeeId: number | null;
 }
 
 // Helper functions - shared between components
@@ -43,6 +45,7 @@ const halfDayLabel = (period?: string | null) => (period === 'first_half' ? 'Mor
 
 export default function LeaveManagementTable({
   requests,
+  currentEmployeeId,
 }: LeaveManagementTableProps) {
   const [selectedRequest, setSelectedRequest] =
     useState<LeaveRequestWithEmployee | null>(null);
@@ -272,6 +275,7 @@ export default function LeaveManagementTable({
           onClose={() => setSelectedRequest(null)}
           onReview={handleReview}
           processing={processing}
+          isOwnRequest={selectedRequest.employee_id === currentEmployeeId}
         />
       )}
     </div>
@@ -283,6 +287,8 @@ interface ReviewModalProps {
   onClose: () => void;
   onReview: (status: 'approved' | 'rejected', comments?: string) => void;
   processing: boolean;
+  /** Raised by the reviewing admin themselves — another admin has to approve it. */
+  isOwnRequest: boolean;
 }
 
 function ReviewModal({
@@ -290,6 +296,7 @@ function ReviewModal({
   onClose,
   onReview,
   processing,
+  isOwnRequest,
 }: ReviewModalProps) {
   const [comments, setComments] = useState('');
 
@@ -380,10 +387,17 @@ function ReviewModal({
         {/* Action Buttons */}
         {request.status === 'pending' ? (
           <>
+            {isOwnRequest && (
+              <p className='text-sm text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2'>
+                This is your own request, so another admin has to approve it. You can still
+                reject it to withdraw it.
+              </p>
+            )}
             <div className='flex gap-3'>
               <button
                 onClick={() => onReview('approved', comments)}
-                disabled={processing}
+                disabled={processing || isOwnRequest}
+                title={isOwnRequest ? 'Another admin has to approve your own request' : undefined}
                 className='flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
               >
                 {processing ? 'Processing...' : 'Approve'}

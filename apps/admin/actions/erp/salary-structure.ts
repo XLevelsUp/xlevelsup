@@ -3,16 +3,18 @@
 /**
  * Server Actions for Salary Structures & Templates. Reads and templates are
  * admin/HR-gated; adding or cancelling a structure changes pay, so it needs
- * the approver — same as approving payroll or applying a career change.
+ * an admin, and never on their own salary — same as approving payroll or
+ * applying a career change.
  */
 
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth';
-import { requireApprover } from '@/lib/erp/approver';
+import { requireAdminApprover, isOwnEmployeeRecord, OWN_PAY_CHANGE_ERROR } from '@/lib/erp/approver';
 import {
   getSalaryStructureHistory,
   createSalaryStructure,
   cancelSalaryStructure,
+  getSalaryStructureEmployeeId,
   getSalaryTemplates,
   createSalaryTemplate,
   updateSalaryTemplate,
@@ -51,10 +53,11 @@ export async function createSalaryStructureAction(
   formData: FormData,
 ): Promise<SalaryStructureActionResult> {
   try {
-    // A new revision changes what payroll pays, so only the approver can add
-    // one directly — anyone else raises a salary revision (career change),
-    // which waits for the approver to apply it.
-    const session = await requireApprover();
+    // A new revision changes what payroll pays, so only an admin can add one
+    // directly, and never to their own salary — anyone else (or an admin for
+    // themselves) raises a salary revision (career change), which waits for
+    // an admin to apply it.
+    const session = await requireAdminApprover();
 
     const validated = structureSchema.parse({
       employee_id: Number(formData.get('employee_id')),
@@ -64,6 +67,13 @@ export async function createSalaryStructureAction(
       other_allowance: parseFloat(formData.get('other_allowance') as string) || 0,
       effective_from: formData.get('effective_from') as string,
     });
+
+    if (await isOwnEmployeeRecord(session, validated.employee_id)) {
+      return {
+        success: false,
+        error: `${OWN_PAY_CHANGE_ERROR} Raise a salary revision from Career Change instead.`,
+      };
+    }
 
     const data = await createSalaryStructure(validated, session.userId);
 
@@ -83,7 +93,12 @@ export async function createSalaryStructureAction(
 
 export async function cancelSalaryStructureAction(id: number): Promise<SalaryStructureActionResult> {
   try {
-    await requireApprover();
+    const session = await requireAdminApprover();
+    // Cancelling a revision changes pay too (it can undo a cut), so an admin
+    // can't do it to their own salary either.
+    if (await isOwnEmployeeRecord(session, await getSalaryStructureEmployeeId(id))) {
+      return { success: false, error: OWN_PAY_CHANGE_ERROR };
+    }
     await cancelSalaryStructure(id);
     revalidatePath('/erp/payroll');
     return { success: true };

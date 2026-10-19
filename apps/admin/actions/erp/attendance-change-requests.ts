@@ -15,7 +15,7 @@ import {
   fetchAttendanceByEmployeeAndDate,
 } from '@/lib/erp/attendance-change-requests';
 import { checkLeaveBalanceAvailable } from '@/lib/erp/leave-requests';
-import { requireApprover } from '@/lib/erp/approver';
+import { requireAdminApprover, assertNotOwn } from '@/lib/erp/approver';
 import { PayrollLockedError } from '@/lib/erp/payroll-lock';
 import type { AttendanceStatus, AttendanceRegularisationType } from '@/types/erp';
 
@@ -361,8 +361,9 @@ export async function getAttendanceForRegularisationDateAction(
 }
 
 /**
- * Review (approve/reject) an employee's attendance change request. The
- * reviewer identity is always the verified session, never a client-supplied id.
+ * Review (approve/reject) an employee's attendance change request — any
+ * admin may, but never approve their own. The reviewer identity is always
+ * the verified session, never a client-supplied id.
  */
 export async function reviewAttendanceChangeRequestAction(
   requestId: number,
@@ -370,7 +371,7 @@ export async function reviewAttendanceChangeRequestAction(
   reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const rawData = {
       status,
@@ -385,6 +386,9 @@ export async function reviewAttendanceChangeRequestAction(
     }
     if (request.status !== 'pending') {
       return { success: false, error: 'This request has already been reviewed' };
+    }
+    if (validated.status === 'approved') {
+      await assertNotOwn(session, 'attendance request', { forEmployeeId: request.employee_id });
     }
 
     await reviewAttendanceChangeRequest(

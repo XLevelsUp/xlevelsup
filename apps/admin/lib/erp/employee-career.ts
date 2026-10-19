@@ -178,10 +178,11 @@ export async function getEmployeeSalaryForPayrollPeriod(
 
 /**
  * Insert a new career history record.
- * If effective_date is today or past and the requester is the approver
- * → status 'approved', employee updated immediately.
+ * If effective_date is today or past and the requester may approve it (an
+ * admin, for someone other than themselves) → status 'approved', employee
+ * updated immediately.
  * Otherwise (a future date, or raised by anyone else) → status
- * 'pending_effective', employee NOT updated until the approver applies it.
+ * 'pending_effective', employee NOT updated until an admin applies it.
  */
 export async function insertEmployeeCareerHistory(
   formData: CareerChangeFormData,
@@ -238,9 +239,10 @@ export async function insertEmployeeCareerHistory(
   // monthly_salary update above, which is kept for backward-compatible
   // display/history. Inserted immediately: the structure's own
   // effective_from date governs when payroll generation picks it up. But
-  // when anyone other than the approver raised the change, it's inserted as
-  // 'pending' — invisible to payroll — and only becomes active when the
-  // approver applies the change (applyCareerChangeById).
+  // when it was raised by someone who can't approve it (a non-admin, or an
+  // admin for their own record), it's inserted as 'pending' — invisible to
+  // payroll — and only becomes active when another admin applies the change
+  // (applyCareerChangeById).
   const breakdownSupplied =
     formData.new_basic_salary !== undefined &&
     formData.new_hra !== undefined &&
@@ -358,7 +360,7 @@ export async function applyCareerChangeById(
     new_salary: record.new_salary,
   });
 
-  // The approver applying it is the approval: a structure raised with the
+  // An admin applying it is the approval: a structure raised with the
   // change by someone else now counts for payroll.
   await activateSalaryStructureByCareerHistoryId(historyId);
 
@@ -374,6 +376,17 @@ export async function applyCareerChangeById(
     .eq('id', historyId);
 
   if (updateError) throw updateError;
+}
+
+/** Whose career change record this is (employees.id), or null if it doesn't exist. */
+export async function getCareerChangeEmployeeId(historyId: number): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('employee_career_history')
+    .select('employee_id')
+    .eq('id', historyId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.employee_id ?? null;
 }
 
 /**

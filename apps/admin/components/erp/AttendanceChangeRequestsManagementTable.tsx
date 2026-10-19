@@ -15,10 +15,13 @@ import AttendanceChangeRequestReviewForm from './AttendanceChangeRequestReviewFo
 
 interface AttendanceChangeRequestsManagementTableProps {
   requests: AttendanceChangeRequestWithEmployee[];
+  /** This admin's own employee record, if linked — they can't approve its requests. */
+  currentEmployeeId: number | null;
 }
 
 export default function AttendanceChangeRequestsManagementTable({
   requests,
+  currentEmployeeId,
 }: AttendanceChangeRequestsManagementTableProps) {
   const [filter, setFilter] = useState<string>('pending');
   const [selectedRequest, setSelectedRequest] =
@@ -410,6 +413,7 @@ export default function AttendanceChangeRequestsManagementTable({
             {selectedRequest.status === 'pending' ? (
               <AttendanceChangeRequestReviewForm
                 requestId={selectedRequest.id}
+                canApprove={selectedRequest.employee_id !== currentEmployeeId}
                 onSuccess={() => {
                   setIsReviewModalOpen(false);
                   setSelectedRequest(null);
