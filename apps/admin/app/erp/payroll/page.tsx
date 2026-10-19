@@ -2,6 +2,7 @@ import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllPayroll } from '@/lib/erp/payroll';
 import { getAllEmployees } from '@/lib/erp/employees';
+import { getLinkedEmployeeId } from '@/lib/erp/approver';
 import { getSalaryTemplates, getEffectiveSalaryStructure } from '@/lib/erp/salary-structure';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import PayrollManager from '@/components/erp/PayrollManager';
@@ -55,9 +56,12 @@ export default async function PayrollPage({
     );
   }
 
-  const [payroll, activeEmployees] = await Promise.all([
+  // currentEmployeeId: this admin's own employee record (if linked) — another
+  // admin has to approve and pay out their own payroll.
+  const [payroll, activeEmployees, currentEmployeeId] = await Promise.all([
     getAllPayroll({ month, status }),
     getAllEmployees({ status: 'active' }),
+    getLinkedEmployeeId(session),
   ]);
   // Same eligibility rule as generatePayrollAction: interns are on a stipend
   // and freelancers are paid hourly — neither gets a salary payslip.
@@ -78,6 +82,7 @@ export default async function PayrollPage({
           initialMonth={month}
           initialStatus={status}
           eligibleEmployees={eligibleEmployees}
+          currentEmployeeId={currentEmployeeId}
         />
       </main>
     </ERPLayoutWrapper>

@@ -48,6 +48,8 @@ interface PayrollManagerProps {
   initialMonth: string;
   initialStatus?: string;
   eligibleEmployees: PayrollEligibleEmployee[];
+  /** This admin's own employee record, if linked — they can't approve or pay out its payroll. */
+  currentEmployeeId: number | null;
 }
 
 /**
@@ -111,6 +113,7 @@ export default function PayrollManager({
   initialMonth,
   initialStatus,
   eligibleEmployees,
+  currentEmployeeId,
 }: PayrollManagerProps) {
   const router = useRouter();
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -388,8 +391,12 @@ export default function PayrollManager({
       </button>
     );
 
-  const renderStatus = (record: PayrollWithEmployee) =>
-    record.status === 'paid' ? (
+  const renderStatus = (record: PayrollWithEmployee) => {
+    // The admin's own payroll: another admin has to approve it and mark it
+    // paid (the server enforces this too). Moving it back to Draft stays open.
+    const isOwnRecord = record.employee_id === currentEmployeeId;
+    const canApprove = !isOwnRecord || record.status === 'approved';
+    return record.status === 'paid' ? (
       <span
         className='inline-block px-2 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/30 whitespace-nowrap'
         title='Paid — the payslip is finalized and its figures can no longer change'
@@ -400,6 +407,7 @@ export default function PayrollManager({
       <select
         value={record.status}
         aria-label={`Status for ${record.employee_name}`}
+        title={isOwnRecord ? 'Your own payroll — another admin has to approve it and mark it paid' : undefined}
         onChange={(e) => {
           const newStatus = e.target.value as 'draft' | 'approved' | 'paid';
           if (newStatus === 'paid') {
@@ -412,13 +420,16 @@ export default function PayrollManager({
         className='px-2 py-1 rounded text-xs font-medium bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-[var(--cyan)]'
       >
         <option value='draft'>Draft</option>
-        <option value='approved'>Approved</option>
+        <option value='approved' disabled={!canApprove}>
+          {canApprove ? 'Approved' : 'Approved (another admin)'}
+        </option>
         {/* Only approved figures can be paid — approve a draft first. */}
-        <option value='paid' disabled={record.status !== 'approved'}>
-          Paid
+        <option value='paid' disabled={record.status !== 'approved' || isOwnRecord}>
+          {isOwnRecord ? 'Paid (another admin)' : 'Paid'}
         </option>
       </select>
     );
+  };
 
   const renderRowActions = (record: PayrollWithEmployee, asChip = false) => (
     <>
