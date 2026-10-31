@@ -151,6 +151,17 @@ export interface PayrollCalculation {
   lop_deduction: number;
   /** gross_salary - lop_deduction (+ bonus - deduction, applied later). */
   net_salary: number;
+  /** What each working day counted as, in date order — the figures above summed up. */
+  days: PayrollCalculationDay[];
+}
+
+/** One working day as calculatePayroll counted it. */
+export interface PayrollCalculationDay {
+  date: string;
+  /** Outside the employment window (joined later / left earlier). */
+  employed: boolean;
+  /** Null when the day isn't counted: not employed, or nothing recorded. */
+  share: PayrollDayShare | null;
 }
 
 /** Attendance statuses payroll knows how to price. */
@@ -189,7 +200,7 @@ export interface PayrollDayRecord {
 }
 
 /** How one working day splits across the payroll day counters. Sums to 1. */
-interface PayrollDayShare {
+export interface PayrollDayShare {
   present: number;
   half: number;
   paidLeave: number;
@@ -343,6 +354,7 @@ export function calculatePayroll(
   let absentDays = 0;
   let notEmployedDays = 0;
   const unrecordedDates: string[] = [];
+  const days: PayrollCalculationDay[] = [];
 
   for (const date of workingDayDates) {
     // Days outside the employment window are not payable, and must never be
@@ -355,10 +367,12 @@ export function calculatePayroll(
       (employment?.to && date > employment.to)
     ) {
       notEmployedDays++;
+      days.push({ date, employed: false, share: null });
       continue;
     }
 
     const share = resolvePayrollDay(daysByDate.get(date));
+    days.push({ date, employed: true, share });
     // Not accounted for — unpaid, per the rule above.
     if (!share) {
       unrecordedDates.push(date);
@@ -392,6 +406,7 @@ export function calculatePayroll(
     gross_salary: grossSalary,
     lop_deduction: lopDeduction,
     net_salary: roundMoney(grossSalary - lopDeduction),
+    days,
   };
 }
 

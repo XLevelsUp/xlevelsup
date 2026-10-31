@@ -80,9 +80,10 @@ export async function openPayrollPayslip(payrollId: number): Promise<void> {
   else window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-/** Both Payroll-page tabs; shared with SalaryStructureManager. */
+/** The Payroll-page tabs; shared with PayrollPreview and SalaryStructureManager. */
 export const PAYROLL_TABS: PageTab[] = [
   { id: 'payroll', label: 'Payroll', href: '/erp/payroll' },
+  { id: 'preview', label: 'Preview', href: '/erp/payroll?tab=preview' },
   { id: 'salary-structures', label: 'Salary Structures', href: '/erp/payroll?tab=salary-structures' },
 ];
 

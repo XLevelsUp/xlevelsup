@@ -1,11 +1,13 @@
 import { getSession, erpPageRedirect } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllPayroll } from '@/lib/erp/payroll';
+import { getPayrollPreview } from '@/lib/erp/payroll-plan';
 import { getAllEmployees } from '@/lib/erp/employees';
 import { getLinkedEmployeeId } from '@/lib/erp/approver';
 import { getSalaryTemplates, getEffectiveSalaryStructure } from '@/lib/erp/salary-structure';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import PayrollManager from '@/components/erp/PayrollManager';
+import PayrollPreview from '@/components/erp/PayrollPreview';
 import SalaryStructureManager from '@/components/erp/SalaryStructureManager';
 import { getCurrentMonth } from '@/lib/erp/utils';
 
@@ -27,7 +29,22 @@ export default async function PayrollPage({
   const params = await searchParams;
   const month = params.month || getCurrentMonth();
   const status = params.status;
-  const tab = params.tab === 'salary-structures' ? 'salary-structures' : 'payroll';
+  const tab = params.tab === 'salary-structures' || params.tab === 'preview' ? params.tab : 'payroll';
+
+  if (tab === 'preview') {
+    // Unlike the Payroll tab's plain filter, this month goes into date
+    // arithmetic, so a mangled ?month= must not reach it.
+    const previewMonth = /^\d{4}-\d{2}$/.test(month) ? month : getCurrentMonth();
+    const preview = await getPayrollPreview(previewMonth);
+
+    return (
+      <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
+        <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0'>
+          <PayrollPreview key={previewMonth} month={previewMonth} {...preview} />
+        </main>
+      </ERPLayoutWrapper>
+    );
+  }
 
   if (tab === 'salary-structures') {
     const [fullTimeEmployees, templates] = await Promise.all([

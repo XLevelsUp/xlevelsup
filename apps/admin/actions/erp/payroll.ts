@@ -6,7 +6,6 @@ import { requireAdminApprover, assertNotOwn } from '@/lib/erp/approver';
 import {
   getAllPayroll,
   getPayrollById,
-  getPayrollByEmployeeMonth,
   createPayroll,
   updatePayrollAdjustments,
   updatePayrollDeductions,
@@ -20,21 +19,8 @@ import {
   regeneratePaidPayslip,
   type EmployeePayrollHistoryRow,
 } from '@/lib/erp/payroll';
-import { getEffectiveSalaryStructure, getDefaultSalaryTemplate } from '@/lib/erp/salary-structure';
-import { getFullTimeConversionDate } from '@/lib/erp/employee-career';
-import { getAllEmployees } from '@/lib/erp/employees';
+import { buildPayrollPlan } from '@/lib/erp/payroll-plan';
 import { getPayslipSignedUrl } from '@/lib/erp/payslips';
-import { getMonthlyAttendanceByEmployeeDate } from '@/lib/erp/attendance';
-import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
-import { getApprovedLeaveByEmployeeDate } from '@/lib/erp/leave-requests';
-import { getOffDayWork } from '@/lib/erp/earned-leave';
-import {
-  getWorkingDayDatesInMonth,
-  calculatePayroll,
-  getMonthDateRange,
-  splitGrossByTemplate,
-  type PayrollDayRecord,
-} from '@/lib/erp/utils';
 import { revalidatePath } from 'next/cache';
 import type { Payroll, PayrollWithEmployee } from '@/types/erp';
 
@@ -108,190 +94,32 @@ export async function generatePayrollAction(
       return { success: false, error: 'Invalid month format' };
     }
 
-    // Get all active employees — or only the ones picked in the Generate
-    // dialog, when a selection was sent.
+    // Everyone active — or only the ones picked in the Generate dialog, when a
+    // selection was sent.
     const selectedIds = new Set(
       formData.getAll('employee_ids').map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0),
     );
-    const employees = (await getAllEmployees({ status: 'active' })).filter(
-      (e) => selectedIds.size === 0 || selectedIds.has(e.id),
-    );
+    const { rows } = await buildPayrollPlan(month, selectedIds);
 
-    if (employees.length === 0) {
+    if (rows.length === 0) {
       return { success: false, error: 'No active employees found' };
-    }
-
-    const [year, monthNum] = month.split('-').map(Number);
-
-    // Public holidays are not working days: counting them would understate
-    // per-day salary and dock anyone who correctly did not work that day.
-    const { startDate, endDate } = getMonthDateRange(month);
-    const holidaySet = await getHolidayDateSetInRange(startDate, endDate);
-    const workingDayDates = getWorkingDayDatesInMonth(
-      year,
-      monthNum,
-      holidaySet,
-    );
-
-    // One query for the whole run, rather than one per employee.
-    const attendanceByEmployee = await getMonthlyAttendanceByEmployeeDate(month);
-    const leaveByEmployee = await getApprovedLeaveByEmployeeDate(workingDayDates);
-    const defaultTemplate = await getDefaultSalaryTemplate();
-
-    // Weekend/holiday work that was never clocked out or has no hours logged.
-    // It isn't paid, but it can't be priced for earned leave either, so it
-    // has to be fixed before the month's payroll runs.
-    const unrecordedOffDays = new Map<number, string[]>();
-    for (const work of await getOffDayWork(startDate, endDate)) {
-      if (work.recorded) continue;
-      unrecordedOffDays.set(work.employee_id, [
-        ...(unrecordedOffDays.get(work.employee_id) || []),
-        work.date,
-      ]);
-    }
-
-    let generatedCount = 0;
-    let skippedCount = 0;
-    const errors: string[] = [];
-    const planned: Omit<Payroll, 'id' | 'created_at' | 'updated_at'>[] = [];
-    const missingAttendance: MissingAttendance[] = [];
-
-    for (const employee of employees) {
-      // Interns and freelancers never get a payslip through this system —
-      // interns are on a stipend (not a salary), and freelancers are paid
-      // through the hourly flow. This holds even if one of them happens to
-      // have a monthly_salary value set.
-      if (employee.employment_type === 'intern' || employee.employment_type === 'freelancer') {
-        skippedCount++;
-        continue;
-      }
-
-      // Check if payroll already exists
-      const existing = await getPayrollByEmployeeMonth(employee.id, month);
-      if (existing) {
-        skippedCount++;
-        continue;
-      }
-
-      // Full-time employees may have a structured salary configured — if so,
-      // its gross_salary and Basic/HRA/Special/Other breakdown are used and
-      // snapshotted onto the payroll row instead of the flat monthly_salary.
-      // Falls back to today's flat behavior when none exists yet (e.g. every
-      // full-time employee before this feature was configured for them).
-      const structure =
-        employee.employment_type === 'full-time'
-          ? await getEffectiveSalaryStructure(employee.id, endDate)
-          : null;
-      const effectiveGrossSalary = structure?.gross_salary ?? employee.monthly_salary;
-
-      // A full-time employee with no structure of their own yet still gets
-      // the standard Basic/HRA/Special/Other components on their payslip:
-      // their flat gross split by the default template, snapshotted onto the
-      // row like a real structure's would be (salary_structure_id stays null).
-      const components =
-        structure ??
-        (employee.employment_type === 'full-time' && defaultTemplate && effectiveGrossSalary
-          ? splitGrossByTemplate(effectiveGrossSalary, defaultTemplate)
-          : null);
-
-      // No monthly salary (or structure) configured — anyone whose pay
-      // hasn't been set up yet. A zero row can't be approved or paid, so it
-      // would only be noise on the payroll screen.
-      if (!effectiveGrossSalary) {
-        skippedCount++;
-        continue;
-      }
-
-      // Attendance and approved leave side by side, per date — which one a
-      // day counts as is decided in calculatePayroll (resolvePayrollDay).
-      const employeeAttendance = attendanceByEmployee.get(employee.id);
-      const employeeLeave = leaveByEmployee.get(employee.id);
-      const daysByDate = new Map<string, PayrollDayRecord>();
-      for (const date of workingDayDates) {
-        const attendance = employeeAttendance?.get(date);
-        const leave = employeeLeave?.get(date);
-        if (attendance || leave) daysByDate.set(date, { attendance, leave });
-      }
-
-      // A converted intern is only salaried from the conversion date — the
-      // days before it were internship (stipend), so they're outside the
-      // salaried window: prorated out of the conversion month, and a month
-      // wholly before it gets no salary payslip at all (skipped below).
-      const conversionDate =
-        employee.employment_type === 'full-time' ? await getFullTimeConversionDate(employee.id) : null;
-      const salariedFrom =
-        conversionDate && (!employee.joining_date || conversionDate > employee.joining_date)
-          ? conversionDate
-          : employee.joining_date;
-
-      // Calculate payroll
-      const calculation = calculatePayroll(
-        effectiveGrossSalary,
-        workingDayDates,
-        daysByDate,
-        { from: salariedFrom, to: employee.end_date },
-      );
-
-      // Not employed for a single working day of this month — someone hired
-      // after it, or who left before it. No payslip is owed, and generating a
-      // zero row would just be noise on the screen.
-      if (calculation.not_employed_days === calculation.total_working_days) {
-        skippedCount++;
-        continue;
-      }
-
-      const offDayDates = (unrecordedOffDays.get(employee.id) || []).sort();
-      if (calculation.unrecorded_dates.length > 0 || offDayDates.length > 0) {
-        missingAttendance.push({
-          employee: `${employee.name} (${employee.employee_id})`,
-          dates: calculation.unrecorded_dates,
-          offDayDates,
-        });
-        continue;
-      }
-
-      planned.push({
-        employee_id: employee.id,
-        month,
-        total_working_days: calculation.total_working_days,
-        present_days: calculation.present_days,
-        paid_leave_days: calculation.paid_leave_days,
-        unpaid_leave_days: calculation.unpaid_leave_days,
-        absent_days: calculation.absent_days,
-        half_days: calculation.half_days,
-        payable_days: calculation.payable_days,
-        per_day_salary: calculation.per_day_salary,
-        gross_salary: calculation.gross_salary,
-        bonus: 0,
-        deduction: 0,
-        // gross_salary is the contracted monthly pay; net is what's left
-        // after loss of pay for unpaid days. The two differ whenever
-        // payable_days < total_working_days.
-        net_salary: calculation.net_salary,
-        status: 'draft',
-        notes: null,
-        generated_by: session.userId,
-        generated_at: new Date().toISOString(),
-        approved_by: null,
-        approved_at: null,
-        paid_by: null,
-        paid_at: null,
-        salary_structure_id: structure?.id ?? null,
-        basic_salary: components?.basic_salary ?? null,
-        hra: components?.hra ?? null,
-        special_allowance: components?.special_allowance ?? null,
-        other_allowance: components?.other_allowance ?? null,
-        pf_deduction: 0,
-        esi_deduction: 0,
-        professional_tax_deduction: 0,
-        tds_deduction: 0,
-        other_structured_deduction: 0,
-      });
     }
 
     // Every working day must be accounted for before anyone is paid for the
     // month. Refuse the whole run — not just the affected employees — so a
     // month is never left half-generated while the gaps get fixed.
+    const missingAttendance: MissingAttendance[] = rows.flatMap((row) =>
+      row.outcome === 'blocked'
+        ? [
+            {
+              employee: `${row.employee.name} (${row.employee.employee_id})`,
+              dates: row.calculation.unrecorded_dates,
+              offDayDates: row.offDayDates,
+            },
+          ]
+        : [],
+    );
+
     if (missingAttendance.length > 0) {
       const days = missingAttendance.reduce((n, m) => n + m.dates.length + m.offDayDates.length, 0);
       return {
@@ -301,13 +129,21 @@ export async function generatePayrollAction(
       };
     }
 
-    for (const row of planned) {
+    let generatedCount = 0;
+    const skippedCount = rows.filter((row) => row.outcome !== 'ready').length;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      if (row.outcome !== 'ready') continue;
       try {
-        await createPayroll(row);
+        await createPayroll({
+          ...row.payroll,
+          generated_by: session.userId,
+          generated_at: new Date().toISOString(),
+        });
         generatedCount++;
       } catch (error) {
-        const name = employees.find((e) => e.id === row.employee_id)?.name;
-        errors.push(`Failed for ${name}: ${error}`);
+        errors.push(`Failed for ${row.employee.name}: ${error}`);
       }
     }
 

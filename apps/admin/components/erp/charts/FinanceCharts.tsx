@@ -85,7 +85,7 @@ function ViewToggle<T extends string>({
 interface StatTileProps {
   label: string;
   value: React.ReactNode;
-  sublabel?: string;
+  sublabel?: React.ReactNode;
   accentClassName?: string; // e.g. 'border-green-500', drawn as a left rail
 }
 
