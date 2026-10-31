@@ -126,6 +126,25 @@ export async function getActiveTimeLog(
 }
 
 /**
+ * Which of these employees are clocked in right now — getActiveTimeLog's test
+ * for many people at once, so it agrees with what their Time Tracker shows.
+ */
+export async function getClockedInEmployeeIds(employeeIds: number[]): Promise<number[]> {
+  if (employeeIds.length === 0) return [];
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('time_logs')
+    .select('employee_id')
+    .in('employee_id', employeeIds)
+    .eq('date', today)
+    .eq('status', 'active');
+
+  if (error) throw error;
+  return [...new Set((data || []).map((log) => log.employee_id))];
+}
+
+/**
  * Get all time logs for employee for a specific date
  */
 export async function getTimeLogsByDate(

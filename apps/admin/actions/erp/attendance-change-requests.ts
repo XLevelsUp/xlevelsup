@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import {
   createAttendanceChangeRequest,
   createAttendanceRegularisationRequest,
@@ -16,6 +17,7 @@ import {
 } from '@/lib/erp/attendance-change-requests';
 import { checkLeaveBalanceAvailable } from '@/lib/erp/leave-requests';
 import { requireAdminApprover, assertNotOwn } from '@/lib/erp/approver';
+import { notifyAdminsOfAttendanceRequest } from '@/lib/erp/notifications';
 import { PayrollLockedError } from '@/lib/erp/payroll-lock';
 import type { AttendanceStatus, AttendanceRegularisationType } from '@/types/erp';
 
@@ -242,6 +244,9 @@ export async function createAttendanceChangeRequestAction(
       attendance_id: validated.attendance_id,
     });
 
+    // After the response: raising a request shouldn't wait on a push service.
+    after(() => notifyAdminsOfAttendanceRequest(employeeId, validated.request_date));
+
     // Sends the refreshed page (records + "My Regularisation Requests") back
     // with this response, so the form needn't reload the whole page.
     revalidatePath('/employee/attendance');
@@ -315,6 +320,9 @@ export async function createAttendanceRegularisationRequestAction(
       employee_note: validated.employee_note,
       attendance_id: validated.attendance_id,
     });
+
+    // After the response: raising a request shouldn't wait on a push service.
+    after(() => notifyAdminsOfAttendanceRequest(employeeId, validated.request_date));
 
     revalidatePath('/employee/attendance');
 
