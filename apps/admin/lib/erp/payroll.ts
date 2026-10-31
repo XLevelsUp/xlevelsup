@@ -98,24 +98,6 @@ export async function getPayrollById(
 }
 
 /**
- * Get payroll for specific employee and month
- */
-export async function getPayrollByEmployeeMonth(
-  employeeId: number,
-  month: string,
-): Promise<Payroll | undefined> {
-  const { data, error } = await supabase
-    .from('payroll')
-    .select('*')
-    .eq('employee_id', employeeId)
-    .eq('month', month)
-    .single();
-
-  if (error && error.code !== 'PGRST116') throw error;
-  return data || undefined;
-}
-
-/**
  * Create payroll record
  */
 export async function createPayroll(
