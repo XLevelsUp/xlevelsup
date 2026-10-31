@@ -9,9 +9,9 @@
  *   are admins AND employees, so an admin can't approve anything that pays
  *   them or that they raised for approval, or change their own salary or
  *   role — another admin has to.
- * - requireApprover (sole approver): direct attendance writes (single-day
- *   edits, deletes, bulk attendance) stay with the admin login linked to
- *   APPROVER_EMPLOYEE_ID.
+ * - requireApprover (sole approver): single-day attendance edits and deletes
+ *   stay with the admin login linked to APPROVER_EMPLOYEE_ID. Bulk attendance
+ *   is open to any admin, their own record included.
  *
  * Kept out of lib/auth.ts on purpose: that module is imported by
  * middleware.ts (edge runtime) and must stay free of the database client.
@@ -112,7 +112,7 @@ async function getApproverUserId(): Promise<number | null> {
   return data?.user_id ?? null;
 }
 
-/** Whether this ERP session belongs to the sole approver (direct attendance writes). */
+/** Whether this ERP session belongs to the sole approver (single-day attendance writes). */
 export async function isApprover(session: Pick<SessionPayload, 'userId'> | null): Promise<boolean> {
   if (!session) return false;
   const approverUserId = await getApproverUserId();
@@ -120,9 +120,9 @@ export async function isApprover(session: Pick<SessionPayload, 'userId'> | null)
 }
 
 /**
- * Require the sole approver's admin session — now only for direct attendance
- * writes. Throws (like requireRole) otherwise, so callers' existing catch
- * blocks surface the message.
+ * Require the sole approver's admin session — now only for single-day
+ * attendance edits and deletes. Throws (like requireRole) otherwise, so
+ * callers' existing catch blocks surface the message.
  */
 export async function requireApprover(): Promise<SessionPayload> {
   const session = await requireRole(['admin', 'hr']);

@@ -4,6 +4,7 @@ import { getAllEmployees } from '@/lib/erp/employees';
 import { getAllAttendance } from '@/lib/erp/attendance';
 import { getAllTimeLogs } from '@/lib/erp/time-logs';
 import { getAllLeaveRequests } from '@/lib/erp/leave-requests';
+import { getAllHolidays } from '@/lib/erp/holidays';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import AttendanceManager from '@/components/erp/AttendanceManager';
 import { getCurrentMonth } from '@/lib/erp/utils';
@@ -46,6 +47,7 @@ export default async function AttendancePage({
     month: isAllTime ? undefined : month,
     employee_id: employeeId,
   });
+  const holidays = await getAllHolidays();
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
@@ -55,6 +57,7 @@ export default async function AttendancePage({
           attendance={attendance}
           leaveRequests={leaveRequests}
           timeLogs={timeLogs}
+          holidays={holidays}
           initialMonth={month || getCurrentMonth()}
           initialEmployeeId={employeeId}
           initialIsAllTime={isAllTime}

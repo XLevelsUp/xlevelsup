@@ -9,6 +9,7 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { AttendanceWithChangeRequest, TimeLog } from '@/types/erp';
+import type { CompanyHoliday } from '@/lib/erp/holidays';
 import { formatDuration } from '@/lib/erp/utils';
 import Spinner from '@/components/ui/Spinner';
 
@@ -16,12 +17,14 @@ interface AttendanceRecordsTableProps {
   records: AttendanceWithChangeRequest[];
   employeeId: number;
   timeLogs?: TimeLog[];
+  holidays: CompanyHoliday[];
 }
 
 export default function AttendanceRecordsTable({
   records,
   employeeId,
   timeLogs = [],
+  holidays,
 }: AttendanceRecordsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,6 +112,19 @@ export default function AttendanceRecordsTable({
       recordsMap.set(dateStr, record);
     }
   });
+
+  const holidaysByDate = new Map(holidays.map((h) => [h.date, h]));
+
+  const renderHolidayName = (date: string) => {
+    const holiday = holidaysByDate.get(date.split('T')[0]);
+    if (!holiday) return null;
+    return (
+      <span className='block text-[10px] font-medium text-cyan-400'>
+        {holiday.name}
+        {holiday.holiday_type === 'floater' && ' (floater)'}
+      </span>
+    );
+  };
 
   // Calendar grid generator (42 days / 6 weeks)
   const getCalendarDays = () => {
@@ -315,6 +331,8 @@ export default function AttendanceRecordsTable({
                 const isToday = formatDateKey(new Date()) === dateStr;
                 const dayLogs = timeLogsMap.get(dateStr) || [];
                 const sessionsCount = dayLogs.length;
+                const holiday = day.isCurrentMonth ? holidaysByDate.get(dateStr) : undefined;
+                const isFloater = holiday?.holiday_type === 'floater';
 
                 // Pick style based on status
                 let style = {
@@ -328,11 +346,23 @@ export default function AttendanceRecordsTable({
                   style = statusStyles[record.status] || style;
                 }
 
+                // A holiday with no record takes the holiday colour. One with a
+                // record (people do work holidays) keeps its status colour, and
+                // the outline and name mark the holiday. A floater is a working
+                // day, so it only ever gets the dashed outline.
+                if (holiday) {
+                  style = {
+                    ...(hasRecord || isFloater ? style : statusStyles.holiday),
+                    border: isFloater ? 'border-dashed border-cyan-500/50' : 'border-cyan-500/50',
+                  };
+                }
+
                 return (
                   <button
                     key={`${dateStr}-${idx}`}
                     onClick={() => handleDaySelect(day.date, hasRecord, record)}
                     disabled={!day.isCurrentMonth}
+                    title={holiday?.name}
                     className={`flex flex-col justify-between items-start p-1 sm:p-2 h-14 sm:h-20 border rounded-lg transition-all text-left ${
                       day.isCurrentMonth
                         ? `${style.bg} ${style.border} cursor-pointer`
@@ -365,6 +395,19 @@ export default function AttendanceRecordsTable({
 
                     {/* Status Text & Pending Indicator */}
                     <div className='w-full space-y-0.5 mt-auto'>
+                      {/* A phone cell has no room for this on top of a status
+                          and sessions; the outline still marks the day, and
+                          picking it names it. */}
+                      {holiday && (
+                        <div
+                          className={`text-[8px] font-bold truncate leading-none text-cyan-400 ${
+                            hasRecord ? 'hidden sm:block' : ''
+                          }`}
+                        >
+                          {holiday.name}
+                        </div>
+                      )}
+
                       {hasRecord && style.label && (
                         <div className={`text-[8px] font-bold truncate leading-none ${style.text}`}>
                           {style.label}
@@ -404,6 +447,11 @@ export default function AttendanceRecordsTable({
               <div className='flex items-center justify-between border-b border-gray-800 pb-2'>
                 <h3 className='text-sm font-semibold text-white flex items-center gap-2'>
                   <span>📅</span> Sessions on {formatDateSafe(selectedDateStr)}
+                  {holidaysByDate.has(selectedDateStr) && (
+                    <span className='font-medium text-cyan-400'>
+                      · {holidaysByDate.get(selectedDateStr)?.name}
+                    </span>
+                  )}
                 </h3>
                 <button
                   onClick={() => setSelectedDateStr('')}
@@ -514,6 +562,10 @@ export default function AttendanceRecordsTable({
               <span className='h-3 w-3 rounded-md bg-cyan-500/20 border border-cyan-500/30 inline-block'></span>
               <span className='text-gray-300'>Holiday</span>
             </div>
+            <div className='flex items-center gap-1.5'>
+              <span className='h-3 w-3 rounded-md border border-dashed border-cyan-500/50 inline-block'></span>
+              <span className='text-gray-300'>Floater Holiday</span>
+            </div>
             <div className='flex items-center gap-1.5 border-l border-gray-800 pl-4'>
               <span className='h-2.5 w-2.5 rounded-full bg-yellow-400 inline-block animate-pulse'></span>
               <span className='text-gray-300'>Pending Request</span>
@@ -617,7 +669,10 @@ export default function AttendanceRecordsTable({
                     return (
                       <React.Fragment key={record.id}>
                         <tr className='border-b border-gray-800/50 hover:bg-gray-900/30 transition-colors'>
-                          <td className='py-3 px-2'>{formatDateSafe(record.date)}</td>
+                          <td className='py-3 px-2'>
+                            {formatDateSafe(record.date)}
+                            {renderHolidayName(record.date)}
+                          </td>
                           <td className='py-3 px-2'>{getStatusBadge(record.status, record.half_day_period)}</td>
                           <td className='py-3 px-2 text-xs'>
                             {dayLogs.length === 0 ? (
