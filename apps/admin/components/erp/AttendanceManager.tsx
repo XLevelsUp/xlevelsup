@@ -9,6 +9,7 @@ import BulkAttendanceForm from './BulkAttendanceForm';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import type { Employee, Attendance, LeaveBalance, LeaveRequestWithEmployee, TimeLog } from '@/types/erp';
+import type { CompanyHoliday } from '@/lib/erp/holidays';
 import { formatDisplayDate, formatDateSpan, getMonthName, formatDuration } from '@/lib/erp/utils';
 import { toast } from '@/lib/toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
@@ -30,6 +31,7 @@ interface AttendanceManagerProps {
   attendance: Attendance[];
   leaveRequests: LeaveRequestWithEmployee[];
   timeLogs: TimeLog[];
+  holidays: CompanyHoliday[];
   initialMonth: string;
   initialEmployeeId?: number;
   initialIsAllTime?: boolean;
@@ -40,6 +42,7 @@ export default function AttendanceManager({
   attendance,
   leaveRequests,
   timeLogs,
+  holidays,
   initialMonth,
   initialEmployeeId,
   initialIsAllTime,
@@ -147,6 +150,7 @@ export default function AttendanceManager({
   }, [initialEmployeeId]);
 
   const employeeMap = new Map(employees.map((e) => [e.id, e]));
+  const holidaysByDate = new Map(holidays.map((h) => [h.date, h]));
 
   // Sum time-log hours per employee+date (an employee can have multiple
   // clock-in/out sessions in one day) for the "Hours Worked" column.
@@ -247,6 +251,17 @@ export default function AttendanceManager({
       {statusLabel(record)}
     </span>
   );
+
+  const renderHolidayName = (date: string) => {
+    const holiday = holidaysByDate.get(date.split('T')[0]);
+    if (!holiday) return null;
+    return (
+      <span className='block max-w-40 truncate text-[10px] font-medium text-purple-400' title={holiday.name}>
+        {holiday.name}
+        {holiday.holiday_type === 'floater' && ' (floater)'}
+      </span>
+    );
+  };
 
   const renderDelete = (record: Attendance) => (
     <DeleteConfirmButton
@@ -464,6 +479,7 @@ export default function AttendanceManager({
                       <TableRow key={`${record.employee_id}-${record.date}`}>
                         <TableCell className='whitespace-nowrap font-medium text-white'>
                           {formatDisplayDate(record.date)}
+                          {renderHolidayName(record.date)}
                         </TableCell>
                         <TableCell className='min-w-40'>
                           <p className='font-medium text-white'>{employee?.name}</p>
@@ -501,6 +517,7 @@ export default function AttendanceManager({
                           <p className='font-semibold text-white [overflow-wrap:anywhere]'>{employee?.name}</p>
                           <p className='text-xs text-gray-500'>
                             {formatDisplayDate(record.date)} · {employee?.employee_id}
+                            {renderHolidayName(record.date)}
                           </p>
                         </div>
                         <div className='shrink-0'>{renderStatus(record)}</div>
@@ -553,6 +570,20 @@ export default function AttendanceManager({
                 const dayRecords = attendanceByDate.get(dateStr) || [];
                 const isToday = formatDateKey(new Date()) === dateStr;
                 const isSelected = selectedDateStr === dateStr;
+                const holiday = day.isCurrentMonth ? holidaysByDate.get(dateStr) : undefined;
+                // A floater is a working day, so it gets the dashed outline
+                // but no fill. Set one border colour only: two on an element
+                // resolve by stylesheet order, not by the order written here.
+                const isFloater = holiday?.holiday_type === 'floater';
+                const cellFill =
+                  holiday && !isFloater
+                    ? 'bg-purple-500/10 hover:bg-purple-500/20'
+                    : 'bg-[#111111]/30 hover:bg-[#1a1a1a]/60';
+                const cellBorder = isSelected
+                  ? 'border-[var(--cyan)]'
+                  : holiday
+                    ? 'border-purple-500/50'
+                    : 'border-gray-800/30';
 
                 const counts: Partial<Record<string, number>> = {};
                 dayRecords.forEach((r) => {
@@ -568,16 +599,15 @@ export default function AttendanceManager({
                     aria-pressed={isSelected}
                     aria-label={
                       day.isCurrentMonth
-                        ? `${formatDisplayDate(dateStr)}: ${dayRecords.length} record${dayRecords.length === 1 ? '' : 's'}`
+                        ? `${formatDisplayDate(dateStr)}${holiday ? `, ${holiday.name}` : ''}: ${dayRecords.length} record${dayRecords.length === 1 ? '' : 's'}`
                         : undefined
                     }
+                    title={holiday?.name}
                     className={`min-w-0 flex flex-col justify-between items-start p-1 @xl:p-2 h-14 @xl:h-24 border rounded-lg transition-all text-left overflow-hidden ${
                       day.isCurrentMonth
-                        ? 'bg-[#111111]/30 hover:bg-[#1a1a1a]/60 border-gray-800/30 cursor-pointer'
+                        ? `${cellFill} ${cellBorder} ${isFloater ? 'border-dashed' : ''} cursor-pointer`
                         : 'bg-transparent border-transparent opacity-20 pointer-events-none'
-                    } ${isToday ? 'ring-2 ring-[var(--cyan)] ring-offset-2 ring-offset-black' : ''} ${
-                      isSelected ? 'border-[var(--cyan)]' : ''
-                    }`}
+                    } ${isToday ? 'ring-2 ring-[var(--cyan)] ring-offset-2 ring-offset-black' : ''}`}
                   >
                     <div className='flex justify-between items-center w-full'>
                       <span
@@ -593,6 +623,12 @@ export default function AttendanceManager({
                         </span>
                       )}
                     </div>
+
+                    {holiday && (
+                      <span className='block w-full truncate text-[8px] font-bold leading-tight text-purple-400'>
+                        {holiday.name}
+                      </span>
+                    )}
 
                     {dayRecords.length > 0 && (
                       <>
@@ -630,6 +666,14 @@ export default function AttendanceManager({
                 </span>
               </div>
             ))}
+            <div className='flex items-center gap-1.5 whitespace-nowrap'>
+              <span className='h-2.5 w-2.5 rounded-sm inline-block bg-purple-500/20 border border-purple-500/50'></span>
+              <span className='text-gray-300'>Company holiday</span>
+            </div>
+            <div className='flex items-center gap-1.5 whitespace-nowrap'>
+              <span className='h-2.5 w-2.5 rounded-sm inline-block border border-dashed border-purple-500/50'></span>
+              <span className='text-gray-300'>Floater holiday</span>
+            </div>
           </div>
 
           {/* Selected Date Breakdown */}
@@ -638,6 +682,11 @@ export default function AttendanceManager({
               <div className='flex items-center justify-between gap-3 border-b border-gray-800 pb-2'>
                 <h3 className='text-sm font-semibold text-white'>
                   Attendance on {formatDisplayDate(selectedDateStr)}
+                  {holidaysByDate.has(selectedDateStr) && (
+                    <span className='font-medium text-purple-400'>
+                      {' '}· {holidaysByDate.get(selectedDateStr)?.name}
+                    </span>
+                  )}
                 </h3>
                 <button
                   type='button'

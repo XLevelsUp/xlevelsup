@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth';
-import { requireApprover } from '@/lib/erp/approver';
+import { requireApprover, requireAdminApprover } from '@/lib/erp/approver';
 import {
   getAllAttendance,
   getAttendance,
@@ -142,7 +142,8 @@ export interface BulkAttendanceActionResult {
 
 /**
  * Apply a bulk attendance status change for many employees across a date
- * range (e.g. mark a team present/absent/on-holiday for a week).
+ * range (e.g. mark a team present/absent/on-holiday for a week). Any admin
+ * may, and the batch can include their own attendance.
  */
 export async function bulkUpdateAttendanceAction(input: {
   employeeIds: number[];
@@ -154,7 +155,7 @@ export async function bulkUpdateAttendanceAction(input: {
   skipWeekends?: boolean;
 }): Promise<BulkAttendanceActionResult> {
   try {
-    const session = await requireApprover();
+    const session = await requireAdminApprover();
 
     const validated = bulkAttendanceSchema.parse({
       employee_ids: input.employeeIds,

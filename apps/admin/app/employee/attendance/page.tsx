@@ -17,6 +17,7 @@ import AttendanceChangeRequestForm from '@/components/erp/employee/AttendanceCha
 import AttendanceChangeRequestsList from '@/components/erp/employee/AttendanceChangeRequestsList';
 import RegularisationRequestForm from '@/components/erp/employee/RegularisationRequestForm';
 import { getTimeLogsByRange, getTimeLogSummary } from '@/lib/erp/time-logs';
+import { getAllHolidays } from '@/lib/erp/holidays';
 import { employeeLogoutAction } from '@/actions/erp/employee-auth';
 import ClockInOut from '@/components/erp/employee/ClockInOut';
 import Link from 'next/link';
@@ -45,10 +46,11 @@ export default async function EmployeeAttendancePage({
   // Independent, so loaded side by side — this page is also what every clock
   // in/out and request submitted here re-renders, so its load time is part of
   // each click. loadAttendanceHistory never rejects.
-  const [timeLogSummary, { attendanceRecords, changeRequests, timeLogs, isFeatureAvailable }] =
+  const [timeLogSummary, { attendanceRecords, changeRequests, timeLogs, isFeatureAvailable }, holidays] =
     await Promise.all([
       getTimeLogSummary(session.id),
       loadAttendanceHistory(session.id, startDate),
+      getAllHolidays(),
     ]);
 
   // Determine active form tab from URL param (default: regularisation)
@@ -123,6 +125,7 @@ export default async function EmployeeAttendancePage({
                 records={attendanceRecords}
                 employeeId={session.id}
                 timeLogs={timeLogs}
+                holidays={holidays}
               />
             </div>
 

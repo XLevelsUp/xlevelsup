@@ -60,6 +60,22 @@ export async function getHolidaysInRange(
 }
 
 /**
+ * Every active holiday, for views that can reach any date (the attendance
+ * calendars and Full History). Only a few dozen rows a year, so it needs no
+ * range.
+ */
+export async function getAllHolidays(): Promise<CompanyHoliday[]> {
+  const { data, error } = await supabase
+    .from('company_holidays')
+    .select('*')
+    .eq('is_active', true)
+    .order('date', { ascending: true });
+
+  if (error) throw error;
+  return (data as CompanyHoliday[]) || [];
+}
+
+/**
  * Get the Set of active holiday date strings (YYYY-MM-DD) for a given year.
  * Useful for fast O(1) lookups in loops.
  */
