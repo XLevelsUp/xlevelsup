@@ -102,6 +102,13 @@ action makes several sequential Supabase queries, so on Vercel's default
 dashboard's Function Region setting; if the database ever moves, move this
 with it.
 
+Attendance reminders are scheduled by Supabase, not Vercel: on the Hobby plan a
+Vercel cron job can fire up to 59 minutes late. `pg_cron` calls
+`/api/cron/attendance-reminders` at 10:30 and 18:00 IST, using the same
+`CRON_SECRET` the app holds. See
+`apps/admin/db/migrations/schedule-attendance-reminders.sql`. If the admin domain
+changes, update the URLs there too.
+
 Env vars per project are exactly what each `env.example` lists. The marketing
 project must **not** be given `SUPABASE_SERVICE_ROLE_KEY` or `JWT_SECRET`.
 

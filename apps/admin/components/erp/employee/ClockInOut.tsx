@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { clockInAction, clockOutAction } from '@/actions/erp/time-logs';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import PushReminderToggle from '@/components/erp/employee/PushReminderToggle';
 import { toast } from '@/lib/toast';
 import type { TimeLogSummary } from '@/types/erp';
 import { getCurrentPosition } from '@/lib/utils/geolocation';
@@ -378,6 +379,8 @@ export default function ClockInOut({
             </Button>
           )}
         </div>
+
+        <PushReminderToggle />
       </div>
 
       {/* Warning Modal for < 9 hours */}
