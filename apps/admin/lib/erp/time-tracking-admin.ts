@@ -3,6 +3,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
+import { EMPLOYMENT_TYPES_BY_GROUP } from './utils';
 
 export interface EmployeeTimeStatus {
   employee_id: number;
@@ -36,12 +37,13 @@ export async function getAllEmployeesTimeStatus(): Promise<
 > {
   const today = new Date().toISOString().split('T')[0];
 
-  // Get all active employees except temporary employees
+  // Active team members only — temporary staff and freelancers clock in too,
+  // but their sessions don't count toward the team's hours or status.
   const { data: employees, error: empError } = await supabase
     .from('employees')
     .select('id, employee_id, name, department, status, employment_type')
     .eq('status', 'active')
-    .neq('employment_type', 'temporary')
+    .in('employment_type', EMPLOYMENT_TYPES_BY_GROUP.team.map((type) => type.value))
     .order('name', { ascending: true });
 
   if (empError) throw empError;

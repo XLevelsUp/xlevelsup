@@ -4,6 +4,7 @@
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
 import type { DashboardStats } from '@/types/erp';
+import { EMPLOYMENT_TYPES_BY_GROUP } from './utils';
 
 /**
  * Get dashboard statistics
@@ -12,15 +13,17 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const today = new Date().toISOString().split('T')[0];
   const currentMonth = today.substring(0, 7); // YYYY-MM
 
-  // Total active employees except temporary employees
+  // Active team members only — temporary staff and freelancers aren't part of
+  // the headcount or the attendance rate.
   const { data: employees, error: employeeError } = await supabase
     .from('employees')
     .select('id, employment_type')
     .eq('status', 'active')
-    .neq('employment_type', 'temporary');
+    .in('employment_type', EMPLOYMENT_TYPES_BY_GROUP.team.map((type) => type.value));
 
   if (employeeError) throw employeeError;
   const employeeCount = employees?.length || 0;
+  const teamIds = new Set((employees || []).map((e) => e.id));
 
   // Today's attendance
   const { data: todayAttendance, error: attendanceError } = await supabase
@@ -31,8 +34,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   if (attendanceError) throw attendanceError;
 
   const todayAttendanceRecords = todayAttendance || [];
+  // Counted against the same team as the headcount, so a freelancer or
+  // temporary clock-in can't push the rate up (or past 100%).
   const presentCount = todayAttendanceRecords.filter(
-    (a) => a.status === 'present' || a.status === 'half-day' || a.status === 'in_progress',
+    (a) =>
+      teamIds.has(a.employee_id) &&
+      (a.status === 'present' || a.status === 'half-day' || a.status === 'in_progress'),
   ).length;
 
   const attendancePercentage =

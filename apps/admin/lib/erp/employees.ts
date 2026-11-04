@@ -6,7 +6,7 @@ import { supabaseServer as supabase } from '@/lib/supabase-server';
 import type { Employee, EmployeeFormData } from '@/types/erp';
 import bcrypt from 'bcryptjs';
 import { handleDatabaseError, isNotFoundError } from './error-handler';
-import { getTodayIST } from './utils';
+import { EMPLOYMENT_TYPES_BY_GROUP, getTodayIST, type EmployeeGroup } from './utils';
 
 /**
  * Generate a default password for new employees
@@ -70,6 +70,8 @@ export async function getAllEmployees(filters?: {
   department?: string;
   employment_type?: string;
   search?: string;
+  /** Limits to one Employees page list. Without it, everyone but temporary staff. */
+  group?: EmployeeGroup;
 }): Promise<Employee[]> {
   try {
     let query = supabase.from('employees').select('*');
@@ -84,6 +86,8 @@ export async function getAllEmployees(filters?: {
 
     if (filters?.employment_type) {
       query = query.eq('employment_type', filters.employment_type);
+    } else if (filters?.group) {
+      query = query.in('employment_type', EMPLOYMENT_TYPES_BY_GROUP[filters.group].map((type) => type.value));
     } else {
       query = query.neq('employment_type', 'temporary');
     }

@@ -26,16 +26,19 @@ interface EmployeeFormProps {
   employee?: Employee;
   onSuccess?: () => void;
   departments: string[];
+  /** Starting employment type for a new employee. */
+  defaultEmploymentType?: EmploymentType;
 }
 
 export default function EmployeeForm({
   employee,
   onSuccess,
   departments,
+  defaultEmploymentType = 'full-time',
 }: EmployeeFormProps) {
   const isEdit = !!employee;
   const [employmentType, setEmploymentType] = useState(
-    employee?.employment_type || 'full-time',
+    employee?.employment_type || defaultEmploymentType,
   );
   const [salaryType, setSalaryType] = useState(
     employee?.salary_type || 'monthly',
