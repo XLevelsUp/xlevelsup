@@ -3,6 +3,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
+import { EMPLOYMENT_TYPES_BY_GROUP } from '@/lib/erp/utils';
 import type { PayrollAttendanceEntry, PayrollAttendanceStatus } from '@/lib/erp/utils';
 import { assertPayrollNotGenerated, monthsOf } from '@/lib/erp/payroll-lock';
 import type {
@@ -330,12 +331,12 @@ export async function getTodayAttendance(): Promise<
 > {
   const today = new Date().toISOString().split('T')[0];
 
-  // Get all active employees except temporary employees
+  // Active team members only — not temporary staff or freelancers.
   const { data: employees, error: empError } = await supabase
     .from('employees')
     .select('id, name, employment_type')
     .eq('status', 'active')
-    .neq('employment_type', 'temporary')
+    .in('employment_type', EMPLOYMENT_TYPES_BY_GROUP.team.map((type) => type.value))
     .order('name');
 
   if (empError) throw empError;

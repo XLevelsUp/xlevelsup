@@ -2,6 +2,26 @@
  * Date and payroll calculation helpers for ERP system
  */
 
+import type { EmploymentType } from '@/types/erp';
+
+/** The two lists on the Employees page. */
+export type EmployeeGroup = 'team' | 'temp';
+
+/** Every employment type belongs to exactly one list. */
+export const EMPLOYMENT_TYPES_BY_GROUP: Record<EmployeeGroup, { value: EmploymentType; label: string }[]> = {
+  team: [
+    { value: 'full-time', label: 'Full-Time' },
+    { value: 'part-time', label: 'Part-Time' },
+    { value: 'contract', label: 'Contract' },
+    { value: 'intern', label: 'Intern' },
+    { value: 'consultant', label: 'Consultant' },
+  ],
+  temp: [
+    { value: 'temporary', label: 'Temporary' },
+    { value: 'freelancer', label: 'Freelancer' },
+  ],
+};
+
 /**
  * True for a normal weekday, or the first Saturday of the month — which is
  * now a working day for attendance/clock-in/leave purposes (company policy

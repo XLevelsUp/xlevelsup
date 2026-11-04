@@ -11,7 +11,7 @@ import AdminEmployeePayslips from './AdminEmployeePayslips';
 import { EditIcon, DeleteIcon } from './ActionIcons';
 import SensitiveValue from './SensitiveValue';
 import type { Employee, EmployeeCareerHistory, EmployeeCareerChangeType } from '@/types/erp';
-import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
+import { EMPLOYMENT_TYPES_BY_GROUP, formatCurrency, formatDisplayDate, type EmployeeGroup } from '@/lib/erp/utils';
 import { toast } from '@/lib/toast';
 import { deleteEmployeeAction } from '@/actions/erp/employees';
 import { getEmployeeCareerHistoryAction } from '@/actions/erp/employee-career';
@@ -20,14 +20,22 @@ import type { EmployeePayrollHistoryRow } from '@/lib/erp/payroll';
 import DeleteConfirmButton from './DeleteConfirmButton';
 import {
   PageHeader,
+  PageTabs,
   FilterField,
   FIELD_CLASS,
   FILTER_GRID_CLASS,
   PRIMARY_ACTION_CLASS,
   ROW_ACTION_CLASS,
+  type PageTab,
 } from './PageChrome';
 
+const EMPLOYEE_TABS: PageTab[] = [
+  { id: 'team', label: 'Team', href: '/erp/employees' },
+  { id: 'temp', label: 'Temp & Freelancers', href: '/erp/employees?tab=temp' },
+];
+
 interface EmployeeListProps {
+  group: EmployeeGroup;
   employees: Employee[];
   departments: string[];
   initialFilters: {
@@ -39,6 +47,7 @@ interface EmployeeListProps {
 }
 
 export default function EmployeeList({
+  group,
   employees,
   departments,
   initialFilters,
@@ -62,6 +71,7 @@ export default function EmployeeList({
     setFilters(newFilters);
 
     const params = new URLSearchParams();
+    if (group === 'temp') params.set('tab', 'temp');
     // Active is the default, so it stays out of the URL.
     if (newFilters.status && newFilters.status !== 'active') params.set('status', newFilters.status);
     if (newFilters.department) params.set('department', newFilters.department);
@@ -252,6 +262,7 @@ export default function EmployeeList({
           </button>
         }
       />
+      <PageTabs label='Employee lists' active={group} tabs={EMPLOYEE_TABS} />
 
       {/* Filters */}
       <div className='glass p-4 rounded-lg mb-6'>
@@ -297,13 +308,11 @@ export default function EmployeeList({
               className={FIELD_CLASS}
             >
               <option value=''>All Types</option>
-              <option value='full-time'>Full-Time</option>
-              <option value='part-time'>Part-Time</option>
-              <option value='contract'>Contract</option>
-              <option value='temporary'>Temporary</option>
-              <option value='freelancer'>Freelancer</option>
-              <option value='intern'>Intern</option>
-              <option value='consultant'>Consultant</option>
+              {EMPLOYMENT_TYPES_BY_GROUP[group].map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
             </select>
           </FilterField>
         </div>
@@ -323,11 +332,12 @@ export default function EmployeeList({
           <>
             {/* Wide containers: the table. ID and email ride under the
                 name and department under the role, which takes it from
-                eight columns to six. */}
+                nine columns to seven. */}
             <div className='hidden @min-[58rem]:block'>
-              <Table compact headers={['Employee', 'Role', 'Employment', 'Salary', 'Status', 'Actions']}>
-                {employees.map((employee) => (
+              <Table compact headers={['S.No', 'Employee', 'Role', 'Employment', 'Salary', 'Status', 'Actions']}>
+                {employees.map((employee, index) => (
                   <TableRow key={employee.id}>
+                    <TableCell className='text-xs text-gray-500 tabular-nums'>{index + 1}</TableCell>
                     <TableCell className='min-w-48'>
                       <p className='font-medium text-white'>{employee.name}</p>
                       <p className='text-xs text-gray-500'>
@@ -360,11 +370,14 @@ export default function EmployeeList({
                 status on top, role/employment/salary beneath, every action
                 the table row offers in the footer. */}
             <ul className='@min-[58rem]:hidden grid grid-cols-1 @3xl:grid-cols-2 -mb-px'>
-              {employees.map((employee) => (
+              {employees.map((employee, index) => (
                 <li key={employee.id} className='p-4 min-w-0 border-b border-gray-800/70 @3xl:odd:border-r'>
                   <div className='flex items-start justify-between gap-3'>
                     <div className='min-w-0'>
-                      <p className='font-semibold text-white [overflow-wrap:anywhere]'>{employee.name}</p>
+                      <p className='font-semibold text-white [overflow-wrap:anywhere]'>
+                        <span className='mr-1.5 text-xs font-normal text-gray-500 tabular-nums'>{index + 1}.</span>
+                        {employee.name}
+                      </p>
                       <p className='text-xs text-gray-500 [overflow-wrap:anywhere]'>
                         {employee.employee_id} · {employee.email}
                       </p>
@@ -406,6 +419,7 @@ export default function EmployeeList({
             router.refresh();
           }}
           departments={departments}
+          defaultEmploymentType={group === 'temp' ? 'temporary' : undefined}
         />
       </Modal>
 
