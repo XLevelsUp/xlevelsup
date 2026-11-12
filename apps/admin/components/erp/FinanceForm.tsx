@@ -128,6 +128,7 @@ export default function FinanceForm({
       case 'expense':
         return [
           'Salary',
+          'Employee Benefit',
           'Office Rent',
           'Utilities',
           'Internet',
